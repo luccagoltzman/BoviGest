@@ -11,15 +11,43 @@ interface AbateRow {
   pesoBruto: number
   pesoLiquido: number
   rendimento: number
+  valorBrutoAbate: number
+  couroDeixado: number
+  descontoPorCouro: number
+  descontoTotal: number
   custoTotal: number
 }
 
 const mock: AbateRow[] = [
-  { id: '1', data: '2025-02-11', lote: 'L-001', qtdAnimais: 15, pesoBruto: 4500, pesoLiquido: 2250, rendimento: 50, custoTotal: 6750 },
+  {
+    id: '1',
+    data: '2025-02-11',
+    lote: 'L-001',
+    qtdAnimais: 15,
+    pesoBruto: 4500,
+    pesoLiquido: 2250,
+    rendimento: 50,
+    valorBrutoAbate: 7500,
+    couroDeixado: 15,
+    descontoPorCouro: 50,
+    descontoTotal: 750,
+    custoTotal: 6750,
+  },
 ]
 
 export function Abate() {
   const [detalhe, setDetalhe] = useState<AbateRow | null>(null)
+  const [valorBruto, setValorBruto] = useState('')
+  const [couroDeixado, setCouroDeixado] = useState('')
+  const [descontoPorCouro, setDescontoPorCouro] = useState('')
+  const [taxas, setTaxas] = useState('')
+
+  const qtdCouro = Number.parseFloat(couroDeixado) || 0
+  const descPorCouro = Number.parseFloat(descontoPorCouro) || 0
+  const descontoTotalCalc = qtdCouro * descPorCouro
+  const valorBrutoNum = Number.parseFloat(valorBruto) || 0
+  const taxasNum = Number.parseFloat(taxas) || 0
+  const valorFinalCalc = Math.max(0, valorBrutoNum - descontoTotalCalc + taxasNum)
 
   const columns = [
     { key: 'data', header: 'Data' },
@@ -28,6 +56,7 @@ export function Abate() {
     { key: 'pesoBruto', header: 'Peso bruto (kg)' },
     { key: 'pesoLiquido', header: 'Peso líquido (kg)' },
     { key: 'rendimento', header: 'Rendimento (%)' },
+    { key: 'descontoTotal', header: 'Desconto (couro)', render: (r: AbateRow) => `R$ ${r.descontoTotal.toLocaleString('pt-BR')}` },
     { key: 'custoTotal', header: 'Custo total', render: (r: AbateRow) => `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
     {
       key: 'acoes',
@@ -47,21 +76,65 @@ export function Abate() {
     { label: 'Peso bruto (kg)', value: r.pesoBruto },
     { label: 'Peso líquido (kg)', value: r.pesoLiquido },
     { label: 'Rendimento (%)', value: r.rendimento },
-    { label: 'Custo total', value: `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
+    { label: 'Valor bruto do abate', value: `R$ ${r.valorBrutoAbate.toLocaleString('pt-BR')}` },
+    { label: 'Couro deixado no matadouro (un.)', value: r.couroDeixado },
+    { label: 'Desconto por couro (R$/un.)', value: `R$ ${r.descontoPorCouro.toLocaleString('pt-BR')}` },
+    { label: 'Desconto total', value: `R$ ${r.descontoTotal.toLocaleString('pt-BR')}` },
+    { label: 'Custo total (final)', value: `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
   ]
 
   return (
     <div className={styles.page}>
       <h1 className="page-title">Custos de abate</h1>
       <Card title="Registro de abate">
+        <p className={styles.infoDesconto}>
+          O matadouro pode conceder desconto ao marchante com base na quantidade de couro deixada no local.
+        </p>
         <div className={styles.form}>
           <Input label="Data" type="date" />
           <Input label="Lote" />
           <Input label="Quantidade de animais" type="number" />
           <Input label="Peso bruto (kg)" type="number" />
           <Input label="Peso líquido (kg)" type="number" />
-          <Input label="Valor do abate (R$)" type="number" />
-          <Input label="Taxas / inspeção (R$)" type="number" />
+          <Input
+            label="Valor do abate (R$)"
+            type="number"
+            value={valorBruto}
+            onChange={(e) => setValorBruto(e.target.value)}
+          />
+          <Input
+            label="Couro deixado no matadouro (un.)"
+            type="number"
+            min={0}
+            placeholder="Qtd. de couros deixados"
+            value={couroDeixado}
+            onChange={(e) => setCouroDeixado(e.target.value)}
+          />
+          <Input
+            label="Desconto por couro (R$/un.)"
+            type="number"
+            min={0}
+            placeholder="Desconto por unidade de couro"
+            value={descontoPorCouro}
+            onChange={(e) => setDescontoPorCouro(e.target.value)}
+          />
+          {descontoTotalCalc > 0 && (
+            <div className={styles.calcDesconto}>
+              <span>Desconto total (couro)</span>
+              <strong>R$ {descontoTotalCalc.toLocaleString('pt-BR')}</strong>
+            </div>
+          )}
+          <Input
+            label="Taxas / inspeção (R$)"
+            type="number"
+            placeholder="Valor positivo soma ao custo"
+            value={taxas}
+            onChange={(e) => setTaxas(e.target.value)}
+          />
+          <div className={styles.valorFinal}>
+            <span>Valor final a pagar</span>
+            <strong>R$ {valorFinalCalc.toLocaleString('pt-BR')}</strong>
+          </div>
           <div className={styles.actions}>
             <Button>Registrar abate</Button>
           </div>
