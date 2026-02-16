@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Vendas.module.scss'
 
 interface VendaRow {
@@ -15,12 +17,31 @@ const mock: VendaRow[] = [
 ]
 
 export function Vendas() {
+  const [detalhe, setDetalhe] = useState<VendaRow | null>(null)
+
   const columns = [
     { key: 'cliente', header: 'Cliente' },
     { key: 'data', header: 'Data' },
     { key: 'totalKg', header: 'Total (kg)' },
     { key: 'valorTotal', header: 'Valor total', render: (r: VendaRow) => `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
     { key: 'status', header: 'Status' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: VendaRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: VendaRow): DetailItem[] => [
+    { label: 'Cliente', value: r.cliente },
+    { label: 'Data', value: r.data },
+    { label: 'Total (kg)', value: r.totalKg },
+    { label: 'Valor total', value: `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
+    { label: 'Status', value: r.status },
   ]
 
   return (
@@ -43,6 +64,9 @@ export function Vendas() {
       <Card title="Histórico de vendas">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes da venda">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

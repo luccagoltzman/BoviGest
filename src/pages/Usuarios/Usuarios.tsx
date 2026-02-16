@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Usuarios.module.scss'
 
 interface UsuarioRow {
@@ -13,10 +15,27 @@ const mock: UsuarioRow[] = [
 ]
 
 export function Usuarios() {
+  const [detalhe, setDetalhe] = useState<UsuarioRow | null>(null)
+
   const columns = [
     { key: 'nome', header: 'Nome' },
     { key: 'email', header: 'E-mail' },
     { key: 'perfil', header: 'Perfil' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: UsuarioRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: UsuarioRow): DetailItem[] => [
+    { label: 'Nome', value: r.nome },
+    { label: 'E-mail', value: r.email },
+    { label: 'Perfil', value: r.perfil },
   ]
 
   return (
@@ -36,6 +55,9 @@ export function Usuarios() {
       <Card title="Usuários">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do usuário">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

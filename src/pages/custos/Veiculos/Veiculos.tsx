@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Veiculos.module.scss'
 
 interface VeiculoRow {
@@ -15,12 +17,31 @@ const mock: VeiculoRow[] = [
 ]
 
 export function Veiculos() {
+  const [detalhe, setDetalhe] = useState<VeiculoRow | null>(null)
+
   const columns = [
     { key: 'placa', header: 'Placa' },
     { key: 'modelo', header: 'Modelo' },
     { key: 'capacidade', header: 'Capacidade (kg)' },
     { key: 'consumo', header: 'Consumo (km/L)' },
     { key: 'status', header: 'Status' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: VeiculoRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: VeiculoRow): DetailItem[] => [
+    { label: 'Placa', value: r.placa },
+    { label: 'Modelo', value: r.modelo },
+    { label: 'Capacidade (kg)', value: r.capacidade },
+    { label: 'Consumo (km/L)', value: r.consumo },
+    { label: 'Status', value: r.status },
   ]
 
   return (
@@ -41,6 +62,9 @@ export function Veiculos() {
       <Card title="Veículos">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do veículo">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

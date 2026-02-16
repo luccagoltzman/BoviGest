@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Abate.module.scss'
 
 interface AbateRow {
@@ -17,6 +19,8 @@ const mock: AbateRow[] = [
 ]
 
 export function Abate() {
+  const [detalhe, setDetalhe] = useState<AbateRow | null>(null)
+
   const columns = [
     { key: 'data', header: 'Data' },
     { key: 'lote', header: 'Lote' },
@@ -25,6 +29,25 @@ export function Abate() {
     { key: 'pesoLiquido', header: 'Peso líquido (kg)' },
     { key: 'rendimento', header: 'Rendimento (%)' },
     { key: 'custoTotal', header: 'Custo total', render: (r: AbateRow) => `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: AbateRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: AbateRow): DetailItem[] => [
+    { label: 'Data', value: r.data },
+    { label: 'Lote', value: r.lote },
+    { label: 'Qtd. animais', value: r.qtdAnimais },
+    { label: 'Peso bruto (kg)', value: r.pesoBruto },
+    { label: 'Peso líquido (kg)', value: r.pesoLiquido },
+    { label: 'Rendimento (%)', value: r.rendimento },
+    { label: 'Custo total', value: `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
   ]
 
   return (
@@ -47,6 +70,9 @@ export function Abate() {
       <Card title="Histórico de abates">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do abate">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

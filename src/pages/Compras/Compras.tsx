@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Button, Card, Input, Table } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Compras.module.scss'
 
 interface CompraRow {
@@ -30,6 +31,7 @@ const mock: CompraRow[] = [
 
 export function Compras() {
   const [data] = useState<CompraRow[]>(mock)
+  const [detalhe, setDetalhe] = useState<CompraRow | null>(null)
 
   const columns = [
     { key: 'fornecedor', header: 'Fornecedor' },
@@ -39,6 +41,26 @@ export function Compras() {
     { key: 'valorTotal', header: 'Valor total', render: (r: CompraRow) => `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
     { key: 'mediaKg', header: 'Média/kg' },
     { key: 'status', header: 'Status' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: CompraRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: CompraRow): DetailItem[] => [
+    { label: 'Fornecedor', value: r.fornecedor },
+    { label: 'Data', value: r.data },
+    { label: 'Quantidade de animais', value: r.qtdAnimais },
+    { label: 'Peso total (kg)', value: r.pesoTotal },
+    { label: 'Valor total', value: `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
+    { label: 'Média por kg', value: r.mediaKg },
+    { label: 'Média por animal', value: `R$ ${r.mediaAnimal.toLocaleString('pt-BR')}` },
+    { label: 'Status', value: r.status },
   ]
 
   return (
@@ -61,6 +83,9 @@ export function Compras() {
       <Card title="Histórico de compras">
         <Table columns={columns} data={data} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes da compra">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

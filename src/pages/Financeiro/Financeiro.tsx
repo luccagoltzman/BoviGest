@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Financeiro.module.scss'
 
 interface ContaRow {
@@ -16,12 +18,31 @@ const mock: ContaRow[] = [
 ]
 
 export function Financeiro() {
+  const [detalhe, setDetalhe] = useState<ContaRow | null>(null)
+
   const columns = [
     { key: 'descricao', header: 'Descrição' },
     { key: 'tipo', header: 'Tipo', render: (r: ContaRow) => r.tipo === 'pagar' ? 'A pagar' : 'A receber' },
     { key: 'valor', header: 'Valor', render: (r: ContaRow) => `R$ ${r.valor.toLocaleString('pt-BR')}` },
     { key: 'vencimento', header: 'Vencimento' },
     { key: 'status', header: 'Status' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: ContaRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: ContaRow): DetailItem[] => [
+    { label: 'Descrição', value: r.descricao },
+    { label: 'Tipo', value: r.tipo === 'pagar' ? 'A pagar' : 'A receber' },
+    { label: 'Valor', value: `R$ ${r.valor.toLocaleString('pt-BR')}` },
+    { label: 'Vencimento', value: r.vencimento },
+    { label: 'Status', value: r.status },
   ]
 
   return (
@@ -42,6 +63,9 @@ export function Financeiro() {
       <Card title="Fluxo de caixa">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do lançamento">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

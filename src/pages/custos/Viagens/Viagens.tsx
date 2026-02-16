@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Viagens.module.scss'
 
 interface ViagemRow {
@@ -18,6 +20,8 @@ const mock: ViagemRow[] = [
 ]
 
 export function Viagens() {
+  const [detalhe, setDetalhe] = useState<ViagemRow | null>(null)
+
   const columns = [
     { key: 'data', header: 'Data' },
     { key: 'veiculo', header: 'Veículo' },
@@ -27,6 +31,26 @@ export function Viagens() {
     { key: 'km', header: 'KM' },
     { key: 'cargaKg', header: 'Carga (kg)' },
     { key: 'custoTotal', header: 'Custo', render: (r: ViagemRow) => `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: ViagemRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: ViagemRow): DetailItem[] => [
+    { label: 'Data', value: r.data },
+    { label: 'Veículo', value: r.veiculo },
+    { label: 'Origem', value: r.origem },
+    { label: 'Destino', value: r.destino },
+    { label: 'Finalidade', value: r.finalidade },
+    { label: 'KM', value: r.km },
+    { label: 'Carga (kg)', value: r.cargaKg },
+    { label: 'Custo total', value: `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
   ]
 
   return (
@@ -53,6 +77,9 @@ export function Viagens() {
       <Card title="Histórico de viagens">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes da viagem">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

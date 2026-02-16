@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './Fornecedores.module.scss'
 
 interface FornecedorRow {
@@ -14,11 +16,29 @@ const mock: FornecedorRow[] = [
 ]
 
 export function Fornecedores() {
+  const [detalhe, setDetalhe] = useState<FornecedorRow | null>(null)
+
   const columns = [
     { key: 'nome', header: 'Nome / Razão social' },
     { key: 'doc', header: 'CPF/CNPJ' },
     { key: 'telefone', header: 'Telefone' },
     { key: 'cidade', header: 'Cidade' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: FornecedorRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: FornecedorRow): DetailItem[] => [
+    { label: 'Nome / Razão social', value: r.nome },
+    { label: 'CPF/CNPJ', value: r.doc },
+    { label: 'Telefone', value: r.telefone },
+    { label: 'Cidade', value: r.cidade },
   ]
 
   return (
@@ -40,6 +60,9 @@ export function Fornecedores() {
       <Card title="Lista de fornecedores">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do fornecedor">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }

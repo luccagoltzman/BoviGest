@@ -1,4 +1,6 @@
-import { Button, Card, Input, Table } from '@/components/ui'
+import { useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import type { DetailItem } from '@/components/ui'
 import styles from './CustosOperacionais.module.scss'
 
 const categorias = ['Transporte', 'Abate', 'Funcionários', 'Energia', 'Embalagem', 'Manutenção', 'Impostos', 'Outros']
@@ -17,12 +19,31 @@ const mock: CustoRow[] = [
 ]
 
 export function CustosOperacionais() {
+  const [detalhe, setDetalhe] = useState<CustoRow | null>(null)
+
   const columns = [
     { key: 'data', header: 'Data' },
     { key: 'categoria', header: 'Categoria' },
     { key: 'descricao', header: 'Descrição' },
     { key: 'valor', header: 'Valor', render: (r: CustoRow) => `R$ ${r.valor.toLocaleString('pt-BR')}` },
     { key: 'centroCusto', header: 'Centro de custo' },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: CustoRow) => (
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+          Ver detalhes
+        </Button>
+      ),
+    },
+  ]
+
+  const detalheItems = (r: CustoRow): DetailItem[] => [
+    { label: 'Data', value: r.data },
+    { label: 'Categoria', value: r.categoria },
+    { label: 'Descrição', value: r.descricao },
+    { label: 'Valor', value: `R$ ${r.valor.toLocaleString('pt-BR')}` },
+    { label: 'Centro de custo', value: r.centroCusto },
   ]
 
   return (
@@ -43,6 +64,9 @@ export function CustosOperacionais() {
       <Card title="Lançamentos">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
+      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do lançamento">
+        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+      </Modal>
     </div>
   )
 }
