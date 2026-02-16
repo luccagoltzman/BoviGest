@@ -14,3 +14,28 @@
   grid-column: 1 / -1;
   margin-top: 0.5rem;
 }
+
+.selectWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: $color-text;
+}
+
+.select {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: $color-surface;
+  font: inherit;
+
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+  }
+}
