@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import { TIPOS_CORTE, CORTE_BD, REGRA_BD } from '@/constants/cortes'
 import styles from './Processamento.module.scss'
 
 interface EstoqueRow {
@@ -17,6 +18,14 @@ const mock: EstoqueRow[] = [
 
 export function Processamento() {
   const [detalhe, setDetalhe] = useState<EstoqueRow | null>(null)
+  const [tipoCorte, setTipoCorte] = useState<string>('')
+  const [pesoDianteiro, setPesoDianteiro] = useState<string>('')
+  const [pesoTraseiro, setPesoTraseiro] = useState<string>('')
+
+  const isBD = tipoCorte === CORTE_BD
+  const dianteiro = Number.parseFloat(pesoDianteiro) || 0
+  const traseiro = Number.parseFloat(pesoTraseiro) || 0
+  const totalBD = isBD ? dianteiro + traseiro : 0
 
   const columns = [
     { key: 'lote', header: 'Lote' },
@@ -48,8 +57,46 @@ export function Processamento() {
         <div className={styles.form}>
           <Input label="Lote" />
           <Input label="Peso bruto (kg)" type="number" />
-          <Input label="Peso líquido (kg)" type="number" />
-          <Input label="Tipo de corte" placeholder="Dianteiro, traseiro, costela..." />
+          <div className={styles.selectWrap}>
+            <label className={styles.label}>Tipo de corte</label>
+            <select
+              className={styles.select}
+              value={tipoCorte}
+              onChange={(e) => setTipoCorte(e.target.value)}
+              aria-label="Tipo de corte"
+            >
+              <option value="">Selecione...</option>
+              {TIPOS_CORTE.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
+          {isBD && (
+            <>
+              <p className={styles.regraBD}>{REGRA_BD}</p>
+              <Input
+                label="Peso dianteiro (kg)"
+                type="number"
+                min={0}
+                value={pesoDianteiro}
+                onChange={(e) => setPesoDianteiro(e.target.value)}
+              />
+              <Input
+                label="Peso traseiro (kg)"
+                type="number"
+                min={0}
+                value={pesoTraseiro}
+                onChange={(e) => setPesoTraseiro(e.target.value)}
+              />
+              <div className={styles.totalBD}>
+                <span className={styles.totalBDLabel}>Peso BD (banda) = Dianteiro + Traseiro</span>
+                <strong>{totalBD.toFixed(2)} kg</strong>
+              </div>
+            </>
+          )}
+          {!isBD && <Input label="Peso líquido (kg)" type="number" />}
           <Input label="Quebra / perdas (%)" type="number" />
           <div className={styles.actions}>
             <Button>Registrar entrada</Button>
