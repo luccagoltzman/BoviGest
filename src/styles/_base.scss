@@ -1,5 +1,4 @@
-@use 'variables' as *;
-
+// Variáveis já carregadas via @import no index.scss
 body {
   font-family: 'Segoe UI', system-ui, sans-serif;
   background: $color-bg;
