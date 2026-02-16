@@ -11,7 +11,9 @@ interface UsuarioRow {
 }
 
 const mock: UsuarioRow[] = [
-  { id: '1', nome: 'Admin', email: 'admin@bovigest.com', perfil: 'Administrador' },
+  { id: '1', nome: 'Carlos Silva', email: 'admin@bovigest.com', perfil: 'Administrador' },
+  { id: '2', nome: 'Maria Santos', email: 'maria@bovigest.com', perfil: 'Operador' },
+  { id: '3', nome: 'João Oliveira', email: 'joao.financeiro@bovigest.com', perfil: 'Financeiro' },
 ]
 
 export function Usuarios() {

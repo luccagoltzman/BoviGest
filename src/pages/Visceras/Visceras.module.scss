@@ -1,0 +1,22 @@
+@use 'styles/variables' as *;
+
+.page {
+  padding: 0;
+}
+
+.intro {
+  font-size: 0.95rem;
+  color: $color-text-muted;
+  margin-bottom: 1rem;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.actions {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}

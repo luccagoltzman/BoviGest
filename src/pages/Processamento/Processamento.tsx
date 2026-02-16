@@ -13,7 +13,16 @@ interface EstoqueRow {
 }
 
 const mock: EstoqueRow[] = [
-  { id: '1', lote: 'L-001', corte: 'Dianteiro', pesoKg: 120, dataEntrada: '2025-02-10' },
+  { id: '1', lote: 'L-001', corte: 'Dianteiro', pesoKg: 180, dataEntrada: '2025-02-14' },
+  { id: '2', lote: 'L-001', corte: 'Traseiro', pesoKg: 220, dataEntrada: '2025-02-14' },
+  { id: '3', lote: 'L-001', corte: 'BD (banda)', pesoKg: 400, dataEntrada: '2025-02-14' },
+  { id: '4', lote: 'L-001', corte: 'Costela', pesoKg: 95, dataEntrada: '2025-02-14' },
+  { id: '5', lote: 'L-002', corte: 'Dianteiro', pesoKg: 165, dataEntrada: '2025-02-12' },
+  { id: '6', lote: 'L-002', corte: 'Traseiro', pesoKg: 205, dataEntrada: '2025-02-12' },
+  { id: '7', lote: 'L-002', corte: 'Costela', pesoKg: 88, dataEntrada: '2025-02-12' },
+  { id: '8', lote: 'L-003', corte: 'BD (banda)', pesoKg: 380, dataEntrada: '2025-02-10' },
+  { id: '9', lote: 'L-003', corte: 'Costela', pesoKg: 72, dataEntrada: '2025-02-10' },
+  { id: '10', lote: 'L-004', corte: 'Dianteiro', pesoKg: 140, dataEntrada: '2025-02-08' },
 ]
 
 export function Processamento() {

@@ -13,7 +13,10 @@ interface VeiculoRow {
 }
 
 const mock: VeiculoRow[] = [
-  { id: '1', placa: 'ABC-1D23', modelo: 'Caminhão refrigerado', capacidade: 5000, consumo: 3, status: 'Ativo' },
+  { id: '1', placa: 'ABC-1D23', modelo: 'Caminhão refrigerado 15m³', capacidade: 5000, consumo: 3, status: 'Ativo' },
+  { id: '2', placa: 'DEF-4G56', modelo: 'Caminhão baú refrigerado', capacidade: 8000, consumo: 2.8, status: 'Ativo' },
+  { id: '3', placa: 'GHI-7J89', modelo: 'Van refrigerada', capacidade: 1500, consumo: 8, status: 'Ativo' },
+  { id: '4', placa: 'JKL-0M12', modelo: 'Caminhão refrigerado 22m³', capacidade: 10000, consumo: 2.5, status: 'Manutenção' },
 ]
 
 export function Veiculos() {

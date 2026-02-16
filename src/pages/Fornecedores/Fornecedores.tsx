@@ -12,7 +12,12 @@ interface FornecedorRow {
 }
 
 const mock: FornecedorRow[] = [
-  { id: '1', nome: 'Fazenda São João', doc: '12.345.678/0001-90', telefone: '(11) 99999-9999', cidade: 'Ribeirão Preto' },
+  { id: '1', nome: 'Fazenda São João', doc: '12.345.678/0001-90', telefone: '(16) 99234-5678', cidade: 'Ribeirão Preto' },
+  { id: '2', nome: 'Fazenda Santa Maria', doc: '23.456.789/0001-01', telefone: '(16) 98123-4567', cidade: 'Sertãozinho' },
+  { id: '3', nome: 'Rancho do Vale', doc: '34.567.890/0001-12', telefone: '(17) 98765-4321', cidade: 'Barretos' },
+  { id: '4', nome: 'Fazenda Boi Gordo', doc: '45.678.901/0001-23', telefone: '(18) 97654-3210', cidade: 'Araçatuba' },
+  { id: '5', nome: 'Sítio Esperança', doc: '56.789.012/0001-34', telefone: '(19) 96543-2109', cidade: 'Piracicaba' },
+  { id: '6', nome: 'Fazenda Nova Era', doc: '67.890.123/0001-45', telefone: '(16) 95432-1098', cidade: 'Franca' },
 ]
 
 export function Fornecedores() {

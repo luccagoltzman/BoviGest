@@ -19,20 +19,11 @@ interface AbateRow {
 }
 
 const mock: AbateRow[] = [
-  {
-    id: '1',
-    data: '2025-02-11',
-    lote: 'L-001',
-    qtdAnimais: 15,
-    pesoBruto: 4500,
-    pesoLiquido: 2250,
-    rendimento: 50,
-    valorBrutoAbate: 7500,
-    couroDeixado: 15,
-    descontoPorCouro: 50,
-    descontoTotal: 750,
-    custoTotal: 6750,
-  },
+  { id: '1', data: '2025-02-14', lote: 'L-001', qtdAnimais: 12, pesoBruto: 3600, pesoLiquido: 1800, rendimento: 50, valorBrutoAbate: 6000, couroDeixado: 12, descontoPorCouro: 50, descontoTotal: 600, custoTotal: 5400 },
+  { id: '2', data: '2025-02-12', lote: 'L-002', qtdAnimais: 20, pesoBruto: 6200, pesoLiquido: 3100, rendimento: 50, valorBrutoAbate: 10000, couroDeixado: 20, descontoPorCouro: 50, descontoTotal: 1000, custoTotal: 9000 },
+  { id: '3', data: '2025-02-10', lote: 'L-003', qtdAnimais: 15, pesoBruto: 4500, pesoLiquido: 2250, rendimento: 50, valorBrutoAbate: 7500, couroDeixado: 15, descontoPorCouro: 50, descontoTotal: 750, custoTotal: 6750 },
+  { id: '4', data: '2025-02-08', lote: 'L-004', qtdAnimais: 18, pesoBruto: 5400, pesoLiquido: 2700, rendimento: 50, valorBrutoAbate: 9000, couroDeixado: 18, descontoPorCouro: 45, descontoTotal: 810, custoTotal: 8190 },
+  { id: '5', data: '2025-02-05', lote: 'L-005', qtdAnimais: 10, pesoBruto: 3100, pesoLiquido: 1550, rendimento: 50, valorBrutoAbate: 5000, couroDeixado: 10, descontoPorCouro: 50, descontoTotal: 500, custoTotal: 4500 },
 ]
 
 export function Abate() {

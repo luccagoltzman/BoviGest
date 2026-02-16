@@ -13,8 +13,16 @@ interface ContaRow {
 }
 
 const mock: ContaRow[] = [
-  { id: '1', descricao: 'Compra gado - Fazenda São João', tipo: 'pagar', valor: 45000, vencimento: '2025-02-20', status: 'Pendente' },
-  { id: '2', descricao: 'Venda - Açougue Central', tipo: 'receber', valor: 12000, vencimento: '2025-02-15', status: 'Pago' },
+  { id: '1', descricao: 'Compra gado - Fazenda São João', tipo: 'pagar', valor: 108000, vencimento: '2025-02-25', status: 'Pendente' },
+  { id: '2', descricao: 'Compra gado - Fazenda Boi Gordo (parcela 1/3)', tipo: 'pagar', valor: 54000, vencimento: '2025-02-22', status: 'Pendente' },
+  { id: '3', descricao: 'Abate - Lote L-001', tipo: 'pagar', valor: 6750, vencimento: '2025-02-20', status: 'Pago' },
+  { id: '4', descricao: 'Transporte - Viagem #12', tipo: 'pagar', valor: 1250, vencimento: '2025-02-18', status: 'Pago' },
+  { id: '5', descricao: 'Venda - Super Carnes Ltda', tipo: 'receber', valor: 40000, vencimento: '2025-02-28', status: 'Pendente' },
+  { id: '6', descricao: 'Venda - Açougue Central', tipo: 'receber', valor: 19200, vencimento: '2025-02-20', status: 'Pago' },
+  { id: '7', descricao: 'Venda - Frigorífico Regional (parcela 2/3)', tipo: 'receber', valor: 26667, vencimento: '2025-03-15', status: 'Pendente' },
+  { id: '8', descricao: 'Energia - Conta de luz', tipo: 'pagar', valor: 1200, vencimento: '2025-02-18', status: 'Pago' },
+  { id: '9', descricao: 'Venda - Mercado do Produtor', tipo: 'receber', valor: 28800, vencimento: '2025-02-14', status: 'Pago' },
+  { id: '10', descricao: 'Venda - Distribuidora Carnes Norte', tipo: 'receber', valor: 51200, vencimento: '2025-02-10', status: 'Atrasado' },
 ]
 
 export function Financeiro() {

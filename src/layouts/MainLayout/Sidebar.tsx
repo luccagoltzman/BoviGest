@@ -6,6 +6,7 @@ const menu = [
   { to: '/compras', label: 'Compras de Gado' },
   { to: '/fornecedores', label: 'Fornecedores' },
   { to: '/processamento', label: 'Processamento / Estoque' },
+  { to: '/visceras', label: 'Vísceras' },
   { to: '/clientes', label: 'Clientes' },
   { to: '/vendas', label: 'Vendas' },
   { to: '/financeiro', label: 'Financeiro' },

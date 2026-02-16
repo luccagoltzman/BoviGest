@@ -10,7 +10,45 @@
   gap: 1rem;
 }
 
-.placeholder {
+.valor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $color-primary-dark;
+}
+
+.valorReceber {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $color-success;
+}
+
+.valorPagar {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: $color-danger;
+}
+
+.sub {
+  font-size: 0.85rem;
   color: $color-text-muted;
-  font-size: 0.9rem;
+  margin-top: 0.25rem;
+}
+
+.acoes {
+  margin-top: 1rem;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  a {
+    color: $color-primary;
+    font-weight: 500;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
 }

@@ -15,7 +15,14 @@ interface CustoRow {
 }
 
 const mock: CustoRow[] = [
-  { id: '1', data: '2025-02-01', categoria: 'Energia', descricao: 'Conta de luz', valor: 1200, centroCusto: 'Produção' },
+  { id: '1', data: '2025-02-15', categoria: 'Energia', descricao: 'Conta de luz - sede', valor: 1200, centroCusto: 'Produção' },
+  { id: '2', data: '2025-02-14', categoria: 'Transporte', descricao: 'Combustível - frota', valor: 3500, centroCusto: 'Logística' },
+  { id: '3', data: '2025-02-10', categoria: 'Funcionários', descricao: 'Salários - fev/25', valor: 18500, centroCusto: 'Administrativo' },
+  { id: '4', data: '2025-02-08', categoria: 'Embalagem', descricao: 'Caixas e plástico', valor: 890, centroCusto: 'Produção' },
+  { id: '5', data: '2025-02-05', categoria: 'Manutenção', descricao: 'Manutenção câmara fria', valor: 2200, centroCusto: 'Produção' },
+  { id: '6', data: '2025-02-01', categoria: 'Impostos', descricao: 'ISS e encargos', valor: 3100, centroCusto: 'Administrativo' },
+  { id: '7', data: '2025-01-28', categoria: 'Abate', descricao: 'Taxa inspeção sanitária', valor: 450, centroCusto: 'Produção' },
+  { id: '8', data: '2025-01-25', categoria: 'Outros', descricao: 'Material de escritório', valor: 320, centroCusto: 'Administrativo' },
 ]
 
 export function CustosOperacionais() {

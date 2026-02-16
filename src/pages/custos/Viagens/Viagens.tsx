@@ -16,7 +16,12 @@ interface ViagemRow {
 }
 
 const mock: ViagemRow[] = [
-  { id: '1', data: '2025-02-10', veiculo: 'ABC-1D23', origem: 'Fazenda', destino: 'Frigorífico', finalidade: 'Compra gado', km: 120, cargaKg: 4500, custoTotal: 850 },
+  { id: '1', data: '2025-02-14', veiculo: 'ABC-1D23', origem: 'Fazenda São João', destino: 'Matadouro Central', finalidade: 'Compra gado', km: 85, cargaKg: 3600, custoTotal: 720 },
+  { id: '2', data: '2025-02-13', veiculo: 'DEF-4G56', origem: 'Matadouro', destino: 'Frigorífico Regional', finalidade: 'Entrega carne', km: 120, cargaKg: 5000, custoTotal: 980 },
+  { id: '3', data: '2025-02-12', veiculo: 'ABC-1D23', origem: 'Fazenda Santa Maria', destino: 'Matadouro Central', finalidade: 'Compra gado', km: 65, cargaKg: 6200, custoTotal: 650 },
+  { id: '4', data: '2025-02-11', veiculo: 'GHI-7J89', origem: 'Base', destino: 'Açougue Central', finalidade: 'Entrega carne', km: 25, cargaKg: 800, custoTotal: 180 },
+  { id: '5', data: '2025-02-10', veiculo: 'ABC-1D23', origem: 'Rancho do Vale', destino: 'Matadouro', finalidade: 'Compra gado', km: 95, cargaKg: 4500, custoTotal: 820 },
+  { id: '6', data: '2025-02-08', veiculo: 'DEF-4G56', origem: 'Matadouro', destino: 'Super Carnes Ltda', finalidade: 'Entrega carne', km: 40, cargaKg: 3200, custoTotal: 420 },
 ]
 
 export function Viagens() {

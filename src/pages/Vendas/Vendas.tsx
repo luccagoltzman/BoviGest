@@ -13,7 +13,16 @@ interface VendaRow {
 }
 
 const mock: VendaRow[] = [
-  { id: '1', cliente: 'Açougue Central', data: '2025-02-12', totalKg: 80, valorTotal: 12000, status: 'Pago' },
+  { id: '1', cliente: 'Açougue Central', data: '2025-02-15', totalKg: 120, valorTotal: 19200, status: 'Pago' },
+  { id: '2', cliente: 'Super Carnes Ltda', data: '2025-02-14', totalKg: 250, valorTotal: 40000, status: 'Pago' },
+  { id: '3', cliente: 'Frigorífico Regional', data: '2025-02-13', totalKg: 500, valorTotal: 80000, status: 'Parcelado' },
+  { id: '4', cliente: 'Açougue do Bairro', data: '2025-02-12', totalKg: 45, valorTotal: 7200, status: 'Pago' },
+  { id: '5', cliente: 'Restaurante Churrascaria', data: '2025-02-11', totalKg: 80, valorTotal: 12800, status: 'Pago' },
+  { id: '6', cliente: 'Açougue Central', data: '2025-02-10', totalKg: 95, valorTotal: 15200, status: 'Pago' },
+  { id: '7', cliente: 'Mercado do Produtor', data: '2025-02-09', totalKg: 180, valorTotal: 28800, status: 'Pago' },
+  { id: '8', cliente: 'Açougue Premium', data: '2025-02-08', totalKg: 60, valorTotal: 9600, status: 'Pendente' },
+  { id: '9', cliente: 'Distribuidora Carnes Norte', data: '2025-02-05', totalKg: 320, valorTotal: 51200, status: 'Atrasado' },
+  { id: '10', cliente: 'Super Carnes Ltda', data: '2025-02-03', totalKg: 200, valorTotal: 32000, status: 'Pago' },
 ]
 
 export function Vendas() {

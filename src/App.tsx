@@ -4,6 +4,7 @@ import { Dashboard } from '@/pages/Dashboard'
 import { Compras } from '@/pages/Compras'
 import { Fornecedores } from '@/pages/Fornecedores'
 import { Processamento } from '@/pages/Processamento'
+import { Visceras } from '@/pages/Visceras'
 import { Clientes } from '@/pages/Clientes'
 import { Vendas } from '@/pages/Vendas'
 import { Financeiro } from '@/pages/Financeiro'
@@ -23,6 +24,7 @@ function App() {
         <Route path="compras" element={<Compras />} />
         <Route path="fornecedores" element={<Fornecedores />} />
         <Route path="processamento" element={<Processamento />} />
+        <Route path="visceras" element={<Visceras />} />
         <Route path="clientes" element={<Clientes />} />
         <Route path="vendas" element={<Vendas />} />
         <Route path="financeiro" element={<Financeiro />} />

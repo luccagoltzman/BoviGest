@@ -16,17 +16,13 @@ interface CompraRow {
 }
 
 const mock: CompraRow[] = [
-  {
-    id: '1',
-    fornecedor: 'Fazenda São João',
-    data: '2025-02-10',
-    qtdAnimais: 15,
-    pesoTotal: 4500,
-    valorTotal: 135000,
-    mediaKg: 30,
-    mediaAnimal: 9000,
-    status: 'Pago',
-  },
+  { id: '1', fornecedor: 'Fazenda São João', data: '2025-02-14', qtdAnimais: 12, pesoTotal: 3600, valorTotal: 108000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
+  { id: '2', fornecedor: 'Fazenda Santa Maria', data: '2025-02-12', qtdAnimais: 20, pesoTotal: 6200, valorTotal: 186000, mediaKg: 30, mediaAnimal: 9300, status: 'Pago' },
+  { id: '3', fornecedor: 'Rancho do Vale', data: '2025-02-10', qtdAnimais: 15, pesoTotal: 4500, valorTotal: 135000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
+  { id: '4', fornecedor: 'Fazenda Boi Gordo', data: '2025-02-08', qtdAnimais: 18, pesoTotal: 5400, valorTotal: 162000, mediaKg: 30, mediaAnimal: 9000, status: 'Parcelado' },
+  { id: '5', fornecedor: 'Fazenda São João', data: '2025-02-05', qtdAnimais: 10, pesoTotal: 3100, valorTotal: 93000, mediaKg: 31, mediaAnimal: 9300, status: 'Pago' },
+  { id: '6', fornecedor: 'Sítio Esperança', data: '2025-02-01', qtdAnimais: 8, pesoTotal: 2400, valorTotal: 72000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
+  { id: '7', fornecedor: 'Fazenda Santa Maria', data: '2025-01-28', qtdAnimais: 22, pesoTotal: 6820, valorTotal: 204600, mediaKg: 31, mediaAnimal: 9300, status: 'Pago' },
 ]
 
 export function Compras() {
