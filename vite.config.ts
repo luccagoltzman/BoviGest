@@ -14,7 +14,6 @@ export default defineConfig({
     preprocessorOptions: {
       scss: {
         includePaths: [path.resolve(__dirname, 'src')],
-        api: 'modern-compiler',
       },
     },
   },
