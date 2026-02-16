@@ -1,0 +1,16 @@
+@use 'styles/variables' as *;
+
+.page {
+  padding: 0;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.placeholder {
+  color: $color-text-muted;
+  font-size: 0.9rem;
+}

@@ -1,0 +1,15 @@
+@use 'styles/variables' as *;
+
+.card {
+  background: $color-surface;
+  border-radius: $radius;
+  box-shadow: $shadow;
+  padding: 1.25rem;
+}
+
+.title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: $color-primary-dark;
+  margin-bottom: 1rem;
+}

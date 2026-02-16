@@ -1,0 +1,1 @@
+export { Compras } from './Compras'

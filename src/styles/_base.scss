@@ -1,0 +1,28 @@
+@use 'variables' as *;
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: $color-bg;
+  color: $color-text;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app-page {
+  padding: 1.25rem;
+}
+
+.page-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: $color-primary-dark;
+  margin-bottom: 1rem;
+}
+
+@media (max-width: 768px) {
+  .app-page {
+    padding: 0.75rem;
+  }
+}

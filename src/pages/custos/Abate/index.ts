@@ -1,0 +1,1 @@
+export { Abate } from './Abate'

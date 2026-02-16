@@ -1,0 +1,16 @@
+@use 'styles/variables' as *;
+
+.header {
+  height: $header-height;
+  background: $color-surface;
+  border-bottom: 1px solid $color-border;
+  display: flex;
+  align-items: center;
+  padding: 0 1.25rem;
+  box-shadow: $shadow;
+}
+
+.title {
+  font-weight: 600;
+  color: $color-primary-dark;
+}

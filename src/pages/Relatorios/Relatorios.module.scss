@@ -1,0 +1,25 @@
+@use 'styles/variables' as *;
+
+.page {
+  padding: 0;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.list {
+  font-size: 0.9rem;
+  color: $color-text-muted;
+
+  li {
+    padding: 0.25rem 0;
+    border-bottom: 1px solid $color-border;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}

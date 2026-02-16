@@ -1,0 +1,35 @@
+@use 'styles/variables' as *;
+
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: $color-text;
+}
+
+.input {
+  padding: 0.5rem 0.75rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: $color-surface;
+
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+    box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+  }
+
+  &.hasError {
+    border-color: $color-danger;
+  }
+}
+
+.error {
+  font-size: 0.8rem;
+  color: $color-danger;
+}

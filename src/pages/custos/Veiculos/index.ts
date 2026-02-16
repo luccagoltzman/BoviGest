@@ -1,0 +1,1 @@
+export { Veiculos } from './Veiculos'

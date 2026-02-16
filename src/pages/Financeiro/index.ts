@@ -1,0 +1,1 @@
+export { Financeiro } from './Financeiro'

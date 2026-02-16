@@ -1,0 +1,92 @@
+@use 'styles/variables' as *;
+
+.sidebar {
+  width: $sidebar-width;
+  background: $color-primary-dark;
+  color: #fff;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+}
+
+.logo {
+  padding: 1rem 1.25rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav {
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.link {
+  display: block;
+  padding: 0.6rem 1.25rem;
+  color: rgba(255, 255, 255, 0.85);
+  transition: background 0.2s, color 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: #fff;
+  }
+
+  &.active {
+    background: $color-primary;
+    color: #fff;
+  }
+}
+
+.sublink {
+  padding-left: 2rem;
+  font-size: 0.9rem;
+}
+
+.group {
+  margin-top: 0.5rem;
+}
+
+.groupLabel {
+  display: block;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+@media (max-width: 992px) {
+  .sidebar {
+    width: 72px;
+  }
+
+  .logo {
+    font-size: 0;
+    text-align: center;
+
+    &::after {
+      content: 'BG';
+      font-size: 1rem;
+    }
+  }
+
+  .link,
+  .sublink {
+    padding: 0.75rem;
+    text-align: center;
+    font-size: 0;
+  }
+
+  .link::first-letter,
+  .sublink::first-letter {
+    font-size: 1rem;
+  }
+
+  .groupLabel {
+    display: none;
+  }
+}

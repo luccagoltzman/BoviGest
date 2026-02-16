@@ -1,0 +1,16 @@
+@use 'styles/variables' as *;
+
+.page {
+  padding: 0;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.actions {
+  grid-column: 1 / -1;
+  margin-top: 0.5rem;
+}

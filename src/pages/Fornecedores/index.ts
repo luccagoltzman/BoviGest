@@ -1,0 +1,1 @@
+export { Fornecedores } from './Fornecedores'
