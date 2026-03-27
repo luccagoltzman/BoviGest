@@ -1,11 +1,9 @@
 import { AuthService } from './auth.service'
 import { supabase } from './supabase'
-import toast from 'react-hot-toast'
 
 function getUser() {
   const user = AuthService.getCachedUser()
   if (!user) {
-    toast.error('Usuário não encontrado no cache')
     throw new Error('Usuário não encontrado no cache')
   }
   return user
@@ -25,7 +23,6 @@ export const clientesService = {
       if (error) throw error
       return data
     } catch (err: any) {
-      toast.error(`Erro ao buscar clientes: ${err.message}`)
       return []
     }
   },
@@ -40,10 +37,8 @@ export const clientesService = {
         .single()
 
       if (error) throw error
-      toast.success('Cliente criado com sucesso!')
       return data
     } catch (err: any) {
-      toast.error(`Erro ao criar cliente: ${err.message}`)
       throw err
     }
   },
@@ -64,10 +59,8 @@ export const clientesService = {
         .single()
 
       if (error) throw error
-      toast.success('Cliente atualizado com sucesso!')
       return data
     } catch (err: any) {
-      toast.error(`Erro ao atualizar cliente: ${err.message}`)
       throw err
     }
   },
@@ -82,9 +75,7 @@ export const clientesService = {
         .eq('empresa_id', user.empresa_id)
 
       if (error) throw error
-      toast.success('Cliente excluído com sucesso!')
     } catch (err: any) {
-      toast.error(`Erro ao excluir cliente: ${err.message}`)
       throw err
     }
   }

@@ -4,10 +4,10 @@ import styles from './Sidebar.module.scss'
 const menu = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/compras', label: 'Compras de Gado' },
-  { to: '/fornecedores', label: 'Fornecedores' },
+  { to: '/fornecedores', label: 'Fornecedores(Funcionando)' },
   { to: '/processamento', label: 'Processamento / Estoque' },
   { to: '/visceras', label: 'Vísceras' },
-  { to: '/clientes', label: 'Clientes' },
+  { to: '/clientes', label: 'Clientes (Funcionando)' },
   { to: '/vendas', label: 'Vendas' },
   { to: '/financeiro', label: 'Financeiro' },
   {
