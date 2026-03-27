@@ -34,6 +34,8 @@ export function Login() {
 
         {error && <div className={styles.error}>{error}</div>}
 
+        <p>senha e login -- joao@gmail.com</p>
+        <p>remove depois</p>
         <input
           type="email"
           placeholder="Email"
