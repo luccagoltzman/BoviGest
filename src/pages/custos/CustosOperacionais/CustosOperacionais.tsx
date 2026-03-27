@@ -1,9 +1,12 @@
-import { useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import { useEffect, useState } from 'react'
+import { Button, Card, Input, Table, Modal, ModalDetails, Select } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import toast from 'react-hot-toast'
 import styles from './CustosOperacionais.module.scss'
+import { custosOperacionaisService } from '@/services/centroCusto.service'
 
 const categorias = ['Transporte', 'Abate', 'Funcionários', 'Energia', 'Embalagem', 'Manutenção', 'Impostos', 'Outros']
+const centrosCusto = ['Produção', 'Logística', 'Administrativo']
 
 interface CustoRow {
   id: string
@@ -11,34 +14,85 @@ interface CustoRow {
   categoria: string
   descricao: string
   valor: number
-  centroCusto: string
+  centro_custo?: string
 }
 
-const mock: CustoRow[] = [
-  { id: '1', data: '2025-02-15', categoria: 'Energia', descricao: 'Conta de luz - sede', valor: 1200, centroCusto: 'Produção' },
-  { id: '2', data: '2025-02-14', categoria: 'Transporte', descricao: 'Combustível - frota', valor: 3500, centroCusto: 'Logística' },
-  { id: '3', data: '2025-02-10', categoria: 'Funcionários', descricao: 'Salários - fev/25', valor: 18500, centroCusto: 'Administrativo' },
-  { id: '4', data: '2025-02-08', categoria: 'Embalagem', descricao: 'Caixas e plástico', valor: 890, centroCusto: 'Produção' },
-  { id: '5', data: '2025-02-05', categoria: 'Manutenção', descricao: 'Manutenção câmara fria', valor: 2200, centroCusto: 'Produção' },
-  { id: '6', data: '2025-02-01', categoria: 'Impostos', descricao: 'ISS e encargos', valor: 3100, centroCusto: 'Administrativo' },
-  { id: '7', data: '2025-01-28', categoria: 'Abate', descricao: 'Taxa inspeção sanitária', valor: 450, centroCusto: 'Produção' },
-  { id: '8', data: '2025-01-25', categoria: 'Outros', descricao: 'Material de escritório', valor: 320, centroCusto: 'Administrativo' },
-]
-
 export function CustosOperacionais() {
+  const [custos, setCustos] = useState<CustoRow[]>([])
   const [detalhe, setDetalhe] = useState<CustoRow | null>(null)
+  const [editForm, setEditForm] = useState<CustoRow | null>(null)
+  const [createForm, setCreateForm] = useState<Omit<CustoRow, 'id'>>({
+    data: '',
+    categoria: '',
+    descricao: '',
+    valor: 0,
+    centro_custo: ''
+  })
+  const [loading, setLoading] = useState(false)
+
+  const fetchCustos = async () => {
+    setLoading(true)
+    try {
+      const data = await custosOperacionaisService.getAll()
+      setCustos(data)
+    } catch (e: any) {
+      toast.error('Erro ao carregar custos: ' + e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchCustos()
+  }, [])
+
+  const handleCreate = async () => {
+    try {
+      const data = await custosOperacionaisService.create(createForm)
+      setCustos((prev) => [data, ...prev])
+      toast.success('Custo criado com sucesso')
+      setCreateForm({ data: '', categoria: '', descricao: '', valor: 0, centro_custo: '' })
+    } catch (e: any) {
+      toast.error('Erro ao criar custo: ' + e.message)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!editForm) return
+    try {
+      const data = await custosOperacionaisService.update(editForm.id, editForm)
+      setCustos((prev) => prev.map(c => (c.id === data.id ? data : c)))
+      toast.success('Custo atualizado com sucesso')
+      setDetalhe(null)
+      setEditForm(null)
+    } catch (e: any) {
+      toast.error('Erro ao atualizar custo: ' + e.message)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await custosOperacionaisService.delete(id)
+      setCustos((prev) => prev.filter(c => c.id !== id))
+      toast.success('Custo excluído com sucesso')
+      setDetalhe(null)
+      setEditForm(null)
+    } catch (e: any) {
+      toast.error('Erro ao excluir custo: ' + e.message)
+    }
+  }
 
   const columns = [
     { key: 'data', header: 'Data' },
     { key: 'categoria', header: 'Categoria' },
     { key: 'descricao', header: 'Descrição' },
     { key: 'valor', header: 'Valor', render: (r: CustoRow) => `R$ ${r.valor.toLocaleString('pt-BR')}` },
-    { key: 'centroCusto', header: 'Centro de custo' },
+    { key: 'centro_custo', header: 'Centro de custo' },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: CustoRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
+        <Button variant="ghost" onClick={() => { setDetalhe(r); setEditForm({ ...r }) }}>
           Ver detalhes
         </Button>
       ),
@@ -50,29 +104,46 @@ export function CustosOperacionais() {
     { label: 'Categoria', value: r.categoria },
     { label: 'Descrição', value: r.descricao },
     { label: 'Valor', value: `R$ ${r.valor.toLocaleString('pt-BR')}` },
-    { label: 'Centro de custo', value: r.centroCusto },
+    { label: 'Centro de custo', value: r.centro_custo || '-' },
   ]
 
   return (
     <div className={styles.page}>
       <h1 className="page-title">Custos operacionais gerais</h1>
+
       <Card title="Novo lançamento">
         <div className={styles.form}>
-          <Input label="Data" type="date" />
-          <Input label="Categoria" placeholder={categorias.join(', ')} />
-          <Input label="Descrição" />
-          <Input label="Valor (R$)" type="number" />
-          <Input label="Centro de custo (opcional)" placeholder="Logística, Produção, Administrativo" />
+          <Input type="date" label="Data" value={createForm.data} onChange={e => setCreateForm({ ...createForm, data: e.target.value })} />
+          <Select label="Categoria" options={categorias} value={createForm.categoria} onChange={e => setCreateForm({ ...createForm, categoria: e.target.value })} />
+          <Input label="Descrição" value={createForm.descricao} onChange={e => setCreateForm({ ...createForm, descricao: e.target.value })} />
+          <Input type="number" label="Valor (R$)" value={createForm.valor} onChange={e => setCreateForm({ ...createForm, valor: Number(e.target.value) })} />
+          <Select label="Centro de custo (opcional)" options={centrosCusto} value={createForm.centro_custo} onChange={e => setCreateForm({ ...createForm, centro_custo: e.target.value })} />
+
           <div className={styles.actions}>
-            <Button>Lançar</Button>
+            <Button onClick={handleCreate}>Lançar</Button>
           </div>
         </div>
       </Card>
+
       <Card title="Lançamentos">
-        <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
+        <Table columns={columns} data={custos} keyExtractor={r => r.id} emptyMessage={loading ? 'Carregando...' : 'Nenhum lançamento encontrado'} />
       </Card>
+
       <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do lançamento">
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+        {editForm && (
+          <div className={styles.form}>
+            <Input type="date" label="Data" value={editForm.data} onChange={e => setEditForm({ ...editForm, data: e.target.value })} />
+            <Select label="Categoria" options={categorias} value={editForm.categoria} onChange={e => setEditForm({ ...editForm, categoria: e.target.value })} />
+            <Input label="Descrição" value={editForm.descricao} onChange={e => setEditForm({ ...editForm, descricao: e.target.value })} />
+            <Input type="number" label="Valor (R$)" value={editForm.valor} onChange={e => setEditForm({ ...editForm, valor: Number(e.target.value) })} />
+            <Select label="Centro de custo (opcional)" options={centrosCusto} value={editForm.centro_custo} onChange={e => setEditForm({ ...editForm, centro_custo: e.target.value })} />
+
+            <div className={styles.actions}>
+              <Button onClick={handleUpdate}>Salvar</Button>
+              <Button variant="danger" onClick={() => handleDelete(editForm.id)}>Excluir</Button>
+            </div>
+          </div>
+        )}
       </Modal>
     </div>
   )
