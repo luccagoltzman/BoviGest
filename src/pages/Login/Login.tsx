@@ -1,19 +1,38 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { AuthService } from '@/services/auth.service'
 import styles from './Login.module.scss'
 
 export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  const navigate = useNavigate()
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    console.log({ email, password })
+    setLoading(true)
+    setError('')
+
+    try {
+      await AuthService.login(email, password)
+      navigate('/dashboard')
+      alert('Seja bem vindo!')
+    } catch (err: any) {
+      setError(err.message || 'Erro ao logar')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <div className={styles.container}>
       <form onSubmit={handleSubmit} className={styles.form}>
         <h2>Entrar</h2>
+
+        {error && <div className={styles.error}>{error}</div>}
 
         <input
           type="email"
@@ -29,7 +48,9 @@ export function Login() {
           onChange={e => setPassword(e.target.value)}
         />
 
-        <button type="submit">Entrar</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Entrando...' : 'Entrar'}
+        </button>
       </form>
     </div>
   )
