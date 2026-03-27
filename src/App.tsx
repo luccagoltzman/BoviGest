@@ -14,15 +14,19 @@ import { Veiculos } from '@/pages/custos/Veiculos'
 import { Viagens } from '@/pages/custos/Viagens'
 import { Abate } from '@/pages/custos/Abate'
 import { CustosOperacionais } from '@/pages/custos/CustosOperacionais'
+import { Login } from '@/pages/Login'
 
 function App() {
   return (
     <Routes>
+      <Route path="Login" element={<Login />} />
+
       <Route path="/" element={<MainLayout />}>
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="compras" element={<Compras />} />
         <Route path="fornecedores" element={<Fornecedores />} />
+
         <Route path="processamento" element={<Processamento />} />
         <Route path="visceras" element={<Visceras />} />
         <Route path="clientes" element={<Clientes />} />

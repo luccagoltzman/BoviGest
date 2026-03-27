@@ -1,0 +1,55 @@
+@use 'styles/variables' as *;
+
+.container {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(
+      rgba(30, 61, 26, 0.7),
+      rgba(30, 61, 26, 0.7)
+    ),
+    url('https://images.unsplash.com/photo-1500595046743-cd271d694d30') center/cover no-repeat;
+}
+
+.form {
+  background: $color-surface;
+  padding: 40px;
+  border-radius: $radius;
+  box-shadow: $shadow;
+  width: 100%;
+  max-width: 350px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  h2 {
+    text-align: center;
+    color: $color-primary;
+  }
+
+  input {
+    padding: 12px;
+    border-radius: $radius;
+    border: 1px solid $color-border;
+    outline: none;
+
+    &:focus {
+      border-color: $color-primary;
+    }
+  }
+
+  button {
+    padding: 12px;
+    border: none;
+    border-radius: $radius;
+    background: $color-primary;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+
+    &:hover {
+      background: $color-primary-light;
+    }
+  }
+}
