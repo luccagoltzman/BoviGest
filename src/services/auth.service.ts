@@ -1,69 +1,72 @@
 import { supabase } from './supabase'
 
-function setCookie(name: string, value: string, days = 7) {
-  const expires = new Date(Date.now() + days * 864e5).toUTCString()
-  document.cookie = `${name}=${value}; expires=${expires}; path=/`
+export interface AuthUser {
+  id: string
+  email: string
+  empresa_id: number | null
 }
 
-function getCookie(name: string) {
-  return document.cookie
-    .split('; ')
-    .find(row => row.startsWith(name + '='))
-    ?.split('=')[1]
-}
-
-function deleteCookie(name: string) {
-  document.cookie = `${name}=; Max-Age=0; path=/`
-}
+const STORAGE_KEY = 'auth_user'
 
 export const AuthService = {
-  async login(email: string, password: string) {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password
-    })
-
+  async login(email: string, password: string): Promise<AuthUser> {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
 
-    const token = data.session?.access_token
-    if (token) setCookie('token', token)
-
-    return data.user
+    const user = await this.me(data.user?.id)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user)) 
+    return user
   },
 
-  async register(email: string, password: string) {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password
-    })
-
+  async register(email: string, password: string): Promise<AuthUser> {
+    const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
 
-    const token = data.session?.access_token
-    if (token) setCookie('token', token)
-
-    return data.user
+    const user = await this.me(data.user?.id)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user)) 
+    return user
   },
 
-  async logout() {
-    const { error } = await supabase.auth.signOut()
-    if (error) throw error
+  async me(userId?: string): Promise<AuthUser> {
+    const cached = localStorage.getItem(STORAGE_KEY)
+    if (cached) return JSON.parse(cached)
 
-    deleteCookie('token')
+    const { data: userData, error: userErr } = await supabase.auth.getUser()
+    if (userErr) throw userErr
+    const id = userId || userData.user?.id
+    if (!id) throw new Error('Usuário não logado')
+
+    const { data: vinculo } = await supabase
+      .from('usuarios_empresas')
+      .select('empresa_id')
+      .eq('user_id', id)
+      .single()
+
+    const user: AuthUser = {
+      id,
+      email: userData.user?.email || '',
+      empresa_id: vinculo?.empresa_id ?? null
+    }
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
+    return user
   },
 
-  async me() {
-    const { data, error } = await supabase.auth.getUser()
-
-    if (error) throw error
-    return data.user
+  logout() {
+    localStorage.removeItem(STORAGE_KEY)
+    return supabase.auth.signOut()
   },
 
   getToken() {
-    return getCookie('token')
+    return supabase.auth.getSession().then(r => r.data.session?.access_token)
   },
 
   isAuthenticated() {
-    return !!getCookie('token')
+    return supabase.auth.getSession().then(r => !!r.data.session)
+  },
+
+  getCachedUser(): AuthUser | null {
+    const cached = localStorage.getItem(STORAGE_KEY)
+    return cached ? JSON.parse(cached) : null
   }
 }

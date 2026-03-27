@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import styles from './Table.module.scss'
 
 interface Column<T> {
-  key: string
+  key: keyof T | string
   header: string
   render?: (row: T) => ReactNode
 }
@@ -12,32 +12,44 @@ interface TableProps<T> {
   data: T[]
   keyExtractor: (row: T) => string
   emptyMessage?: string
+  loading?: boolean
 }
 
-export function Table<T extends Record<string, unknown>>({
+export function Table<T>({
   columns,
   data,
   keyExtractor,
   emptyMessage = 'Nenhum registro encontrado.',
+  loading = false,
 }: TableProps<T>) {
+  if (loading) {
+    return <p className={styles.empty}>Carregando...</p>
+  }
+
   if (data.length === 0) {
     return <p className={styles.empty}>{emptyMessage}</p>
   }
+
   return (
     <div className={styles.wrap}>
       <table className={styles.table}>
         <thead>
           <tr>
             {columns.map((col) => (
-              <th key={col.key}>{col.header}</th>
+              <th key={String(col.key)}>{col.header}</th>
             ))}
           </tr>
         </thead>
+
         <tbody>
           {data.map((row) => (
             <tr key={keyExtractor(row)}>
               {columns.map((col) => (
-                <td key={col.key}>{col.render ? col.render(row) : String(row[col.key] ?? '')}</td>
+                <td key={String(col.key)}>
+                  {col.render
+                    ? col.render(row)
+                    : String((row as any)[col.key] ?? '')}
+                </td>
               ))}
             </tr>
           ))}

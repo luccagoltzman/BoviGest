@@ -16,34 +16,39 @@ import { Abate } from '@/pages/custos/Abate'
 import { CustosOperacionais } from '@/pages/custos/CustosOperacionais'
 import { Login } from '@/pages/Login'
 import { ProtectedRoute } from './ProtectedRoute'
+import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
+    <>
+      {/* Toaster global, aparece em qualquer página */}
+      <Toaster position="top-right" reverseOrder={false} />
 
-      <Route element={<ProtectedRoute />}>
-        <Route path="/" element={<MainLayout />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
-          <Route path="dashboard" element={<Dashboard />} />
-          <Route path="compras" element={<Compras />} />
-          <Route path="fornecedores" element={<Fornecedores />} />
-          <Route path="processamento" element={<Processamento />} />
-          <Route path="visceras" element={<Visceras />} />
-          <Route path="clientes" element={<Clientes />} />
-          <Route path="vendas" element={<Vendas />} />
-          <Route path="financeiro" element={<Financeiro />} />
-          <Route path="relatorios" element={<Relatorios />} />
-          <Route path="usuarios" element={<Usuarios />} />
-          <Route path="custos/veiculos" element={<Veiculos />} />
-          <Route path="custos/viagens" element={<Viagens />} />
-          <Route path="custos/abate" element={<Abate />} />
-          <Route path="custos/operacionais" element={<CustosOperacionais />} />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<ProtectedRoute />}>
+          <Route path="/" element={<MainLayout />}>
+            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route path="dashboard" element={<Dashboard />} />
+            <Route path="compras" element={<Compras />} />
+            <Route path="fornecedores" element={<Fornecedores />} />
+            <Route path="processamento" element={<Processamento />} />
+            <Route path="visceras" element={<Visceras />} />
+            <Route path="clientes" element={<Clientes />} />
+            <Route path="vendas" element={<Vendas />} />
+            <Route path="financeiro" element={<Financeiro />} />
+            <Route path="relatorios" element={<Relatorios />} />
+            <Route path="usuarios" element={<Usuarios />} />
+            <Route path="custos/veiculos" element={<Veiculos />} />
+            <Route path="custos/viagens" element={<Viagens />} />
+            <Route path="custos/abate" element={<Abate />} />
+            <Route path="custos/operacionais" element={<CustosOperacionais />} />
+          </Route>
         </Route>
-      </Route>
 
-      <Route path="*" element={<Navigate to="/login" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/login" replace />} />
+      </Routes>
+    </>
   )
 }
 
