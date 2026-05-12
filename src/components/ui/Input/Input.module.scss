@@ -7,21 +7,29 @@
 }
 
 .label {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: $color-text;
 }
 
 .input {
-  padding: 0.5rem 0.75rem;
+  min-height: 2.75rem;
+  padding: 0.62rem 0.8rem;
   border: 1px solid $color-border;
-  border-radius: $radius;
-  background: $color-surface;
+  border-radius: $radius-sm;
+  background: $color-surface-soft;
+  color: $color-text;
+  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+
+  &::placeholder {
+    color: rgba($color-text-muted, 0.82);
+  }
 
   &:focus {
     outline: none;
     border-color: $color-primary;
-    box-shadow: 0 0 0 2px rgba($color-primary, 0.2);
+    background: $color-surface;
+    box-shadow: 0 0 0 4px rgba($color-primary, 0.12);
   }
 
   &.hasError {

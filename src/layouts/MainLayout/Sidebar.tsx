@@ -1,7 +1,11 @@
 import { NavLink } from 'react-router-dom'
 import styles from './Sidebar.module.scss'
 
-const menu = [
+type MenuItem =
+  | { to: string; label: string; children?: never }
+  | { label: string; children: { to: string; label: string }[]; to?: never }
+
+const menu: MenuItem[] = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/compras', label: 'Compras de Gado' },
   { to: '/fornecedores', label: 'Fornecedores (Ta ok)' },
@@ -23,13 +27,17 @@ const menu = [
   { to: '/usuarios', label: 'Usuários' },
 ]
 
+function hasChildren(item: MenuItem): item is Extract<MenuItem, { children: { to: string; label: string }[] }> {
+  return Array.isArray(item.children)
+}
+
 export function Sidebar() {
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>BoviGest</div>
       <nav className={styles.nav}>
         {menu.map((item) =>
-          'children' in item ? (
+          hasChildren(item) ? (
             <div key={item.label} className={styles.group}>
               <span className={styles.groupLabel}>{item.label}</span>
               {item.children.map((child) => (

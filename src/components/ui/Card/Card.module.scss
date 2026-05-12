@@ -1,15 +1,28 @@
 @use 'styles/variables' as *;
 
 .card {
-  background: $color-surface;
+  background: rgba(255, 255, 255, 0.9);
   border-radius: $radius;
   box-shadow: $shadow;
+  border: 1px solid rgba($color-border, 0.78);
   padding: 1.25rem;
+  backdrop-filter: blur(10px);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 48px rgba(17, 53, 31, 0.1);
+  }
+
+  & + & {
+    margin-top: 1rem;
+  }
 }
 
 .title {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.02rem;
+  font-weight: 750;
   color: $color-primary-dark;
-  margin-bottom: 1rem;
+  margin-bottom: 1.1rem;
+  letter-spacing: -0.02em;
 }

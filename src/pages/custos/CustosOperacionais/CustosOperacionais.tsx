@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails, Select } from '@/components/ui'
-import type { DetailItem } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, Select } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './CustosOperacionais.module.scss'
 import { custosOperacionaisService } from '@/services/centroCusto.service'
@@ -97,14 +96,6 @@ export function CustosOperacionais() {
         </Button>
       ),
     },
-  ]
-
-  const detalheItems = (r: CustoRow): DetailItem[] => [
-    { label: 'Data', value: r.data },
-    { label: 'Categoria', value: r.categoria },
-    { label: 'Descrição', value: r.descricao },
-    { label: 'Valor', value: `R$ ${r.valor.toLocaleString('pt-BR')}` },
-    { label: 'Centro de custo', value: r.centro_custo || '-' },
   ]
 
   return (

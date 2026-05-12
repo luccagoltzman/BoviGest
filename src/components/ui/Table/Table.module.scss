@@ -1,34 +1,113 @@
 @use 'styles/variables' as *;
 
+.tableShell {
+  overflow: hidden;
+  border: 1px solid rgba($color-border, 0.8);
+  border-radius: $radius;
+  background: $color-surface;
+}
+
 .wrap {
   overflow-x: auto;
 }
 
 .table {
   width: 100%;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 0.9rem;
 
   th,
   td {
-    padding: 0.6rem 0.75rem;
+    padding: 0.85rem 0.95rem;
     text-align: left;
     border-bottom: 1px solid $color-border;
+    white-space: nowrap;
   }
 
   th {
-    font-weight: 600;
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
     color: $color-text-muted;
-    background: rgba(0, 0, 0, 0.03);
+    background: linear-gradient(180deg, $color-surface-soft, #edf5ea);
+  }
+
+  td {
+    color: $color-text;
   }
 
   tbody tr:hover {
-    background: rgba(0, 0, 0, 0.02);
+    background: rgba($color-primary, 0.04);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
   }
 }
 
 .empty {
-  padding: 2rem;
+  padding: 2.5rem;
   text-align: center;
   color: $color-text-muted;
+  background: $color-surface;
+  border: 1px dashed $color-border;
+  border-radius: $radius;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.85rem 0.95rem;
+  border-top: 1px solid $color-border;
+  background: $color-surface-soft;
+}
+
+.pageInfo {
+  font-size: 0.85rem;
+  color: $color-text-muted;
+}
+
+.pageActions {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  font-size: 0.85rem;
+  color: $color-text-muted;
+
+  button {
+    min-height: 2.1rem;
+    padding: 0.4rem 0.75rem;
+    border: 1px solid $color-border;
+    border-radius: 999px;
+    background: $color-surface;
+    color: $color-primary-dark;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s, border-color 0.2s, color 0.2s;
+
+    &:hover:not(:disabled) {
+      background: rgba($color-primary, 0.08);
+      border-color: rgba($color-primary, 0.3);
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}
+
+@media (max-width: 640px) {
+  .pagination {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pageActions {
+    justify-content: space-between;
+  }
 }

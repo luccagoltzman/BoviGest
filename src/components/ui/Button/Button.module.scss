@@ -5,12 +5,17 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: $radius;
-  font-weight: 500;
+  min-height: 2.55rem;
+  padding: 0.58rem 1rem;
+  border-radius: 999px;
+  font-weight: 700;
   border: none;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+  }
 
   &:disabled {
     opacity: 0.6;
@@ -23,11 +28,12 @@
 }
 
 .primary {
-  background: $color-primary;
+  background: linear-gradient(135deg, $color-primary, $color-primary-light);
   color: #fff;
+  box-shadow: 0 10px 22px rgba($color-primary, 0.24);
 
   &:hover:not(:disabled) {
-    background: $color-primary-light;
+    box-shadow: 0 14px 28px rgba($color-primary, 0.28);
   }
 }
 
@@ -43,7 +49,7 @@
 .outline {
   background: transparent;
   color: $color-primary;
-  border: 2px solid $color-primary;
+  border: 1px solid rgba($color-primary, 0.32);
 
   &:hover:not(:disabled) {
     background: rgba($color-primary, 0.08);
@@ -51,11 +57,11 @@
 }
 
 .ghost {
-  background: transparent;
-  color: $color-text;
+  background: rgba($color-primary, 0.08);
+  color: $color-primary-dark;
 
   &:hover:not(:disabled) {
-    background: rgba(0, 0, 0, 0.06);
+    background: rgba($color-primary, 0.14);
   }
 }
 

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
-import type { DetailItem } from '@/components/ui'
+import { Button, Card, Input, Table, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
 import { clientesService } from '@/services/cliente.service'
@@ -17,7 +16,6 @@ interface ClienteRow {
 
 export function Clientes() {
   const [clientes, setClientes] = useState<ClienteRow[]>([])
-  const [detalhe, setDetalhe] = useState<ClienteRow | null>(null)
   const [editar, setEditar] = useState<ClienteRow | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -53,7 +51,7 @@ export function Clientes() {
   // Criar cliente
   const handleCreate = async () => {
     try {
-      const data = await clientesService.create({
+      await clientesService.create({
         nome: createForm.nome,
         doc: createForm.doc,
         telefone: createForm.telefone,
@@ -93,7 +91,6 @@ export function Clientes() {
       await clientesService.delete(id)
       toast.success('Cliente excluído com sucesso')
       setEditar(null)
-      setDetalhe(null)
       fetchClientes()
     } catch (e: any) {
       toast.error('Erro ao excluir cliente: ' + e.message)
@@ -115,15 +112,6 @@ export function Clientes() {
         </div>
       ),
     },
-  ]
-
-  const detalheItems = (r: ClienteRow): DetailItem[] => [
-    { label: 'Nome / Empresa', value: r.nome },
-    { label: 'CPF/CNPJ', value: r.doc },
-    { label: 'Telefone / WhatsApp', value: r.telefone },
-    { label: 'Endereço', value: r.endereco || '-' },
-    { label: 'Limite de crédito', value: r.limiteCredito || '-' },
-    { label: 'Status', value: r.status },
   ]
 
   return (
@@ -151,11 +139,6 @@ export function Clientes() {
           emptyMessage={loading ? 'Carregando...' : 'Nenhum cliente encontrado.'}
         />
       </Card>
-
-      {/* Modal de detalhes */}
-      {/* <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do cliente">
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
-      </Modal> */}
 
       {/* Modal de edição */}
       <Modal open={!!editar} onClose={() => setEditar(null)} title="Editar cliente">

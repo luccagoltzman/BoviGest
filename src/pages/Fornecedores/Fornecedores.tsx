@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Input, Table, Modal } from '@/components/ui'
-import type { DetailItem } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Fornecedores.module.scss'
 import { fornecedoresService } from '@/services/fornecedores.service'
@@ -104,15 +103,6 @@ export function Fornecedores() {
         </Button>
       ),
     },
-  ]
-
-  const detalheItems = (r: FornecedorRow): DetailItem[] => [
-    { label: 'Nome / Razão social', value: r.nome },
-    { label: 'CPF/CNPJ', value: r.doc },
-    { label: 'Telefone', value: r.telefone },
-    { label: 'Cidade', value: r.cidade },
-    { label: 'Endereço', value: r.endereco },
-    { label: 'Dados bancários', value: r.dados_bancarios },
   ]
 
   return (
