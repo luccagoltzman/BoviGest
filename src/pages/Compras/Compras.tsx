@@ -1,6 +1,7 @@
-import { useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails, Select } from '@/components/ui'
+import { useEffect, useState } from 'react'
+import { Autocomplete, Button, Card, Input, Table, Modal, ModalDetails, Select } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import { fornecedoresService } from '@/services/fornecedores.service'
 import styles from './Compras.module.scss'
 
 interface CompraRow {
@@ -29,6 +30,26 @@ const mock: CompraRow[] = [
 export function Compras() {
   const [data] = useState<CompraRow[]>(mock)
   const [detalhe, setDetalhe] = useState<CompraRow | null>(null)
+  const [fornecedores, setFornecedores] = useState<string[]>([])
+  const [fornecedorBusca, setFornecedorBusca] = useState('')
+  const [loadingFornecedores, setLoadingFornecedores] = useState(false)
+
+  useEffect(() => {
+    async function carregarFornecedores() {
+      setLoadingFornecedores(true)
+      try {
+        const data = await fornecedoresService.getAll()
+        setFornecedores(data.map((fornecedor) => fornecedor.nome).filter(Boolean))
+      } catch (error) {
+        console.error('Erro ao carregar fornecedores:', error)
+        setFornecedores([])
+      } finally {
+        setLoadingFornecedores(false)
+      }
+    }
+
+    carregarFornecedores()
+  }, [])
 
   const columns = [
     { key: 'fornecedor', header: 'Fornecedor' },
@@ -67,7 +88,18 @@ export function Compras() {
       <h1 className="page-title">Compras de Gado</h1>
       <Card title="Nova compra">
         <div className={styles.form}>
-          <Input label="Fornecedor" placeholder="Selecione ou cadastre" />
+          <Autocomplete
+            label="Fornecedor"
+            options={fornecedores}
+            value={fornecedorBusca}
+            onChange={setFornecedorBusca}
+            placeholder={
+              fornecedores.length === 0
+                ? 'Digite o fornecedor'
+                : 'Digite para buscar fornecedor'
+            }
+            loading={loadingFornecedores}
+          />
           <Input label="Data" type="date" />
           <Input label="Quantidade de animais" type="number" />
           <Select label="Condição do gado" options={['Vivo', 'Morto']} />
