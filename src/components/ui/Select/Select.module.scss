@@ -1,24 +1,40 @@
+@use 'styles/variables' as *;
+
 .selectWrapper {
   display: flex;
   flex-direction: column;
-  margin-bottom: 1rem;
+  gap: 0.35rem;
 }
 
 .label {
-  font-weight: 500;
-  margin-bottom: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: $color-text;
 }
 
 .select {
-  padding: 0.5rem;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  font-size: 0.95rem;
-  background-color: white;
-  transition: border-color 0.2s;
-}
+  min-height: 2.75rem;
+  padding: 0.62rem 2.35rem 0.62rem 0.8rem;
+  border: 1px solid $color-border;
+  border-radius: $radius-sm;
+  background:
+    linear-gradient(45deg, transparent 50%, $color-text-muted 50%) calc(100% - 1.05rem) 50% / 0.4rem 0.4rem no-repeat,
+    linear-gradient(135deg, $color-text-muted 50%, transparent 50%) calc(100% - 0.8rem) 50% / 0.4rem 0.4rem no-repeat,
+    $color-surface-soft;
+  color: $color-text;
+  font: inherit;
+  appearance: none;
+  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
 
-.select:focus {
-  outline: none;
-  border-color: #4f46e5;
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+    background-color: $color-surface;
+    box-shadow: 0 0 0 4px rgba($color-primary, 0.12);
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: not-allowed;
+  }
 }
