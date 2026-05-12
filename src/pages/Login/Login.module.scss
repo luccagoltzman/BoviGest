@@ -1,64 +1,150 @@
 @use 'styles/variables' as *;
 
 .container {
-  height: 100vh;
-  display: flex;
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(380px, 0.95fr);
   align-items: center;
-  justify-content: center;
-  background: linear-gradient(
-      rgba(30, 61, 26, 0.7),
-      rgba(30, 61, 26, 0.7)
-    ),
+  gap: 2rem;
+  padding: clamp(1.25rem, 4vw, 4rem);
+  background:
+    radial-gradient(circle at 12% 18%, color-mix(in srgb, var(--theme-background-glow) 18%, transparent), transparent 26rem),
+    linear-gradient(135deg, rgba(10, 30, 18, 0.72), rgba(244, 247, 242, 0.78)),
     url('https://images.unsplash.com/photo-1500595046743-cd271d694d30') center/cover no-repeat;
 }
 
+.hero {
+  color: #e8f7e9;
+  text-shadow: 0 2px 18px rgba(6, 26, 12, 0.32);
+
+  h1 {
+    max-width: 42rem;
+    margin: 1.5rem 0 1rem;
+    font-size: clamp(2.4rem, 5vw, 4.8rem);
+    line-height: 0.95;
+    letter-spacing: -0.07em;
+    font-weight: 900;
+  }
+
+  p {
+    max-width: 34rem;
+    color: #d8edd8;
+    font-size: 1.08rem;
+  }
+}
+
+.logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 1rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(232, 247, 233, 0.72);
+  box-shadow: $shadow-sm;
+  font-size: 1.05rem;
+  font-weight: 900;
+
+  &::before {
+    content: '';
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 999px;
+    background: var(--theme-secondary);
+    box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--theme-secondary) 18%, transparent);
+  }
+}
+
+.highlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 2rem;
+
+  span {
+    padding: 0.6rem 0.9rem;
+    border-radius: 999px;
+    color: #10361f;
+    background: rgba(232, 247, 233, 0.78);
+    border: 1px solid rgba(216, 237, 216, 0.72);
+    font-weight: 800;
+    box-shadow: $shadow-sm;
+  }
+}
+
+.panel {
+  display: flex;
+  justify-content: center;
+}
+
 .form {
-  background: $color-surface;
-  padding: 40px;
+  width: min(100%, 28rem);
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.74), rgba(255, 255, 255, 0.52));
+  padding: clamp(1.4rem, 4vw, 2rem);
   border-radius: $radius;
-  box-shadow: $shadow;
-  width: 100%;
-  max-width: 350px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  box-shadow: 0 24px 70px rgba(6, 26, 12, 0.2);
+  backdrop-filter: blur(22px) saturate(150%);
   display: flex;
   flex-direction: column;
-  gap: 15px;
+  gap: 1rem;
+}
+
+.formHeader {
+  margin-bottom: 0.35rem;
+
+  span {
+    color: var(--theme-primary);
+    font-size: 0.78rem;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
 
   h2 {
-    text-align: center;
-    color: $color-primary;
+    margin: 0.25rem 0;
+    color: $color-primary-dark;
+    font-size: 1.8rem;
+    letter-spacing: -0.04em;
   }
 
-  input {
-    padding: 12px;
-    border-radius: $radius;
-    border: 1px solid $color-border;
-    outline: none;
-
-    &:focus {
-      border-color: $color-primary;
-    }
-  }
-
-  button {
-    padding: 12px;
-    border: none;
-    border-radius: $radius;
-    background: $color-primary;
-    color: white;
-    font-weight: bold;
-    cursor: pointer;
-
-    &:hover {
-      background: $color-primary-light;
-    }
+  p {
+    color: $color-text-muted;
+    margin: 0;
   }
 }
 
 .error {
-  background: #ffe5e5;
-  color: #a52a2a;
-  padding: 10px;
-  border-radius: 8px;
-  font-size: 14px;
+  background: rgba($color-danger, 0.09);
+  color: $color-danger;
+  padding: 0.75rem 0.9rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-danger, 0.18);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.footerText {
+  color: $color-text-muted;
+  font-size: 0.82rem;
   text-align: center;
+  margin: 0.25rem 0 0;
+}
+
+@media (max-width: 880px) {
+  .container {
+    grid-template-columns: 1fr;
+  }
+
+  .hero {
+    text-align: center;
+
+    p {
+      margin-inline: auto;
+    }
+  }
+
+  .highlights {
+    justify-content: center;
+  }
 }
