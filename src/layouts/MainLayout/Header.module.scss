@@ -22,14 +22,14 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: $color-primary;
+  color: var(--theme-primary);
 }
 
 .title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 750;
-  color: $color-primary-dark;
+  color: var(--theme-primary-dark);
   letter-spacing: -0.02em;
 }
 
@@ -69,7 +69,7 @@
   color: #fff;
   font-size: 0.8rem;
   font-weight: 800;
-  background: linear-gradient(135deg, $color-primary, $color-primary-light);
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-button-gradient-end));
 }
 
 @media (max-width: 768px) {

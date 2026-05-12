@@ -1,8 +1,19 @@
 // Variáveis já carregadas via @import no index.scss
+:root {
+  --theme-primary: #{$color-primary};
+  --theme-primary-light: #{$color-primary-light};
+  --theme-primary-dark: #{$color-primary-dark};
+  --theme-secondary: #{$color-secondary};
+  --theme-sidebar-start: #0f2f1d;
+  --theme-sidebar-end: #092012;
+  --theme-button-gradient-end: #{$color-primary-light};
+  --theme-background-glow: #{$color-primary-light};
+}
+
 body {
   font-family: Inter, 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   background:
-    radial-gradient(circle at top left, rgba($color-primary-light, 0.16), transparent 34rem),
+    radial-gradient(circle at top left, color-mix(in srgb, var(--theme-background-glow) 16%, transparent), transparent 34rem),
     linear-gradient(135deg, #f8faf7 0%, $color-bg 48%, #eef5ec 100%);
   color: $color-text;
 }
@@ -30,7 +41,7 @@ body {
   height: 0.25rem;
   margin-top: 0.45rem;
   border-radius: 999px;
-  background: linear-gradient(90deg, $color-primary, $color-secondary);
+  background: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
 }
 
 @media (max-width: 768px) {

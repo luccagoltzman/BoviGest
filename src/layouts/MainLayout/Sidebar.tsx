@@ -1,17 +1,18 @@
 import { NavLink } from 'react-router-dom'
+import { canAccessSettings, currentUserRole } from '@/config/access'
 import styles from './Sidebar.module.scss'
 
 type MenuItem =
-  | { to: string; label: string; children?: never }
-  | { label: string; children: { to: string; label: string }[]; to?: never }
+  | { to: string; label: string; children?: never; requiresMaster?: boolean }
+  | { label: string; children: { to: string; label: string }[]; to?: never; requiresMaster?: boolean }
 
 const menu: MenuItem[] = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/compras', label: 'Compras de Gado' },
-  { to: '/fornecedores', label: 'Fornecedores (Ta ok)' },
+  { to: '/fornecedores', label: 'Fornecedores' },
   { to: '/processamento', label: 'Processamento / Estoque' },
   { to: '/visceras', label: 'Vísceras' },
-  { to: '/clientes', label: 'Clientes (Ta OK)' },
+  { to: '/clientes', label: 'Clientes' },
   { to: '/vendas', label: 'Vendas' },
   { to: '/financeiro', label: 'Financeiro' },
   {
@@ -20,11 +21,12 @@ const menu: MenuItem[] = [
       { to: '/custos/veiculos', label: 'Veículos' },
       { to: '/custos/viagens', label: 'Viagens' },
       { to: '/custos/abate', label: 'Abate' },
-      { to: '/custos/operacionais', label: 'Operacionais (Ta ok)' },
+      { to: '/custos/operacionais', label: 'Operacionais' },
     ],
   },
   { to: '/relatorios', label: 'Relatórios' },
   { to: '/usuarios', label: 'Usuários' },
+  { to: '/configuracoes', label: 'Configurações', requiresMaster: true },
 ]
 
 function hasChildren(item: MenuItem): item is Extract<MenuItem, { children: { to: string; label: string }[] }> {
@@ -32,11 +34,13 @@ function hasChildren(item: MenuItem): item is Extract<MenuItem, { children: { to
 }
 
 export function Sidebar() {
+  const visibleMenu = menu.filter((item) => !item.requiresMaster || canAccessSettings(currentUserRole))
+
   return (
     <aside className={styles.sidebar}>
       <div className={styles.logo}>BoviGest</div>
       <nav className={styles.nav}>
-        {menu.map((item) =>
+        {visibleMenu.map((item) =>
           hasChildren(item) ? (
             <div key={item.label} className={styles.group}>
               <span className={styles.groupLabel}>{item.label}</span>

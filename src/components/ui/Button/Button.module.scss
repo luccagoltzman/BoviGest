@@ -28,7 +28,7 @@
 }
 
 .primary {
-  background: linear-gradient(135deg, $color-primary, $color-primary-light);
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-button-gradient-end));
   color: #fff;
   box-shadow: 0 10px 22px rgba($color-primary, 0.24);
 

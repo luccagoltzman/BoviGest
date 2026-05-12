@@ -10,6 +10,7 @@ import { Vendas } from '@/pages/Vendas'
 import { Financeiro } from '@/pages/Financeiro'
 import { Relatorios } from '@/pages/Relatorios'
 import { Usuarios } from '@/pages/Usuarios'
+import { Configuracoes } from '@/pages/Configuracoes'
 import { Veiculos } from '@/pages/custos/Veiculos'
 import { Viagens } from '@/pages/custos/Viagens'
 import { Abate } from '@/pages/custos/Abate'
@@ -39,6 +40,7 @@ function App() {
             <Route path="financeiro" element={<Financeiro />} />
             <Route path="relatorios" element={<Relatorios />} />
             <Route path="usuarios" element={<Usuarios />} />
+            <Route path="configuracoes" element={<Configuracoes />} />
             <Route path="custos/veiculos" element={<Veiculos />} />
             <Route path="custos/viagens" element={<Viagens />} />
             <Route path="custos/abate" element={<Abate />} />
