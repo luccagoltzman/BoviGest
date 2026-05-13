@@ -1,4 +1,5 @@
-// Variáveis já carregadas via @import no index.scss
+@use './variables' as *;
+
 :root {
   --theme-primary: #{$color-primary};
   --theme-primary-light: #{$color-primary-light};
@@ -16,36 +17,4 @@ body {
     radial-gradient(circle at top left, color-mix(in srgb, var(--theme-background-glow) 16%, transparent), transparent 34rem),
     linear-gradient(135deg, #f8faf7 0%, $color-bg 48%, #eef5ec 100%);
   color: $color-text;
-}
-
-#root {
-  min-height: 100vh;
-}
-
-.app-page {
-  padding: 1.25rem;
-}
-
-.page-title {
-  font-size: clamp(1.5rem, 2.4vw, 2rem);
-  font-weight: 750;
-  color: $color-primary-dark;
-  letter-spacing: -0.03em;
-  margin-bottom: 1.25rem;
-}
-
-.page-title::after {
-  content: '';
-  display: block;
-  width: 3rem;
-  height: 0.25rem;
-  margin-top: 0.45rem;
-  border-radius: 999px;
-  background: linear-gradient(90deg, var(--theme-primary), var(--theme-secondary));
-}
-
-@media (max-width: 768px) {
-  .app-page {
-    padding: 0.75rem;
-  }
 }

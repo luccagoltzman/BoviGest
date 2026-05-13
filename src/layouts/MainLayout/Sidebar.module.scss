@@ -4,7 +4,7 @@
   width: $sidebar-width;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.08), transparent 18rem),
-    linear-gradient(180deg, var(--theme-sidebar-start) 0%, var(--theme-primary-dark) 48%, var(--theme-sidebar-end) 100%);
+    linear-gradient(180deg, var(--theme-sidebar-start) 0%, var(--theme-sidebar-end) 100%);
   color: #fff;
   height: 100vh;
   display: flex;
