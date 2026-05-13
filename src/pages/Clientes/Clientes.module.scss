@@ -14,3 +14,10 @@
   grid-column: 1 / -1;
   margin-top: 0.5rem;
 }
+
+.filters{
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}

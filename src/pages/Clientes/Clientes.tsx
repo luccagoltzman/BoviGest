@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Button, Card, Input, Table, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
@@ -19,6 +19,17 @@ export function Clientes() {
   const [editar, setEditar] = useState<ClienteRow | null>(null)
   const [loading, setLoading] = useState(false)
 
+  const [page, setPage] = useState(1)
+  const [limit] = useState(5)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  const [search, setSearch] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
   const [createForm, setCreateForm] = useState({
     nome: '',
     doc: '',
@@ -27,28 +38,55 @@ export function Clientes() {
     limiteCredito: ''
   })
 
-  // Fetch clientes
-  const fetchClientes = async () => {
+  const loadClientes = async (
+    currentPage: number,
+    currentLimit: number,
+    currentSearch: string,
+    currentStartDate: string,
+    currentEndDate: string
+  ) => {
     setLoading(true)
     try {
-      const data = await clientesService.getAll()
-      setClientes(data.map(c => ({
-        ...c,
-        limiteCredito: c.limite_credito?.toString(),
-        status: c.status === 1 ? 'Ativo' : 'Inativo'
-      })))
-    } catch (e: any) {
-      toast.error('Erro ao carregar clientes: ' + e.message)
+      const response = await clientesService.getAll(
+        currentPage,
+        currentLimit,
+        currentSearch,
+        currentStartDate,
+        currentEndDate
+      )
+
+      setClientes(response.data)
+      setTotal(response.total)
+      setTotalPages(response.totalPages)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchClientes()
-  }, [])
+    loadClientes(page, limit, search, startDate, endDate)
+  }, [page, limit, search, startDate, endDate])
 
-  // Criar cliente
+  const handleSearchChange = (value: string) => {
+    setPage(1)
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(() => {
+      setSearch(value)
+    }, 500)
+  }
+
+  const handleStartDateChange = (value: string) => {
+    setPage(1)
+    setStartDate(value)
+  }
+
+  const handleEndDateChange = (value: string) => {
+    setPage(1)
+    setEndDate(value)
+  }
+
   const handleCreate = async () => {
     try {
       await clientesService.create({
@@ -58,17 +96,19 @@ export function Clientes() {
         endereco: createForm.endereco,
         limite_credito: createForm.limiteCredito ? Number(createForm.limiteCredito) : null,
       })
+
       toast.success('Cliente criado com sucesso')
       setCreateForm({ nome: '', doc: '', telefone: '', endereco: '', limiteCredito: '' })
-      fetchClientes()
+
+      loadClientes(1, limit, search, startDate, endDate)
     } catch (e: any) {
       toast.error('Erro ao criar cliente: ' + e.message)
     }
   }
 
-  // Salvar edição
   const handleSaveEdit = async () => {
     if (!editar) return
+
     try {
       await clientesService.update(editar.id, {
         nome: editar.nome,
@@ -77,21 +117,24 @@ export function Clientes() {
         endereco: editar.endereco,
         limite_credito: editar.limiteCredito ? Number(editar.limiteCredito) : null,
       })
+
       toast.success('Cliente atualizado com sucesso')
       setEditar(null)
-      fetchClientes()
+
+      loadClientes(page, limit, search, startDate, endDate)
     } catch (e: any) {
       toast.error('Erro ao atualizar cliente: ' + e.message)
     }
   }
 
-  // Excluir cliente
   const handleDelete = async (id: string) => {
     try {
       await clientesService.delete(id)
+
       toast.success('Cliente excluído com sucesso')
       setEditar(null)
-      fetchClientes()
+
+      loadClientes(page, limit, search, startDate, endDate)
     } catch (e: any) {
       toast.error('Erro ao excluir cliente: ' + e.message)
     }
@@ -120,11 +163,11 @@ export function Clientes() {
 
       <Card title="Novo cliente">
         <div className={styles.form}>
-          <Input label="Nome / Empresa" value={createForm.nome} onChange={e => setCreateForm({...createForm, nome: e.target.value})} />
-          <Input label="CPF / CNPJ" value={createForm.doc} onChange={e => setCreateForm({...createForm, doc: e.target.value})} />
-          <Input label="Telefone / WhatsApp" value={createForm.telefone} onChange={e => setCreateForm({...createForm, telefone: e.target.value})} />
-          <Input label="Endereço" value={createForm.endereco} onChange={e => setCreateForm({...createForm, endereco: e.target.value})} />
-          <Input label="Limite de crédito (opcional)" type="number" value={createForm.limiteCredito} onChange={e => setCreateForm({...createForm, limiteCredito: e.target.value})} />
+          <Input label="Nome / Empresa" value={createForm.nome} onChange={e => setCreateForm({ ...createForm, nome: e.target.value })} />
+          <Input label="CPF / CNPJ" value={createForm.doc} onChange={e => setCreateForm({ ...createForm, doc: e.target.value })} />
+          <Input label="Telefone / WhatsApp" value={createForm.telefone} onChange={e => setCreateForm({ ...createForm, telefone: e.target.value })} />
+          <Input label="Endereço" value={createForm.endereco} onChange={e => setCreateForm({ ...createForm, endereco: e.target.value })} />
+          <Input label="Limite de crédito" type="number" value={createForm.limiteCredito} onChange={e => setCreateForm({ ...createForm, limiteCredito: e.target.value })} />
           <div className={styles.actions}>
             <Button onClick={handleCreate}>Cadastrar</Button>
           </div>
@@ -132,26 +175,53 @@ export function Clientes() {
       </Card>
 
       <Card title="Lista de clientes">
+        <div className={styles.filters}>
+          <Input
+            label="Buscar"
+            onChange={(e) => handleSearchChange(e.target.value)}
+          />
+
+          <div className={styles.form}>
+            <Input
+              label="Data inicial"
+              type="date"
+              value={startDate}
+              onChange={(e) => handleStartDateChange(e.target.value)}
+            />
+
+            <Input
+              label="Data final"
+              type="date"
+              value={endDate}
+              onChange={(e) => handleEndDateChange(e.target.value)}
+            />
+          </div>
+        </div>
+
         <Table
           columns={columns}
           data={clientes}
-          keyExtractor={r => r.id}
-          emptyMessage={loading ? 'Carregando...' : 'Nenhum cliente encontrado.'}
+          keyExtractor={(r) => r.id}
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          emptyMessage="Nenhum cliente encontrado."
         />
       </Card>
 
-      {/* Modal de edição */}
       <Modal open={!!editar} onClose={() => setEditar(null)} title="Editar cliente">
         {editar && (
           <div className={styles.form}>
-            <Input label="Nome / Empresa" value={editar.nome} onChange={e => setEditar({...editar, nome: e.target.value})} />
-            <Input label="CPF / CNPJ" value={editar.doc} onChange={e => setEditar({...editar, doc: e.target.value})} />
-            <Input label="Telefone / WhatsApp" value={editar.telefone} onChange={e => setEditar({...editar, telefone: e.target.value})} />
-            <Input label="Endereço" value={editar.endereco} onChange={e => setEditar({...editar, endereco: e.target.value})} />
-            <Input label="Limite de crédito" type="number" value={editar.limiteCredito} onChange={e => setEditar({...editar, limiteCredito: e.target.value})} />
+            <Input label="Nome / Empresa" value={editar.nome} onChange={e => setEditar({ ...editar, nome: e.target.value })} />
+            <Input label="CPF / CNPJ" value={editar.doc} onChange={e => setEditar({ ...editar, doc: e.target.value })} />
+            <Input label="Telefone / WhatsApp" value={editar.telefone} onChange={e => setEditar({ ...editar, telefone: e.target.value })} />
+            <Input label="Endereço" value={editar.endereco} onChange={e => setEditar({ ...editar, endereco: e.target.value })} />
+            <Input label="Limite de crédito" type="number" value={editar.limiteCredito} onChange={e => setEditar({ ...editar, limiteCredito: e.target.value })} />
             <div className={styles.actions}>
               <Button onClick={handleSaveEdit}>Salvar alterações</Button>
-              <Button variant="danger" onClick={() => editar && handleDelete(editar.id)}>Excluir</Button>
+              <Button variant="danger" onClick={() => handleDelete(editar.id)}>Excluir</Button>
             </div>
           </div>
         )}

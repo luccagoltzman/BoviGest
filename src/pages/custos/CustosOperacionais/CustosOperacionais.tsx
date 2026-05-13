@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Button, Card, Input, Table, Modal, Select } from '@/components/ui'
+import { useEffect, useRef, useState } from 'react'
+import { Button, Card, Input, Modal, Select, Table } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './CustosOperacionais.module.scss'
 import { custosOperacionaisService } from '@/services/centroCusto.service'
@@ -20,20 +20,49 @@ export function CustosOperacionais() {
   const [custos, setCustos] = useState<CustoRow[]>([])
   const [detalhe, setDetalhe] = useState<CustoRow | null>(null)
   const [editForm, setEditForm] = useState<CustoRow | null>(null)
-  const [createForm, setCreateForm] = useState<Omit<CustoRow, 'id'>>({
+
+  const [createForm, setCreateForm] = useState({
     data: '',
     categoria: '',
     descricao: '',
     valor: 0,
     centro_custo: ''
   })
+
   const [loading, setLoading] = useState(false)
 
-  const fetchCustos = async () => {
+  const [page, setPage] = useState(1)
+  const [limit] = useState(10)
+
+  const [search, setSearch] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+
+  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+
+  const fetchCustos = async (
+    currentPage: number,
+    currentLimit: number,
+    currentSearch: string,
+    currentStartDate: string,
+    currentEndDate: string
+  ) => {
     setLoading(true)
     try {
-      const data = await custosOperacionaisService.getAll()
-      setCustos(data)
+      const res = await custosOperacionaisService.getAll(
+        currentPage,
+        currentLimit,
+        currentSearch,
+        currentStartDate,
+        currentEndDate
+      )
+
+      setCustos(res.data)
+      setTotal(res.total)
+      setTotalPages(res.totalPages)
     } catch (e: any) {
       toast.error('Erro ao carregar custos: ' + e.message)
     } finally {
@@ -42,15 +71,45 @@ export function CustosOperacionais() {
   }
 
   useEffect(() => {
-    fetchCustos()
-  }, [])
+    fetchCustos(page, limit, search, startDate, endDate)
+  }, [page, limit, search, startDate, endDate])
+
+  const handleSearch = (value: string) => {
+    setPage(1)
+
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+
+    debounceRef.current = setTimeout(() => {
+      setSearch(value)
+    }, 500)
+  }
+
+  const handleStartDate = (value: string) => {
+    setPage(1)
+    setStartDate(value)
+  }
+
+  const handleEndDate = (value: string) => {
+    setPage(1)
+    setEndDate(value)
+  }
 
   const handleCreate = async () => {
     try {
       const data = await custosOperacionaisService.create(createForm)
-      setCustos((prev) => [data, ...prev])
+
+      setCustos(prev => [data, ...prev])
       toast.success('Custo criado com sucesso')
-      setCreateForm({ data: '', categoria: '', descricao: '', valor: 0, centro_custo: '' })
+
+      setCreateForm({
+        data: '',
+        categoria: '',
+        descricao: '',
+        valor: 0,
+        centro_custo: ''
+      })
+
+      fetchCustos(1, limit, search, startDate, endDate)
     } catch (e: any) {
       toast.error('Erro ao criar custo: ' + e.message)
     }
@@ -58,10 +117,14 @@ export function CustosOperacionais() {
 
   const handleUpdate = async () => {
     if (!editForm) return
+
     try {
       const data = await custosOperacionaisService.update(editForm.id, editForm)
-      setCustos((prev) => prev.map(c => (c.id === data.id ? data : c)))
+
+      setCustos(prev => prev.map(c => (c.id === data.id ? data : c)))
+
       toast.success('Custo atualizado com sucesso')
+
       setDetalhe(null)
       setEditForm(null)
     } catch (e: any) {
@@ -72,8 +135,11 @@ export function CustosOperacionais() {
   const handleDelete = async (id: string) => {
     try {
       await custosOperacionaisService.delete(id)
-      setCustos((prev) => prev.filter(c => c.id !== id))
+
+      setCustos(prev => prev.filter(c => c.id !== id))
+
       toast.success('Custo excluído com sucesso')
+
       setDetalhe(null)
       setEditForm(null)
     } catch (e: any) {
@@ -85,17 +151,27 @@ export function CustosOperacionais() {
     { key: 'data', header: 'Data' },
     { key: 'categoria', header: 'Categoria' },
     { key: 'descricao', header: 'Descrição' },
-    { key: 'valor', header: 'Valor', render: (r: CustoRow) => `R$ ${r.valor.toLocaleString('pt-BR')}` },
+    {
+      key: 'valor',
+      header: 'Valor',
+      render: (r: CustoRow) => `R$ ${r.valor.toLocaleString('pt-BR')}`
+    },
     { key: 'centro_custo', header: 'Centro de custo' },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: CustoRow) => (
-        <Button variant="ghost" onClick={() => { setDetalhe(r); setEditForm({ ...r }) }}>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setDetalhe(r)
+            setEditForm({ ...r })
+          }}
+        >
           Ver detalhes
         </Button>
-      ),
-    },
+      )
+    }
   ]
 
   return (
@@ -108,7 +184,7 @@ export function CustosOperacionais() {
           <Select label="Categoria" options={categorias} value={createForm.categoria} onChange={e => setCreateForm({ ...createForm, categoria: e.target.value })} />
           <Input label="Descrição" value={createForm.descricao} onChange={e => setCreateForm({ ...createForm, descricao: e.target.value })} />
           <Input type="number" label="Valor (R$)" value={createForm.valor} onChange={e => setCreateForm({ ...createForm, valor: Number(e.target.value) })} />
-          <Select label="Centro de custo (opcional)" options={centrosCusto} value={createForm.centro_custo} onChange={e => setCreateForm({ ...createForm, centro_custo: e.target.value })} />
+          <Select label="Centro de custo" options={centrosCusto} value={createForm.centro_custo} onChange={e => setCreateForm({ ...createForm, centro_custo: e.target.value })} />
 
           <div className={styles.actions}>
             <Button onClick={handleCreate}>Lançar</Button>
@@ -117,7 +193,38 @@ export function CustosOperacionais() {
       </Card>
 
       <Card title="Lançamentos">
-        <Table columns={columns} data={custos} keyExtractor={r => r.id} emptyMessage={loading ? 'Carregando...' : 'Nenhum lançamento encontrado'} />
+        <div className={styles.form}>
+          <Input
+            label="Buscar"
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+
+          <Input
+            type="date"
+            label="Data inicial"
+            value={startDate}
+            onChange={(e) => handleStartDate(e.target.value)}
+          />
+
+          <Input
+            type="date"
+            label="Data final"
+            value={endDate}
+            onChange={(e) => handleEndDate(e.target.value)}
+          />
+        </div>
+
+        <Table
+          columns={columns}
+          data={custos}
+          keyExtractor={(r) => r.id}
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          emptyMessage="Nenhum custo encontrado."
+        />
       </Card>
 
       <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do lançamento">
@@ -127,7 +234,7 @@ export function CustosOperacionais() {
             <Select label="Categoria" options={categorias} value={editForm.categoria} onChange={e => setEditForm({ ...editForm, categoria: e.target.value })} />
             <Input label="Descrição" value={editForm.descricao} onChange={e => setEditForm({ ...editForm, descricao: e.target.value })} />
             <Input type="number" label="Valor (R$)" value={editForm.valor} onChange={e => setEditForm({ ...editForm, valor: Number(e.target.value) })} />
-            <Select label="Centro de custo (opcional)" options={centrosCusto} value={editForm.centro_custo} onChange={e => setEditForm({ ...editForm, centro_custo: e.target.value })} />
+            <Select label="Centro de custo" options={centrosCusto} value={editForm.centro_custo} onChange={e => setEditForm({ ...editForm, centro_custo: e.target.value })} />
 
             <div className={styles.actions}>
               <Button onClick={handleUpdate}>Salvar</Button>

@@ -8,16 +8,54 @@ function getUser() {
 }
 
 export const custosOperacionaisService = {
-  async getAll() {
-    const user = getUser()
-    const { data, error } = await supabase
-      .from('custos_operacionais')
-      .select('*')
-      .eq('empresa_id', user.empresa_id)
-      .order('data', { ascending: false })
+  async getAll(page = 1, limit = 10, search = '', startDate = '', endDate = '') {
+    const from = (page - 1) * limit
+    const to = from + limit - 1
 
-    if (error) throw error
-    return data
+    try {
+      const user = getUser()
+
+      let query = supabase
+        .from('custos_operacionais')
+        .select('*', { count: 'exact' })
+        .eq('empresa_id', user.empresa_id)
+        .order('data', { ascending: false })
+        .range(from, to)
+
+      if (search) {
+        query = query.or(
+          `descricao.ilike.%${search}%,categoria.ilike.%${search}%`
+        )
+      }
+
+      if (startDate) {
+        query = query.gte('data', startDate)
+      }
+
+      if (endDate) {
+        query = query.lte('data', endDate)
+      }
+
+      const { data, count, error } = await query
+
+      if (error) throw error
+
+      return {
+        data,
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit),
+      }
+    } catch (err) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      }
+    }
   },
 
   async getById(id: string) {

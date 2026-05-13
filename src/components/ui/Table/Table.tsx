@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
 import styles from './Table.module.scss'
 
 interface Column<T> {
@@ -14,7 +13,10 @@ interface TableProps<T> {
   keyExtractor: (row: T) => string
   emptyMessage?: string
   loading?: boolean
-  pageSize?: number
+  page: number
+  totalPages: number
+  total: number
+  onPageChange: (page: number) => void
 }
 
 export function Table<T>({
@@ -23,30 +25,21 @@ export function Table<T>({
   keyExtractor,
   emptyMessage = 'Nenhum registro encontrado.',
   loading = false,
-  pageSize = 5,
+  page,
+  totalPages,
+  total,
+  onPageChange,
 }: TableProps<T>) {
-  const [currentPage, setCurrentPage] = useState(1)
-  const totalPages = Math.max(1, Math.ceil(data.length / pageSize))
-
-  useEffect(() => {
-    setCurrentPage(1)
-  }, [data.length, pageSize])
-
-  const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * pageSize
-    return data.slice(start, start + pageSize)
-  }, [currentPage, data, pageSize])
-
-  const firstItem = data.length === 0 ? 0 : (currentPage - 1) * pageSize + 1
-  const lastItem = Math.min(currentPage * pageSize, data.length)
-
   if (loading) {
     return <p className={styles.empty}>Carregando...</p>
   }
 
-  if (data.length === 0) {
+  if (!data || data.length === 0) {
     return <p className={styles.empty}>{emptyMessage}</p>
   }
+
+  const firstItem = total === 0 ? 0 : (page - 1) * data.length + 1
+  const lastItem = Math.min(page * data.length, total)
 
   return (
     <div className={styles.tableShell}>
@@ -61,7 +54,7 @@ export function Table<T>({
           </thead>
 
           <tbody>
-            {paginatedData.map((row) => (
+            {data.map((row) => (
               <tr key={keyExtractor(row)}>
                 {columns.map((col) => (
                   <td key={String(col.key)}>
@@ -76,32 +69,33 @@ export function Table<T>({
         </table>
       </div>
 
-      {data.length > pageSize && (
-        <div className={styles.pagination}>
-          <span className={styles.pageInfo}>
-            Mostrando {firstItem}-{lastItem} de {data.length} registros
+      <div className={styles.pagination}>
+        <span className={styles.pageInfo}>
+          Mostrando {firstItem}-{lastItem} de {total} registros
+        </span>
+
+        <div className={styles.pageActions}>
+          <button
+            type="button"
+            onClick={() => onPageChange(page - 1)}
+            disabled={page === 1}
+          >
+            Anterior
+          </button>
+
+          <span>
+            Página {page} de {totalPages}
           </span>
-          <div className={styles.pageActions}>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
-              disabled={currentPage === 1}
-            >
-              Anterior
-            </button>
-            <span>
-              Página {currentPage} de {totalPages}
-            </span>
-            <button
-              type="button"
-              onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
-              disabled={currentPage === totalPages}
-            >
-              Próxima
-            </button>
-          </div>
+
+          <button
+            type="button"
+            onClick={() => onPageChange(page + 1)}
+            disabled={page === totalPages}
+          >
+            Próxima
+          </button>
         </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -10,22 +10,57 @@ function getUser() {
 }
 
 export const clientesService = {
-  async getAll() {
+  async getAll(page = 1, limit = 10, search = '', startDate = '', endDate = '') {
+    const from = (page - 1) * limit
+    const to = from + limit - 1
+
     try {
       const user = getUser()
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('clientes')
-        .select('*')
+        .select('*', { count: 'exact' })
         .eq('empresa_id', user.empresa_id)
         .neq('status', 0)
         .order('updated_at', { ascending: false })
+        .range(from, to)
+
+      if (search) {
+        query = query.or(
+          `nome.ilike.%${search}%,doc.ilike.%${search}%,telefone.ilike.%${search}%`
+        )
+      }
+
+      if (startDate) {
+        query = query.gte('created_at', startDate)
+      }
+
+      if (endDate) {
+        query = query.lte('created_at', endDate)
+      }
+
+      const { data, count, error } = await query
 
       if (error) throw error
-      return data
-    } catch (err: any) {
-      return []
+
+      return {
+        data,
+        total: count || 0,
+        page,
+        limit,
+        totalPages: Math.ceil((count || 0) / limit),
+      }
+    } catch (err) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      }
     }
   },
+
 
   async create(payload: any) {
     try {

@@ -35,7 +35,7 @@ export function Fornecedores() {
     setLoading(true)
     try {
       const data = await fornecedoresService.getAll()
-      setFornecedores(data)
+      // setFornecedores(data)
     } catch (e: any) {
       toast.error('Erro ao carregar fornecedores: ' + e.message)
     } finally {
@@ -124,12 +124,12 @@ export function Fornecedores() {
       </Card>
 
       <Card title="Lista de fornecedores">
-        <Table
+        {/* <Table
           columns={columns}
           data={fornecedores}
           keyExtractor={(r) => r.id}
           emptyMessage={loading ? 'Carregando...' : 'Nenhum fornecedor encontrado'}
-        />
+        /> */}
       </Card>
 
       <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do fornecedor">
