@@ -1,0 +1,1 @@
+export { ModalViagem } from './ModalViagem'

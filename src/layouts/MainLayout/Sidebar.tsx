@@ -8,20 +8,20 @@ type MenuItem =
 
 const menu: MenuItem[] = [
   { to: '/dashboard', label: 'Dashboard' },
-  { to: '/compras', label: 'Compras de Gado' },
-  { to: '/fornecedores', label: 'Fornecedores' },
+  { to: '/compras', label: 'Compras de Gado (Ok)' },
+  { to: '/fornecedores', label: 'Fornecedores (Ok)' },
   { to: '/processamento', label: 'Processamento / Estoque' },
   { to: '/visceras', label: 'Vísceras' },
-  { to: '/clientes', label: 'Clientes' },
+  { to: '/clientes', label: 'Clientes (Ok)' },
   { to: '/vendas', label: 'Vendas' },
   { to: '/financeiro', label: 'Financeiro' },
   {
     label: 'Custos',
     children: [
       { to: '/custos/veiculos', label: 'Veículos' },
-      { to: '/custos/viagens', label: 'Viagens' },
+      { to: '/custos/viagens', label: 'Viagens (Ok)' },
       { to: '/custos/abate', label: 'Abate' },
-      { to: '/custos/operacionais', label: 'Operacionais' },
+      { to: '/custos/operacionais', label: 'Operacionais (Ok)' },
     ],
   },
   { to: '/relatorios', label: 'Relatórios' },

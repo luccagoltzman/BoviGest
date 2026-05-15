@@ -1,123 +1,490 @@
 import { useEffect, useState } from 'react'
-import { Autocomplete, Button, Card, Input, Table, Modal, ModalDetails, Select } from '@/components/ui'
-import type { DetailItem } from '@/components/ui'
+import {
+  Button,
+  Card,
+  Input,
+  Table,
+  Modal,
+  Select,
+  Autocomplete,
+} from '@/components/ui'
+
 import { fornecedoresService } from '@/services/fornecedores.service'
+import { comprasService } from '@/services/compras.service'
+
+import { ModalViagem } from '../custos/Viagens/ModalViagem'
+
 import styles from './Compras.module.scss'
+import toast from 'react-hot-toast'
+import { viagensService } from '@/services/Viagem.service'
 
 interface CompraRow {
-  id: string
-  fornecedor: string
+  id: number
+  fornecedor_id: string
+  fornecedor?: {
+    id: string
+    nome: string
+  }
   data: string
-  qtdAnimais: number
-  condicaoGado: string
-  pesoTotal: number
-  valorTotal: number
-  mediaKg: number
-  mediaAnimal: number
+  quantidade_animais: number
+  condicao_gado: number
+  peso_total: number
+  valor_total: number
+  tipo_gado?: string
+  observacoes?: string
   status: string
 }
 
-const mock: CompraRow[] = [
-  { id: '1', fornecedor: 'Fazenda São João', data: '2025-02-14', qtdAnimais: 12, condicaoGado: 'Vivo', pesoTotal: 3600, valorTotal: 108000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
-  { id: '2', fornecedor: 'Fazenda Santa Maria', data: '2025-02-12', qtdAnimais: 20, condicaoGado: 'Vivo', pesoTotal: 6200, valorTotal: 186000, mediaKg: 30, mediaAnimal: 9300, status: 'Pago' },
-  { id: '3', fornecedor: 'Rancho do Vale', data: '2025-02-10', qtdAnimais: 15, condicaoGado: 'Morto', pesoTotal: 4500, valorTotal: 135000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
-  { id: '4', fornecedor: 'Fazenda Boi Gordo', data: '2025-02-08', qtdAnimais: 18, condicaoGado: 'Vivo', pesoTotal: 5400, valorTotal: 162000, mediaKg: 30, mediaAnimal: 9000, status: 'Parcelado' },
-  { id: '5', fornecedor: 'Fazenda São João', data: '2025-02-05', qtdAnimais: 10, condicaoGado: 'Morto', pesoTotal: 3100, valorTotal: 93000, mediaKg: 31, mediaAnimal: 9300, status: 'Pago' },
-  { id: '6', fornecedor: 'Sítio Esperança', data: '2025-02-01', qtdAnimais: 8, condicaoGado: 'Vivo', pesoTotal: 2400, valorTotal: 72000, mediaKg: 30, mediaAnimal: 9000, status: 'Pago' },
-  { id: '7', fornecedor: 'Fazenda Santa Maria', data: '2025-01-28', qtdAnimais: 22, condicaoGado: 'Vivo', pesoTotal: 6820, valorTotal: 204600, mediaKg: 31, mediaAnimal: 9300, status: 'Pago' },
-]
-
 export function Compras() {
-  const [data] = useState<CompraRow[]>(mock)
-  const [detalhe, setDetalhe] = useState<CompraRow | null>(null)
-  const [fornecedores, setFornecedores] = useState<string[]>([])
+  const [compras, setCompras] = useState<CompraRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const [loadingViagem, setLoadingViagem] = useState(false)
+
+  const [page, setPage] = useState(1)
+  const [limit] = useState(10)
+
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [condicaoGadoFiltro, setCondicaoGadoFiltro] = useState('')
+
+  const [fornecedores, setFornecedores] = useState<any[]>([])
   const [fornecedorBusca, setFornecedorBusca] = useState('')
-  const [loadingFornecedores, setLoadingFornecedores] = useState(false)
+
+  const [editar, setEditar] = useState<CompraRow | null>(null)
+
+  const [viagemOpen, setViagemOpen] = useState(false)
+  const [viagemInitial, setViagemInitial] = useState<any>(null)
+
+  const [form, setForm] = useState({
+    fornecedor_id: '',
+    data: '',
+    quantidade_animais: '',
+    condicao_gado: '1',
+    peso_total: '',
+    valor_total: '',
+    tipo_gado: '',
+    observacoes: '',
+    status: 'Pendente',
+  })
+
+  async function carregarCompras() {
+    setLoading(true)
+
+    try {
+      const response = await comprasService.getAll(
+        page,
+        limit,
+        '',
+        startDate,
+        endDate,
+        condicaoGadoFiltro
+      )
+
+      setCompras(response.data || [])
+      setTotal(response.total || 0)
+      setTotalPages(response.totalPages || 0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    carregarCompras()
+  }, [page, startDate, endDate, condicaoGadoFiltro])
 
   useEffect(() => {
     async function carregarFornecedores() {
-      setLoadingFornecedores(true)
-      try {
-        const data = await fornecedoresService.getAll()
-        setFornecedores(data.map((fornecedor) => fornecedor.nome).filter(Boolean))
-      } catch (error) {
-        console.error('Erro ao carregar fornecedores:', error)
-        setFornecedores([])
-      } finally {
-        setLoadingFornecedores(false)
-      }
+      const data = await fornecedoresService.getSelectOptions()
+      setFornecedores(data || [])
     }
 
     carregarFornecedores()
   }, [])
 
+  async function salvarCompra() {
+    try {
+      await comprasService.create({
+        fornecedor_id: form.fornecedor_id,
+        data: form.data,
+        quantidade_animais: Number(form.quantidade_animais),
+        condicao_gado: Number(form.condicao_gado),
+        peso_total: Number(form.peso_total),
+        valor_total: Number(form.valor_total),
+        tipo_gado: form.tipo_gado,
+        observacoes: form.observacoes,
+        status: form.status,
+      })
+
+      toast.success('Compra cadastrada com sucesso')
+
+      setForm({
+        fornecedor_id: '',
+        data: '',
+        quantidade_animais: '',
+        condicao_gado: '1',
+        peso_total: '',
+        valor_total: '',
+        tipo_gado: '',
+        observacoes: '',
+        status: 'Pendente',
+      })
+
+      setFornecedorBusca('')
+      carregarCompras()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao cadastrar compra')
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await comprasService.delete(id)
+
+      toast.success('Compra excluída com sucesso')
+      setEditar(null)
+      carregarCompras()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao excluir compra')
+    }
+  }
+
+  async function handleSaveEdit() {
+    if (!editar) return
+
+    try {
+      await comprasService.update(editar.id, {
+        fornecedor_id: editar.fornecedor_id,
+        data: editar.data,
+        quantidade_animais: Number(editar.quantidade_animais),
+        condicao_gado: Number(editar.condicao_gado),
+        peso_total: Number(editar.peso_total),
+        valor_total: Number(editar.valor_total),
+        tipo_gado: editar.tipo_gado,
+        observacoes: editar.observacoes,
+        status: editar.status,
+      })
+
+      toast.success('Compra atualizada com sucesso')
+      setEditar(null)
+      carregarCompras()
+    } catch (e: any) {
+      toast.error(e?.message || 'Erro ao atualizar compra')
+    }
+  }
+
+  async function abrirViagem(compra: CompraRow) {
+    try {
+      setLoadingViagem(true)
+
+      const viagem = await viagensService.getByReferenciaId(
+        compra.id,
+      )
+
+      setViagemInitial(
+        viagem
+          ? viagem
+          : {
+            referenciaTipo: 'compra',
+            referenciaId: compra.id,
+          }
+      )
+
+      setViagemOpen(true)
+    } catch (e: any) {
+      toast.error('Erro ao carregar viagem')
+    } finally {
+      setLoadingViagem(false)
+    }
+  }
+
+  const canSaveCompra =
+    form.fornecedor_id &&
+    form.data &&
+    Number(form.quantidade_animais) > 0 &&
+    Number(form.peso_total) > 0 &&
+    Number(form.valor_total) > 0
+
   const columns = [
-    { key: 'fornecedor', header: 'Fornecedor' },
+    {
+      key: 'fornecedor',
+      header: 'Fornecedor',
+      render: (r: CompraRow) => r.fornecedor?.nome || '-',
+    },
     { key: 'data', header: 'Data' },
-    { key: 'qtdAnimais', header: 'Qtd. animais' },
-    { key: 'condicaoGado', header: 'Condição' },
-    { key: 'pesoTotal', header: 'Peso total (kg)' },
-    { key: 'valorTotal', header: 'Valor total', render: (r: CompraRow) => `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
-    { key: 'mediaKg', header: 'Média/kg' },
-    { key: 'status', header: 'Status' },
+    { key: 'quantidade_animais', header: 'Qtd animais' },
+    {
+      key: 'condicao_gado',
+      header: 'Condição',
+      render: (r: CompraRow) =>
+        r.condicao_gado === 1 ? 'Vivo' : 'Morto',
+    },
+    { key: 'peso_total', header: 'Peso' },
+    {
+      key: 'valor_total',
+      header: 'Valor',
+      render: (r: CompraRow) =>
+        `R$ ${Number(r.valor_total).toLocaleString('pt-BR')}`,
+    },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: CompraRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button variant="ghost" onClick={() => setEditar(r)}>
+            Ver detalhes
+          </Button>
+
+          <Button variant="ghost" onClick={() => abrirViagem(r)}>
+            Ver viagem
+          </Button>
+        </div>
       ),
     },
-  ]
-
-  const detalheItems = (r: CompraRow): DetailItem[] => [
-    { label: 'Fornecedor', value: r.fornecedor },
-    { label: 'Data', value: r.data },
-    { label: 'Quantidade de animais', value: r.qtdAnimais },
-    { label: 'Condição do gado', value: r.condicaoGado },
-    { label: 'Peso total (kg)', value: r.pesoTotal },
-    { label: 'Valor total', value: `R$ ${r.valorTotal.toLocaleString('pt-BR')}` },
-    { label: 'Média por kg', value: r.mediaKg },
-    { label: 'Média por animal', value: `R$ ${r.mediaAnimal.toLocaleString('pt-BR')}` },
-    { label: 'Status', value: r.status },
   ]
 
   return (
     <div className={styles.page}>
       <h1 className="page-title">Compras de Gado</h1>
+
       <Card title="Nova compra">
         <div className={styles.form}>
           <Autocomplete
             label="Fornecedor"
-            options={fornecedores}
+            options={fornecedores.map((f) => f.nome)}
             value={fornecedorBusca}
-            onChange={setFornecedorBusca}
-            placeholder={
-              fornecedores.length === 0
-                ? 'Digite o fornecedor'
-                : 'Digite para buscar fornecedor'
-            }
-            loading={loadingFornecedores}
+            onChange={(value) => {
+              setFornecedorBusca(value)
+
+              const fornecedor = fornecedores.find(
+                (f) => f.nome === value
+              )
+
+              setForm({
+                ...form,
+                fornecedor_id: fornecedor?.id || '',
+              })
+            }}
           />
-          <Input label="Data" type="date" />
-          <Input label="Quantidade de animais" type="number" />
-          <Select label="Condição do gado" options={['Vivo', 'Morto']} />
-          <Input label="Peso total (kg)" type="number" />
-          <Input label="Valor total (R$)" type="number" />
-          <Input label="Tipo de gado" placeholder="Opcional" />
-          <Input label="Observações" placeholder="Opcional" />
+
+          <Input
+            label="Data"
+            type="date"
+            value={form.data}
+            onChange={(e) =>
+              setForm({ ...form, data: e.target.value })
+            }
+          />
+
+          <Input
+            label="Quantidade de animais"
+            type="number"
+            value={form.quantidade_animais}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                quantidade_animais: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label="Peso total"
+            type="number"
+            value={form.peso_total}
+            onChange={(e) =>
+              setForm({ ...form, peso_total: e.target.value })
+            }
+          />
+
+          <Input
+            label="Valor total"
+            type="number"
+            value={form.valor_total}
+            onChange={(e) =>
+              setForm({ ...form, valor_total: e.target.value })
+            }
+          />
+
           <div className={styles.actions}>
-            <Button>Salvar compra</Button>
+            <Button onClick={salvarCompra} disabled={!canSaveCompra}>
+              Salvar compra
+            </Button>
           </div>
         </div>
       </Card>
-      <Card title="Histórico de compras">
-        <Table columns={columns} data={data} keyExtractor={(r) => r.id} />
+
+      <Card title="Histórico">
+        <Table
+          columns={columns}
+          data={compras}
+          keyExtractor={(r) => String(r.id)}
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+        />
       </Card>
-      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes da compra">
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+
+      <Modal
+        open={!!editar}
+        onClose={() => setEditar(null)}
+        title="Editar compra"
+      >
+        {editar && (
+          <div className={styles.form}>
+            <Autocomplete
+              label="Fornecedor"
+              options={fornecedores.map((f) => f.nome)}
+              value={
+                fornecedores.find(
+                  (f) => f.id === editar.fornecedor_id
+                )?.nome || ''
+              }
+              onChange={(value) => {
+                const fornecedor = fornecedores.find(
+                  (f) => f.nome === value
+                )
+
+                setEditar({
+                  ...editar,
+                  fornecedor_id: fornecedor?.id || '',
+                })
+              }}
+            />
+
+            <Input
+              label="Data"
+              type="date"
+              value={editar.data}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  data: e.target.value,
+                })
+              }
+            />
+
+            <Input
+              label="Quantidade de animais"
+              type="number"
+              value={editar.quantidade_animais}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  quantidade_animais: Number(e.target.value),
+                })
+              }
+            />
+
+            <Select
+              label="Condição"
+              options={['Vivo', 'Morto']}
+              value={
+                editar.condicao_gado === 1
+                  ? 'Vivo'
+                  : 'Morto'
+              }
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  condicao_gado:
+                    e.target.value === 'Vivo' ? 1 : 0,
+                })
+              }
+            />
+
+            <Input
+              label="Peso total"
+              type="number"
+              value={editar.peso_total}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  peso_total: Number(e.target.value),
+                })
+              }
+            />
+
+            <Input
+              label="Valor total"
+              type="number"
+              value={editar.valor_total}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  valor_total: Number(e.target.value),
+                })
+              }
+            />
+
+            <Input
+              label="Tipo gado"
+              value={editar.tipo_gado || ''}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  tipo_gado: e.target.value,
+                })
+              }
+            />
+
+            <Input
+              label="Observações"
+              value={editar.observacoes || ''}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  observacoes: e.target.value,
+                })
+              }
+            />
+
+            <Input
+              label="Status"
+              value={editar.status}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  status: e.target.value,
+                })
+              }
+            />
+
+            <div className={styles.actions}>
+              <Button onClick={handleSaveEdit}>
+                Salvar alterações
+              </Button>
+
+              <Button
+                variant="danger"
+                onClick={() => handleDelete(editar.id)}
+              >
+                Excluir
+              </Button>
+            </div>
+          </div>
+        )}
       </Modal>
+      <ModalViagem
+        open={viagemOpen}
+        onClose={() => {
+          setViagemOpen(false)
+          setViagemInitial(null)
+        }}
+        initialData={viagemInitial}
+        referenciaTipo="compra"
+        referenciaId={viagemInitial?.referenciaId || null}
+        viagensService={viagensService}
+        onSaved={() => {
+          setViagemOpen(false)
+          setViagemInitial(null)
+          carregarCompras()
+        }}
+      />
     </div>
   )
 }

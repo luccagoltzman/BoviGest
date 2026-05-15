@@ -59,6 +59,30 @@ export const fornecedoresService = {
     }
   },
 
+ async getSelectOptions(search = '') {
+  try {
+    const user = getUser()
+
+    let query = supabase
+      .from('fornecedores')
+      .select('id, nome')
+      .eq('empresa_id', user.empresa_id)
+      .neq('status', 0)
+      .order('nome', { ascending: true })
+
+    if (search) {
+      query = query.ilike('nome', `%${search}%`)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return data || []
+  } catch {
+    return []
+  }
+},
   async getById(id: string) {
     const user = getUser()
     const { data, error } = await supabase

@@ -13,6 +13,7 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: ReactNode
+  width?: string
 }
 
 export function ModalDetails({ items }: { items: DetailItem[] }) {
@@ -28,15 +29,17 @@ export function ModalDetails({ items }: { items: DetailItem[] }) {
   )
 }
 
-export function Modal({ open, onClose, title, children }: ModalProps) {
+export function Modal({ open, onClose, title, children, width }: ModalProps) {
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose()
     }
+
     if (open) {
       document.addEventListener('keydown', handleEscape)
       document.body.style.overflow = 'hidden'
     }
+
     return () => {
       document.removeEventListener('keydown', handleEscape)
       document.body.style.overflow = ''
@@ -46,14 +49,33 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   if (!open) return null
 
   return (
-    <div className={styles.overlay} onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="modal-title">
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
+    <div
+      className={styles.overlay}
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div
+        className={styles.modal}
+        onClick={(e) => e.stopPropagation()}
+        style={width ? { maxWidth: width } : undefined}
+      >
         <div className={styles.header}>
-          <h2 id="modal-title" className={styles.title}>{title}</h2>
-          <Button variant="ghost" onClick={onClose} className={styles.close} aria-label="Fechar">
+          <h2 id="modal-title" className={styles.title}>
+            {title}
+          </h2>
+
+          <Button
+            variant="ghost"
+            onClick={onClose}
+            className={styles.close}
+            aria-label="Fechar"
+          >
             ✕
           </Button>
         </div>
+
         <div className={styles.body}>{children}</div>
       </div>
     </div>

@@ -43,6 +43,21 @@ export function CustosOperacionais() {
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
+  const isCreateValid =
+    createForm.data &&
+    createForm.categoria &&
+    createForm.descricao &&
+    createForm.valor > 0 &&
+    createForm.centro_custo
+
+  const isEditValid =
+    !!editForm &&
+    editForm.data &&
+    editForm.categoria &&
+    editForm.descricao &&
+    editForm.valor > 0 &&
+    editForm.centro_custo
+
   const fetchCustos = async (
     currentPage: number,
     currentLimit: number,
@@ -64,7 +79,7 @@ export function CustosOperacionais() {
       setTotal(res.total)
       setTotalPages(res.totalPages)
     } catch (e: any) {
-      toast.error('Erro ao carregar custos: ' + e.message)
+      toast.error('Erro ao carregar custos')
     } finally {
       setLoading(false)
     }
@@ -74,27 +89,12 @@ export function CustosOperacionais() {
     fetchCustos(page, limit, search, startDate, endDate)
   }, [page, limit, search, startDate, endDate])
 
-  const handleSearch = (value: string) => {
-    setPage(1)
-
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-
-    debounceRef.current = setTimeout(() => {
-      setSearch(value)
-    }, 500)
-  }
-
-  const handleStartDate = (value: string) => {
-    setPage(1)
-    setStartDate(value)
-  }
-
-  const handleEndDate = (value: string) => {
-    setPage(1)
-    setEndDate(value)
-  }
-
   const handleCreate = async () => {
+    if (!isCreateValid) {
+      toast.error('Preencha os campos obrigatórios')
+      return
+    }
+
     try {
       const data = await custosOperacionaisService.create(createForm)
 
@@ -111,12 +111,15 @@ export function CustosOperacionais() {
 
       fetchCustos(1, limit, search, startDate, endDate)
     } catch (e: any) {
-      toast.error('Erro ao criar custo: ' + e.message)
+      toast.error('Erro ao criar custo')
     }
   }
 
   const handleUpdate = async () => {
-    if (!editForm) return
+    if (!editForm || !isEditValid) {
+      toast.error('Preencha os campos obrigatórios')
+      return
+    }
 
     try {
       const data = await custosOperacionaisService.update(editForm.id, editForm)
@@ -128,7 +131,7 @@ export function CustosOperacionais() {
       setDetalhe(null)
       setEditForm(null)
     } catch (e: any) {
-      toast.error('Erro ao atualizar custo: ' + e.message)
+      toast.error('Erro ao atualizar custo')
     }
   }
 
@@ -143,7 +146,7 @@ export function CustosOperacionais() {
       setDetalhe(null)
       setEditForm(null)
     } catch (e: any) {
-      toast.error('Erro ao excluir custo: ' + e.message)
+      toast.error('Erro ao excluir custo')
     }
   }
 
@@ -187,33 +190,14 @@ export function CustosOperacionais() {
           <Select label="Centro de custo" options={centrosCusto} value={createForm.centro_custo} onChange={e => setCreateForm({ ...createForm, centro_custo: e.target.value })} />
 
           <div className={styles.actions}>
-            <Button onClick={handleCreate}>Lançar</Button>
+            <Button onClick={handleCreate} disabled={!isCreateValid}>
+              Lançar
+            </Button>
           </div>
         </div>
       </Card>
 
       <Card title="Lançamentos">
-        <div className={styles.form}>
-          <Input
-            label="Buscar"
-            onChange={(e) => handleSearch(e.target.value)}
-          />
-
-          <Input
-            type="date"
-            label="Data inicial"
-            value={startDate}
-            onChange={(e) => handleStartDate(e.target.value)}
-          />
-
-          <Input
-            type="date"
-            label="Data final"
-            value={endDate}
-            onChange={(e) => handleEndDate(e.target.value)}
-          />
-        </div>
-
         <Table
           columns={columns}
           data={custos}
@@ -237,8 +221,12 @@ export function CustosOperacionais() {
             <Select label="Centro de custo" options={centrosCusto} value={editForm.centro_custo} onChange={e => setEditForm({ ...editForm, centro_custo: e.target.value })} />
 
             <div className={styles.actions}>
-              <Button onClick={handleUpdate}>Salvar</Button>
-              <Button variant="danger" onClick={() => handleDelete(editForm.id)}>Excluir</Button>
+              <Button onClick={handleUpdate} disabled={!isEditValid}>
+                Salvar
+              </Button>
+              <Button variant="danger" onClick={() => handleDelete(editForm.id)}>
+                Excluir
+              </Button>
             </div>
           </div>
         )}

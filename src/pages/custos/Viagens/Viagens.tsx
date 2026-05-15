@@ -1,90 +1,276 @@
-import { useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
-import type { DetailItem } from '@/components/ui'
+import { useEffect, useState } from 'react'
+
+import {
+  Button,
+  Card,
+  Input,
+  Table,
+  Select,
+} from '@/components/ui'
+
+
 import styles from './Viagens.module.scss'
+import { ModalViagem } from './ModalViagem'
+import { viagensService } from '@/services/Viagem.service'
 
 interface ViagemRow {
-  id: string
+  id: number
   data: string
   veiculo: string
+  motorista?: string
   origem: string
   destino: string
   finalidade: string
   km: number
-  cargaKg: number
-  custoTotal: number
+  carga_kg: number
+  custo_total: number
+  referencia_tipo?: string
+  status: number
 }
 
-const mock: ViagemRow[] = [
-  { id: '1', data: '2025-02-14', veiculo: 'ABC-1D23', origem: 'Fazenda São João', destino: 'Matadouro Central', finalidade: 'Compra gado', km: 85, cargaKg: 3600, custoTotal: 720 },
-  { id: '2', data: '2025-02-13', veiculo: 'DEF-4G56', origem: 'Matadouro', destino: 'Frigorífico Regional', finalidade: 'Entrega carne', km: 120, cargaKg: 5000, custoTotal: 980 },
-  { id: '3', data: '2025-02-12', veiculo: 'ABC-1D23', origem: 'Fazenda Santa Maria', destino: 'Matadouro Central', finalidade: 'Compra gado', km: 65, cargaKg: 6200, custoTotal: 650 },
-  { id: '4', data: '2025-02-11', veiculo: 'GHI-7J89', origem: 'Base', destino: 'Açougue Central', finalidade: 'Entrega carne', km: 25, cargaKg: 800, custoTotal: 180 },
-  { id: '5', data: '2025-02-10', veiculo: 'ABC-1D23', origem: 'Rancho do Vale', destino: 'Matadouro', finalidade: 'Compra gado', km: 95, cargaKg: 4500, custoTotal: 820 },
-  { id: '6', data: '2025-02-08', veiculo: 'DEF-4G56', origem: 'Matadouro', destino: 'Super Carnes Ltda', finalidade: 'Entrega carne', km: 40, cargaKg: 3200, custoTotal: 420 },
-]
-
 export function Viagens() {
-  const [detalhe, setDetalhe] = useState<ViagemRow | null>(null)
+  const [viagens, setViagens] = useState<
+    ViagemRow[]
+  >([])
+
+  const [loading, setLoading] =
+    useState(false)
+
+  const [page, setPage] = useState(1)
+
+  const [total, setTotal] = useState(0)
+
+  const [totalPages, setTotalPages] =
+    useState(0)
+
+  const [search, setSearch] = useState('')
+
+  const [startDate, setStartDate] =
+    useState('')
+
+  const [endDate, setEndDate] =
+    useState('')
+
+  const [referenciaTipo, setReferenciaTipo] =
+    useState('')
+
+  const [modalOpen, setModalOpen] =
+    useState(false)
+
+  const [editar, setEditar] =
+    useState<any>(null)
+
+  async function carregarViagens() {
+    try {
+      setLoading(true)
+
+      const response =
+        await viagensService.getAll(
+          page,
+          10,
+          search,
+          startDate,
+          endDate,
+          referenciaTipo
+        )
+
+      setViagens(response.data || [])
+
+      setTotal(response.total || 0)
+
+      setTotalPages(response.totalPages || 0)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    carregarViagens()
+  }, [
+    page,
+    search,
+    startDate,
+    endDate,
+    referenciaTipo,
+  ])
+
+  async function handleDelete(id: number) {
+    await viagensService.delete(id)
+
+    carregarViagens()
+  }
 
   const columns = [
-    { key: 'data', header: 'Data' },
-    { key: 'veiculo', header: 'Veículo' },
-    { key: 'origem', header: 'Origem' },
-    { key: 'destino', header: 'Destino' },
-    { key: 'finalidade', header: 'Finalidade' },
-    { key: 'km', header: 'KM' },
-    { key: 'cargaKg', header: 'Carga (kg)' },
-    { key: 'custoTotal', header: 'Custo', render: (r: ViagemRow) => `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
+    {
+      key: 'data',
+      header: 'Data',
+    },
+    {
+      key: 'veiculo',
+      header: 'Veículo',
+    },
+    {
+      key: 'origem',
+      header: 'Origem',
+    },
+    {
+      key: 'destino',
+      header: 'Destino',
+    },
+    {
+      key: 'finalidade',
+      header: 'Finalidade',
+    },
+    {
+      key: 'km',
+      header: 'KM',
+    },
+    {
+      key: 'carga_kg',
+      header: 'Carga (kg)',
+    },
+    {
+      key: 'custo_total',
+      header: 'Custo',
+      render: (r: ViagemRow) =>
+        `R$ ${Number(
+          r.custo_total
+        ).toLocaleString('pt-BR')}`,
+    },
+    {
+      key: 'referencia_tipo',
+      header: 'Tipo',
+    },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: ViagemRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+          }}
+        >
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setEditar(r)
+              setModalOpen(true)
+            }}
+          >
+            Editar
+          </Button>
+
+          <Button
+            variant="danger"
+            onClick={() =>
+              handleDelete(r.id)
+            }
+          >
+            Excluir
+          </Button>
+        </div>
       ),
     },
   ]
 
-  const detalheItems = (r: ViagemRow): DetailItem[] => [
-    { label: 'Data', value: r.data },
-    { label: 'Veículo', value: r.veiculo },
-    { label: 'Origem', value: r.origem },
-    { label: 'Destino', value: r.destino },
-    { label: 'Finalidade', value: r.finalidade },
-    { label: 'KM', value: r.km },
-    { label: 'Carga (kg)', value: r.cargaKg },
-    { label: 'Custo total', value: `R$ ${r.custoTotal.toLocaleString('pt-BR')}` },
-  ]
-
   return (
     <div className={styles.page}>
-      <h1 className="page-title">Registro de viagens / transporte</h1>
+      <h1 className="page-title">
+        Registro de viagens / transporte
+      </h1>
+
       <Card title="Nova viagem">
-        <div className={styles.form}>
-          <Input label="Data" type="date" />
-          <Input label="Veículo" />
-          <Input label="Motorista" />
-          <Input label="Origem" />
-          <Input label="Destino" />
-          <Input label="Finalidade" placeholder="Compra gado, entrega, transferência" />
-          <Input label="KM inicial" type="number" />
-          <Input label="KM final" type="number" />
-          <Input label="Carga transportada (kg)" type="number" />
-          <Input label="Combustível (R$)" type="number" />
-          <Input label="Pedágio (R$)" type="number" />
-          <div className={styles.actions}>
-            <Button>Registrar viagem</Button>
-          </div>
+        <div className={styles.actions}>
+          <Button
+            onClick={() => {
+              setEditar(null)
+              setModalOpen(true)
+            }}
+          >
+            Nova viagem
+          </Button>
         </div>
       </Card>
-      <Card title="Histórico de viagens">
-        <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
+
+      <Card title="Filtros">
+        <div className={styles.filters}>
+          <Input
+            label="Buscar"
+            placeholder="Veículo, motorista, origem..."
+            value={search}
+            onChange={(e) =>
+              setSearch(e.target.value)
+            }
+          />
+
+          <Input
+            label="Data inicial"
+            type="date"
+            value={startDate}
+            onChange={(e) =>
+              setStartDate(e.target.value)
+            }
+          />
+
+          <Input
+            label="Data final"
+            type="date"
+            value={endDate}
+            onChange={(e) =>
+              setEndDate(e.target.value)
+            }
+          />
+
+          {/* <Select
+            label="Tipo"
+            options={[
+              'Todos',
+              'compra',
+              'venda',
+              'transferencia',
+              'manual',
+            ]}
+            value={
+              referenciaTipo || 'Todos'
+            }
+            onChange={(e) =>
+              setReferenciaTipo(
+                e.target.value === 'Todos'
+                  ? ''
+                  : e.target.value
+              )
+            }
+          /> */}
+        </div>
       </Card>
-      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes da viagem">
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
-      </Modal>
+
+      <Card title="Histórico de viagens">
+        <Table
+          columns={columns}
+          data={viagens}
+          keyExtractor={(r) =>
+            String(r.id)
+          }
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          emptyMessage="Nenhuma viagem encontrada."
+        />
+      </Card>
+
+      <ModalViagem
+        open={modalOpen}
+        onClose={() => {
+          setModalOpen(false)
+          setEditar(null)
+        }}
+        initialData={editar}
+        viagensService={viagensService}
+        onSaved={carregarViagens}
+      />
     </div>
   )
 }

@@ -107,7 +107,11 @@ export function Clientes() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editar) return
+    if (!editar || !isEditFormValid) {
+      toast.error('Preencha os campos obrigatórios')
+      return
+    }
+
 
     try {
       await clientesService.update(editar.id, {
@@ -140,6 +144,17 @@ export function Clientes() {
     }
   }
 
+  const isCreateFormValid =
+    createForm.nome.trim() !== '' &&
+    createForm.doc.trim() !== '' &&
+    createForm.telefone.trim() !== ''
+
+  const isEditFormValid =
+    editar &&
+    editar.nome.trim() !== '' &&
+    editar.doc.trim() !== '' &&
+    editar.telefone.trim() !== ''
+
   const columns = [
     { key: 'nome', header: 'Nome / Empresa' },
     { key: 'doc', header: 'CPF/CNPJ' },
@@ -169,8 +184,12 @@ export function Clientes() {
           <Input label="Endereço" value={createForm.endereco} onChange={e => setCreateForm({ ...createForm, endereco: e.target.value })} />
           <Input label="Limite de crédito" type="number" value={createForm.limiteCredito} onChange={e => setCreateForm({ ...createForm, limiteCredito: e.target.value })} />
           <div className={styles.actions}>
-            <Button onClick={handleCreate}>Cadastrar</Button>
-          </div>
+            <Button
+              onClick={handleCreate}
+              disabled={!isCreateFormValid}
+            >
+              Cadastrar
+            </Button>          </div>
         </div>
       </Card>
 
