@@ -169,6 +169,13 @@
   font-weight: 850;
   box-shadow: $shadow-sm;
   margin-bottom: 1rem;
+
+  img {
+    display: block;
+    max-height: 2rem;
+    max-width: 100%;
+    object-fit: contain;
+  }
 }
 
 .previewCard {

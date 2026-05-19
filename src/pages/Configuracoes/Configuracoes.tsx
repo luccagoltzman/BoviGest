@@ -1,8 +1,12 @@
 import type { CSSProperties } from 'react'
 import { useEffect, useMemo, useState } from 'react'
+import toast from 'react-hot-toast'
+import { LogoImage } from '@/components/AppLogo'
 import { Button, Card, Input } from '@/components/ui'
 import { canAccessSettings, currentUserRole } from '@/config/access'
 import { configuracoesService } from '@/services/configuracoes.service'
+import { sanitizeLogoUrl, uploadLogo } from '@/services/logo.service'
+import { persistThemeConfig } from '@/services/theme.service'
 import styles from './Configuracoes.module.scss'
 
 interface SystemCustomizationPayload {
@@ -60,43 +64,6 @@ export function Configuracoes() {
     ],
   )
 
-  const applyTheme = (data: any) => {
-    document.documentElement.style.setProperty(
-      '--theme-primary',
-      data.primaryColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-primary-dark',
-      data.sidebarColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-secondary',
-      data.secondaryColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-sidebar-start',
-      data.sidebarColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-sidebar-end',
-      data.sidebarEndColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-button-gradient-end',
-      data.buttonGradientEndColor,
-    )
-
-    document.documentElement.style.setProperty(
-      '--theme-background-glow',
-      data.backgroundGlowColor,
-    )
-  }
-
   const loadConfiguracoes = async () => {
     try {
       setLoading(true)
@@ -108,7 +75,7 @@ export function Configuracoes() {
       setForm({
         empresaId: data.empresa_id ?? 1,
         logoFile: null,
-        logoPreviewUrl: data.logo_file ?? '',
+        logoPreviewUrl: sanitizeLogoUrl(data.logo_file),
         primaryColor: data.primary_color ?? '#256f3e',
         secondaryColor: data.secondary_color ?? '#d69e2e',
         sidebarColor: data.sidebar_color ?? '#11351f',
@@ -119,15 +86,9 @@ export function Configuracoes() {
           data.background_glow_color ?? '#38a169',
       })
 
-      applyTheme({
-        primaryColor: data.primary_color,
-        secondaryColor: data.secondary_color,
-        sidebarColor: data.sidebar_color,
-        sidebarEndColor: data.sidebar_end_color,
-        buttonGradientEndColor:
-          data.button_gradient_end_color,
-        backgroundGlowColor:
-          data.background_glow_color,
+      persistThemeConfig({
+        ...data,
+        logo_file: sanitizeLogoUrl(data.logo_file),
       })
     } catch (error) {
       console.error(error)
@@ -150,9 +111,15 @@ export function Configuracoes() {
     try {
       setLoading(true)
 
+      let logoUrl = sanitizeLogoUrl(form.logoPreviewUrl)
+
+      if (form.logoFile) {
+        logoUrl = await uploadLogo(form.logoFile)
+      }
+
       const payload = {
         empresa_id: form.empresaId,
-        logo_file: form.logoPreviewUrl,
+        logo_file: logoUrl || null,
         primary_color: form.primaryColor,
         secondary_color: form.secondaryColor,
         sidebar_color: form.sidebarColor,
@@ -163,13 +130,31 @@ export function Configuracoes() {
           form.backgroundGlowColor,
       }
 
-      await configuracoesService.upsert(payload)
+      const savedConfig = await configuracoesService.upsert(payload)
 
-      applyTheme(form)
+      if (form.logoPreviewUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(form.logoPreviewUrl)
+      }
+
+      const persisted = savedConfig ?? payload
+
+      persistThemeConfig(persisted)
+
+      setForm((prev) => ({
+        ...prev,
+        logoFile: null,
+        logoPreviewUrl: sanitizeLogoUrl(persisted.logo_file),
+      }))
 
       setSaved(true)
-    } catch (error) {
+      toast.success('Configurações salvas com sucesso.')
+    } catch (error: unknown) {
       console.error(error)
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao salvar configurações'
+      toast.error(message)
     } finally {
       setLoading(false)
     }
@@ -215,9 +200,15 @@ export function Configuracoes() {
                 />
 
                 {form.logoPreviewUrl ? (
-                  <img
+                  <LogoImage
                     src={form.logoPreviewUrl}
-                    alt="Logo selecionada"
+                    onInvalid={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        logoPreviewUrl: '',
+                        logoFile: null,
+                      }))
+                    }
                   />
                 ) : (
                   <span>Selecionar logo</span>
@@ -328,7 +319,7 @@ export function Configuracoes() {
             <aside>
               <div className={styles.previewLogo}>
                 {form.logoPreviewUrl ? (
-                  <img src={form.logoPreviewUrl} alt="" />
+                  <LogoImage src={form.logoPreviewUrl} />
                 ) : (
                   'BG'
                 )}
@@ -341,7 +332,11 @@ export function Configuracoes() {
 
             <main>
               <div className={styles.previewHeader}>
-                BoviGest
+                {form.logoPreviewUrl ? (
+                  <LogoImage src={form.logoPreviewUrl} />
+                ) : (
+                  'BoviGest'
+                )}
               </div>
 
               <div className={styles.previewCard}>

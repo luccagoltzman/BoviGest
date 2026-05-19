@@ -1,4 +1,49 @@
+import { isValidLogoUrl } from './logo.service'
 import { configuracoesService } from './configuracoes.service'
+
+const THEME_CONFIG_KEY = 'theme_config'
+const THEME_UPDATED_EVENT = 'theme-updated'
+
+export function getThemeConfig(): Record<string, unknown> | null {
+  const cache = localStorage.getItem(THEME_CONFIG_KEY)
+
+  if (!cache) return null
+
+  try {
+    return JSON.parse(cache)
+  } catch {
+    return null
+  }
+}
+
+export function getLogoUrl(): string | null {
+  const logo = getThemeConfig()?.logo_file
+
+  return isValidLogoUrl(logo) ? logo : null
+}
+
+export function clearInvalidLogoFromCache(failedUrl?: string) {
+  const config = getThemeConfig()
+
+  if (!config) return
+
+  const current = config.logo_file
+
+  if (!isValidLogoUrl(current)) return
+  if (failedUrl && current !== failedUrl) return
+
+  const { logo_file: _removed, ...rest } = config
+
+  localStorage.setItem(THEME_CONFIG_KEY, JSON.stringify(rest))
+  window.dispatchEvent(new CustomEvent(THEME_UPDATED_EVENT))
+}
+
+export function persistThemeConfig(config: Record<string, unknown>) {
+  applyTheme(config)
+
+  localStorage.setItem(THEME_CONFIG_KEY, JSON.stringify(config))
+  window.dispatchEvent(new CustomEvent(THEME_UPDATED_EVENT))
+}
 
 function hexToRgb(hex: string) {
   const sanitized = hex.replace('#', '')
@@ -93,10 +138,10 @@ function applyTheme(config: any) {
 }
 
 export async function loadTheme() {
-  const cache = localStorage.getItem('theme_config')
+  const cache = getThemeConfig()
 
   if (cache) {
-    applyTheme(JSON.parse(cache))
+    applyTheme(cache)
   }
 
   try {
@@ -104,12 +149,7 @@ export async function loadTheme() {
 
     if (!config) return
 
-    applyTheme(config)
-
-    localStorage.setItem(
-      'theme_config',
-      JSON.stringify(config),
-    )
+    persistThemeConfig(config)
   } catch (error) {
     console.error(error)
   }

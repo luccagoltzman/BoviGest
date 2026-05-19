@@ -26,13 +26,19 @@
 
 .logo {
   padding: 1.35rem 1.25rem;
+  display: flex;
+  align-items: center;
+
+  &:has(img) {
+    padding: 1.15rem 1rem;
+  }
   font-size: 1.35rem;
   font-weight: 850;
   letter-spacing: -0.03em;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   position: relative;
 
-  &::before {
+  &:not(:has(img))::before {
     content: '';
     display: inline-block;
     width: 0.7rem;
@@ -98,8 +104,9 @@
   .logo {
     font-size: 0;
     text-align: center;
+    padding-inline: 0.5rem;
 
-    &::after {
+    &:not(:has(img))::after {
       content: 'BG';
       font-size: 1rem;
     }

@@ -1,4 +1,5 @@
 import { NavLink } from 'react-router-dom'
+import { AppLogo } from '@/components/AppLogo'
 import { canAccessSettings, currentUserRole } from '@/config/access'
 import styles from './Sidebar.module.scss'
 
@@ -38,7 +39,9 @@ export function Sidebar() {
 
   return (
     <aside className={styles.sidebar}>
-      <div className={styles.logo}>BoviGest</div>
+      <div className={styles.logo}>
+        <AppLogo variant="sidebar" />
+      </div>
       <nav className={styles.nav}>
         {visibleMenu.map((item) =>
           hasChildren(item) ? (

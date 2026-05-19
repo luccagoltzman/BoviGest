@@ -15,8 +15,6 @@ export const configuracoesService = {
   async get() {
     const user = getUser()
 
-    return
-
     const { data, error } = await supabase
       .from('configuracoes')
       .select('*')

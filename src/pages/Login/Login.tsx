@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
+import { AppLogo } from '@/components/AppLogo'
 import { Button, Input } from '@/components/ui'
 import { AuthService } from '@/services/auth.service'
+import { loadTheme } from '@/services/theme.service'
 import styles from './Login.module.scss'
 
 export function Login() {
@@ -20,6 +22,7 @@ export function Login() {
 
     try {
       await AuthService.login(email, password)
+      await loadTheme()
       navigate('/dashboard')
       toast.success('Seja bem-vindo!')
     } catch (err: any) {
@@ -32,7 +35,9 @@ export function Login() {
   return (
     <main className={styles.container}>
       <section className={styles.hero}>
-        <div className={styles.logo}>BoviGest</div>
+        <div className={styles.logo}>
+          <AppLogo variant="login" />
+        </div>
         <h1>Gestão moderna para marchantes</h1>
         <p>
           Controle compras de gado, abate, estoque, vendas e financeiro em uma única operação.

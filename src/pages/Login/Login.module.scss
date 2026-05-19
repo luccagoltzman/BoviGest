@@ -37,7 +37,11 @@
   display: inline-flex;
   align-items: center;
   gap: 0.65rem;
-  padding: 0.7rem 1rem;
+  padding: 0.85rem 1.15rem;
+
+  &:has(img) {
+    padding: 0.95rem 1.25rem;
+  }
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.72);
   border: 1px solid rgba(232, 247, 233, 0.72);
@@ -45,7 +49,7 @@
   font-size: 1.05rem;
   font-weight: 900;
 
-  &::before {
+  &:not(:has(img))::before {
     content: '';
     width: 0.7rem;
     height: 0.7rem;
