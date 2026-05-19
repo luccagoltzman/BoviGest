@@ -5,7 +5,6 @@ import {
   Card,
   Input,
   Table,
-  Select,
 } from '@/components/ui'
 
 
@@ -51,8 +50,7 @@ export function Viagens() {
   const [endDate, setEndDate] =
     useState('')
 
-  const [referenciaTipo, setReferenciaTipo] =
-    useState('')
+  const [referenciaTipo] = useState('')
 
   const [modalOpen, setModalOpen] =
     useState(false)

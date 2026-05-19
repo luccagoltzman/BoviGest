@@ -13,10 +13,10 @@ interface TableProps<T> {
   keyExtractor: (row: T) => string
   emptyMessage?: string
   loading?: boolean
-  page: number
-  totalPages: number
-  total: number
-  onPageChange: (page: number) => void
+  page?: number
+  totalPages?: number
+  total?: number
+  onPageChange?: (page: number) => void
 }
 
 export function Table<T>({
@@ -38,8 +38,20 @@ export function Table<T>({
     return <p className={styles.empty}>{emptyMessage}</p>
   }
 
-  const firstItem = total === 0 ? 0 : (page - 1) * data.length + 1
-  const lastItem = Math.min(page * data.length, total)
+  const hasPagination =
+    page !== undefined &&
+    totalPages !== undefined &&
+    total !== undefined &&
+    onPageChange !== undefined
+
+  const firstItem = hasPagination
+    ? total === 0
+      ? 0
+      : (page - 1) * data.length + 1
+    : 1
+  const lastItem = hasPagination
+    ? Math.min(page * data.length, total)
+    : data.length
 
   return (
     <div className={styles.tableShell}>
@@ -69,33 +81,35 @@ export function Table<T>({
         </table>
       </div>
 
-      <div className={styles.pagination}>
-        <span className={styles.pageInfo}>
-          Mostrando {firstItem}-{lastItem} de {total} registros
-        </span>
-
-        <div className={styles.pageActions}>
-          <button
-            type="button"
-            onClick={() => onPageChange(page - 1)}
-            disabled={page === 1}
-          >
-            Anterior
-          </button>
-
-          <span>
-            Página {page} de {totalPages}
+      {hasPagination && (
+        <div className={styles.pagination}>
+          <span className={styles.pageInfo}>
+            Mostrando {firstItem}-{lastItem} de {total} registros
           </span>
 
-          <button
-            type="button"
-            onClick={() => onPageChange(page + 1)}
-            disabled={page === totalPages}
-          >
-            Próxima
-          </button>
+          <div className={styles.pageActions}>
+            <button
+              type="button"
+              onClick={() => onPageChange!(page! - 1)}
+              disabled={page === 1}
+            >
+              Anterior
+            </button>
+
+            <span>
+              Página {page} de {totalPages}
+            </span>
+
+            <button
+              type="button"
+              onClick={() => onPageChange!(page! + 1)}
+              disabled={page === totalPages}
+            >
+              Próxima
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

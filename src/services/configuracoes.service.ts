@@ -64,7 +64,7 @@ export const configuracoesService = {
   },
 
   async upsert(payload: any) {
-    const user = getUser()
+    getUser()
 
     const configuracao = await this.get().catch(() => null)
 

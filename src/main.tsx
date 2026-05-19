@@ -4,12 +4,17 @@ import App from './App'
 import '@/styles/index.scss'
 import { loadTheme } from '@/services/theme.service'
 
-await loadTheme()
-ReactDOM.createRoot(document.getElementById('root')!).render(
+async function bootstrap() {
+  await loadTheme()
+
+  ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <App />
-    </BrowserRouter>
-)
+    </BrowserRouter>,
+  )
+}
+
+bootstrap()
 
 
   // <React.StrictMode>

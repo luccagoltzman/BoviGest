@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button, Card, Input, Modal, Select, Table } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './CustosOperacionais.module.scss'
@@ -34,14 +34,12 @@ export function CustosOperacionais() {
   const [page, setPage] = useState(1)
   const [limit] = useState(10)
 
-  const [search, setSearch] = useState('')
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
+  const [search] = useState('')
+  const [startDate] = useState('')
+  const [endDate] = useState('')
 
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
-
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
 
   const isCreateValid =
     createForm.data &&

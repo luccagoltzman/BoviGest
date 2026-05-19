@@ -38,7 +38,7 @@ interface CompraRow {
 export function Compras() {
   const [compras, setCompras] = useState<CompraRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingViagem, setLoadingViagem] = useState(false)
+  const [, setLoadingViagem] = useState(false)
 
   const [page, setPage] = useState(1)
   const [limit] = useState(10)
@@ -46,9 +46,9 @@ export function Compras() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
 
-  const [startDate, setStartDate] = useState('')
-  const [endDate, setEndDate] = useState('')
-  const [condicaoGadoFiltro, setCondicaoGadoFiltro] = useState('')
+  const [startDate] = useState('')
+  const [endDate] = useState('')
+  const [condicaoGadoFiltro] = useState('')
 
   const [fornecedores, setFornecedores] = useState<any[]>([])
   const [fornecedorBusca, setFornecedorBusca] = useState('')
