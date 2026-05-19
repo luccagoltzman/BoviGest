@@ -19,3 +19,9 @@
   color: $color-text-muted;
   font-size: 0.9rem;
 }
+
+@media (max-width: 768px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+}

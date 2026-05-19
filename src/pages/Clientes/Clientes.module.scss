@@ -22,3 +22,8 @@
     flex-direction: column;
 
 }
+@media (max-width: 768px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+}

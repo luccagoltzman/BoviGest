@@ -1,19 +1,56 @@
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .header {
-  height: $header-height;
+  min-height: $header-height;
   background: rgba(255, 255, 255, 0.82);
   border-bottom: 1px solid rgba($color-border, 0.75);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 1rem;
-  padding: 0 1.5rem;
+  gap: 0.75rem;
+  padding: 0.65rem 1.5rem;
   backdrop-filter: blur(16px);
   box-shadow: 0 1px 0 rgba(17, 53, 31, 0.04);
   position: sticky;
   top: 0;
   z-index: 20;
+}
+
+.leading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.menuButton {
+  display: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid $color-border;
+  border-radius: 12px;
+  background: $color-surface;
+  box-shadow: $shadow-sm;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.22rem;
+  cursor: pointer;
+  flex-shrink: 0;
+
+  span {
+    display: block;
+    width: 1.1rem;
+    height: 2px;
+    border-radius: 999px;
+    background: $color-primary-dark;
+  }
+}
+
+.heading {
+  min-width: 0;
 }
 
 .eyebrow {
@@ -31,12 +68,16 @@
   font-weight: 750;
   color: var(--theme-primary-dark);
   letter-spacing: -0.02em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-shrink: 0;
 }
 
 .userBox {
@@ -48,7 +89,9 @@
   border-radius: 999px;
   background: $color-surface;
   box-shadow: $shadow-sm;
+}
 
+.userMeta {
   strong,
   small {
     display: block;
@@ -76,6 +119,7 @@
   font-weight: 800;
   cursor: pointer;
   transition: background 0.2s, transform 0.2s, border-color 0.2s;
+  white-space: nowrap;
 
   &:hover {
     background: rgba($color-danger, 0.14);
@@ -94,18 +138,40 @@
   font-size: 0.8rem;
   font-weight: 800;
   background: linear-gradient(135deg, var(--theme-primary), var(--theme-button-gradient-end));
+  flex-shrink: 0;
 }
 
-@media (max-width: 768px) {
+@include tablet-down {
+  .menuButton {
+    display: flex;
+  }
+}
+
+@include mobile-down {
   .header {
-    padding: 0 1rem;
+    padding: 0.55rem 0.85rem;
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .leading {
+    width: 100%;
   }
 
   .title {
-    font-size: 0.95rem;
+    font-size: 0.92rem;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
   }
 
-  .userBox div {
+  .actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .userMeta {
     display: none;
   }
 

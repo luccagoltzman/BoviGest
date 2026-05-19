@@ -20,3 +20,8 @@
   gap: 12px;
   margin-bottom: 16px;
 }
+@media (max-width: 768px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+}

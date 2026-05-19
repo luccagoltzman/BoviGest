@@ -13,3 +13,9 @@
   display: flex;
   justify-content: flex-end;
 }
+
+@media (max-width: 768px) {
+  .form {
+    grid-template-columns: 1fr;
+  }
+}

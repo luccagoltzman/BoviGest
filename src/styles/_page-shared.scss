@@ -1,0 +1,21 @@
+@use './mixins' as *;
+
+@mixin responsive-form-grid($min: 200px) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax($min, 1fr));
+  gap: 1rem;
+
+  @include mobile-down {
+    grid-template-columns: 1fr;
+  }
+}
+
+@mixin responsive-card-grid($min: 260px) {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax($min, 1fr));
+  gap: 1rem;
+
+  @include mobile-down {
+    grid-template-columns: 1fr;
+  }
+}

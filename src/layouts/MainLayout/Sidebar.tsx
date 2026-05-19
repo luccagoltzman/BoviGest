@@ -7,6 +7,11 @@ type MenuItem =
   | { to: string; label: string; children?: never; requiresMaster?: boolean }
   | { label: string; children: { to: string; label: string }[]; to?: never; requiresMaster?: boolean }
 
+type SidebarProps = {
+  isOpen: boolean
+  onNavigate: () => void
+}
+
 const menu: MenuItem[] = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/compras', label: 'Compras de Gado (Ok)' },
@@ -34,14 +39,17 @@ function hasChildren(item: MenuItem): item is Extract<MenuItem, { children: { to
   return Array.isArray(item.children)
 }
 
-export function Sidebar() {
+export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
   const visibleMenu = menu.filter((item) => !item.requiresMaster || canAccessSettings(currentUserRole))
 
   return (
-    <aside className={styles.sidebar}>
+    <aside
+      className={[styles.sidebar, isOpen && styles.open].filter(Boolean).join(' ')}
+    >
       <div className={styles.logo}>
         <AppLogo variant="sidebar" />
       </div>
+
       <nav className={styles.nav}>
         {visibleMenu.map((item) =>
           hasChildren(item) ? (
@@ -51,6 +59,7 @@ export function Sidebar() {
                 <NavLink
                   key={child.to}
                   to={child.to}
+                  onClick={onNavigate}
                   className={({ isActive }) =>
                     [styles.link, styles.sublink, isActive && styles.active].filter(Boolean).join(' ')
                   }
@@ -63,13 +72,14 @@ export function Sidebar() {
             <NavLink
               key={item.to}
               to={item.to}
+              onClick={onNavigate}
               className={({ isActive }) =>
                 [styles.link, isActive && styles.active].filter(Boolean).join(' ')
               }
             >
               {item.label}
             </NavLink>
-          )
+          ),
         )}
       </nav>
     </aside>

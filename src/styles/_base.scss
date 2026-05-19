@@ -1,4 +1,5 @@
 @use './variables' as *;
+@use './mixins' as *;
 
 :root {
   --theme-primary: #{$color-primary};
@@ -17,5 +18,25 @@ body {
     radial-gradient(circle at top left, color-mix(in srgb, var(--theme-background-glow) 16%, transparent), transparent 34rem),
     linear-gradient(135deg, #f8faf7 0%, $color-bg 48%, #eef5ec 100%);
   color: $color-text;
+  overflow-x: hidden;
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
+.page-title {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: $color-primary-dark;
+  line-height: 1.15;
+}
+
+@include mobile-down {
+  .page-title {
+    margin-bottom: 1rem;
+  }
 }
 
