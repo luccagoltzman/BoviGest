@@ -45,7 +45,7 @@ export const estoqueService = {
 
       if (search) {
         query = query.or(
-          `lote.ilike.%${search}%,corte.ilike.%${search}%,observacoes.ilike.%${search}%,referencia_tipo.ilike.%${search}%`
+          `lote.ilike.%${search}%,corte.ilike.%${search}%,observacoes.ilike.%${search}%`
         )
       }
 

@@ -187,7 +187,6 @@ export function Vendas() {
           peso_bruto_kg: 0,
           peso_liquido_kg: pesoVenda,
           data_movimentacao: form.data_venda,
-          referencia_tipo: 'VENDA',
           observacoes: 'Venda realizada',
         })
       }
@@ -430,12 +429,17 @@ export function Vendas() {
             label="Peso KG"
             type="number"
             value={form.peso_kg}
-            onChange={(e) =>
+            onChange={(e) => {
+              const peso = Number(e.target.value)
+              const valorKg = Number(form.valor_kg)
+
               setForm({
                 ...form,
                 peso_kg: e.target.value,
+                valor_total: String(valorKg * peso),
+
               })
-            }
+            }}
           />
 
           <Input

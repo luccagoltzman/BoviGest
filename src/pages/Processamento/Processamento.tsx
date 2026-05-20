@@ -326,7 +326,7 @@ export function Processamento() {
 
       <Card title="Nova movimentação">
         <div className={styles.form}>
-          {/* <Input
+          <Input
             label="Lote"
             value={novo.lote}
             onChange={(e) =>
@@ -336,7 +336,7 @@ export function Processamento() {
                   e.target.value,
               })
             }
-          /> */}
+          />
 
           <div className={styles.selectWrap}>
             <label className={styles.label}>Tipo de corte</label>
@@ -460,11 +460,11 @@ export function Processamento() {
             <div key={item.corte} className={styles.cardResumo}>
               <h3>{item.corte}</h3>
 
-              <div>
+              {/* <div>
                 <span>Bruto</span>
 
                 <strong>{Number(item.saldo_bruto_kg).toFixed(2)} kg</strong>
-              </div>
+              </div> */}
 
               <div>
                 <span>Líquido</span>
