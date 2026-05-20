@@ -233,6 +233,12 @@ export function Processamento() {
     0
   )
 
+  const formatKg = (value: number) =>
+    `${Number(value || 0).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} kg`
+
   const columns = [
     {
       key: 'data_movimentacao',
@@ -455,41 +461,73 @@ export function Processamento() {
       </Card>
 
       <Card title="Resumo do estoque">
-        <div className={styles.cardsResumo}>
-          {estoqueAtual.map((item) => (
-            <div key={item.corte} className={styles.cardResumo}>
-              <h3>{item.corte}</h3>
+        {loading ? (
+          <p className={styles.resumoEmpty}>Carregando saldos...</p>
+        ) : estoqueAtual.length === 0 ? (
+          <p className={styles.resumoEmpty}>
+            Nenhum saldo em estoque para os filtros aplicados.
+          </p>
+        ) : (
+          <>
+            <p className={styles.resumoIntro}>
+              {estoqueAtual.length}{' '}
+              {estoqueAtual.length === 1 ? 'corte com saldo' : 'cortes com saldo'}
+            </p>
 
-              {/* <div>
-                <span>Bruto</span>
+            <div className={styles.resumoGrid}>
+              {estoqueAtual.map((item) => (
+                <article key={item.corte} className={styles.resumoCard}>
+                  <span className={styles.resumoCorte}>{item.corte}</span>
 
-                <strong>{Number(item.saldo_bruto_kg).toFixed(2)} kg</strong>
-              </div> */}
+                  <div className={styles.resumoMetrics}>
+                    <div className={styles.resumoMetric}>
+                      <span className={styles.resumoLabel}>Peso bruto</span>
+                      <strong className={styles.resumoValor}>
+                        {formatKg(item.saldo_bruto_kg)}
+                      </strong>
+                    </div>
 
-              <div>
-                <span>Líquido</span>
+                    <div className={styles.resumoMetric}>
+                      <span className={styles.resumoLabel}>Peso líquido</span>
+                      <strong
+                        className={[
+                          styles.resumoValor,
+                          styles.resumoValorHighlight,
+                        ].join(' ')}
+                      >
+                        {formatKg(item.saldo_liquido_kg)}
+                      </strong>
+                    </div>
+                  </div>
+                </article>
+              ))}
 
-                <strong>{Number(item.saldo_liquido_kg).toFixed(2)} kg</strong>
-              </div>
+              <article
+                className={[styles.resumoCard, styles.resumoCardTotal].join(
+                  ' ',
+                )}
+              >
+                <span className={styles.resumoCorte}>Total geral</span>
+
+                <div className={styles.resumoMetrics}>
+                  <div className={styles.resumoMetric}>
+                    <span className={styles.resumoLabel}>Peso bruto</span>
+                    <strong className={styles.resumoValorTotal}>
+                      {formatKg(totalBruto)}
+                    </strong>
+                  </div>
+
+                  <div className={styles.resumoMetric}>
+                    <span className={styles.resumoLabel}>Peso líquido</span>
+                    <strong className={styles.resumoValorTotal}>
+                      {formatKg(totalLiquido)}
+                    </strong>
+                  </div>
+                </div>
+              </article>
             </div>
-          ))}
-
-          <div className={styles.cardResumoTotal}>
-            <h3>Total geral</h3>
-
-            <div>
-              <span>Bruto</span>
-
-              <strong>{totalBruto.toFixed(2)} kg</strong>
-            </div>
-
-            <div>
-              <span>Líquido</span>
-
-              <strong>{totalLiquido.toFixed(2)} kg</strong>
-            </div>
-          </div>
-        </div>
+          </>
+        )}
       </Card>
 
       <Card title="Filtros">
@@ -548,13 +586,7 @@ export function Processamento() {
           <>
             <ModalDetails items={detalheItems(detalhe)} />
 
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                marginTop: 24,
-              }}
-            >
+            <div className={styles.modalActions}>
               <Button
                 onClick={() => {
                   setEditar(detalhe)
