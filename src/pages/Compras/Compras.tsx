@@ -16,7 +16,7 @@ import { ModalViagem } from '../custos/Viagens/ModalViagem'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
-import { viagensService } from '@/services/Viagem.service'
+import { viagensService } from '@/services/viagem.service'
 
 interface CompraRow {
   id: number

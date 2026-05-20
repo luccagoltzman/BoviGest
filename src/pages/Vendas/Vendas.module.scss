@@ -8,6 +8,7 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: 1rem;
+  margin-bottom: 1rem;
 }
 
 .actions {
@@ -15,10 +16,21 @@
   margin-top: 0.5rem;
 }
 
+
+.fontenfo{
+  font-size: 13px;
+}
+.estoqueInfo {
+  display: flex;
+  justify-content: space-between;
+}
+
 .selectWrap {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  top: -5px;
+  position: relative;
 }
 
 .label {
@@ -32,6 +44,7 @@
   border: 1px solid $color-border;
   border-radius: $radius;
   background: $color-surface;
+  height: 46px;
   font: inherit;
 
   &:focus {

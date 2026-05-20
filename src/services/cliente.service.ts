@@ -113,5 +113,41 @@ export const clientesService = {
     } catch (err: any) {
       throw err
     }
+  },
+
+  async getOptions(search = '') {
+    try {
+      const user = getUser()
+
+      let query = supabase
+        .from('clientes')
+        .select('id, nome')
+        .eq('empresa_id', user.empresa_id)
+        .eq('status', 1)
+        .order('nome', {
+          ascending: true,
+        })
+        .limit(20)
+
+      if (search) {
+        query = query.ilike(
+          'nome',
+          `%${search}%`
+        )
+      }
+
+      const { data, error } =
+        await query
+
+      if (error) {
+        throw error
+      }
+
+      return (
+       data || []
+      )
+    } catch {
+      return []
+    }
   }
 }

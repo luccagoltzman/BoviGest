@@ -10,7 +10,7 @@ import {
 
 import styles from './Viagens.module.scss'
 import { ModalViagem } from './ModalViagem'
-import { viagensService } from '@/services/Viagem.service'
+import { viagensService } from '@/services/viagem.service'
 
 interface ViagemRow {
   id: number
