@@ -223,10 +223,10 @@ export function Processamento() {
     }
   }
 
-  const totalBruto = estoqueAtual.reduce(
-    (acc, item) => acc + Number(item.saldo_bruto_kg || 0),
-    0
-  )
+  // const totalBruto = estoqueAtual.reduce(
+  //   (acc, item) => acc + Number(item.saldo_bruto_kg || 0),
+  //   0
+  // )
 
   const totalLiquido = estoqueAtual.reduce(
     (acc, item) => acc + Number(item.saldo_liquido_kg || 0),
@@ -480,12 +480,12 @@ export function Processamento() {
                   <span className={styles.resumoCorte}>{item.corte}</span>
 
                   <div className={styles.resumoMetrics}>
-                    <div className={styles.resumoMetric}>
+                    {/* <div className={styles.resumoMetric}>
                       <span className={styles.resumoLabel}>Peso bruto</span>
                       <strong className={styles.resumoValor}>
                         {formatKg(item.saldo_bruto_kg)}
                       </strong>
-                    </div>
+                    </div> */}
 
                     <div className={styles.resumoMetric}>
                       <span className={styles.resumoLabel}>Peso líquido</span>
@@ -510,12 +510,12 @@ export function Processamento() {
                 <span className={styles.resumoCorte}>Total geral</span>
 
                 <div className={styles.resumoMetrics}>
-                  <div className={styles.resumoMetric}>
+                  {/* <div className={styles.resumoMetric}>
                     <span className={styles.resumoLabel}>Peso bruto</span>
                     <strong className={styles.resumoValorTotal}>
                       {formatKg(totalBruto)}
                     </strong>
-                  </div>
+                  </div> */}
 
                   <div className={styles.resumoMetric}>
                     <span className={styles.resumoLabel}>Peso líquido</span>
