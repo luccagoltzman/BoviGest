@@ -16,11 +16,10 @@
 }
 
 .filters {
-    display: flex;
-    gap: 12px;
-    margin-bottom: 16px;
-    flex-direction: column;
-
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-direction: column;
 }
 @media (max-width: 768px) {
   .form {

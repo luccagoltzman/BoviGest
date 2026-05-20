@@ -25,7 +25,10 @@
   background: $color-surface-soft;
   color: $color-text;
   font: inherit;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background 0.2s;
 
   &::placeholder {
     color: rgba($color-text-muted, 0.82);

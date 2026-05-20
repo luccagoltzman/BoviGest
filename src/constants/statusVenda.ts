@@ -7,21 +7,15 @@ export const STATUS_VENDA = {
 } as const
 
 export const STATUS_VENDA_LABEL = {
-  [STATUS_VENDA.PENDENTE]:
-    'Pendente',
+  [STATUS_VENDA.PENDENTE]: 'Pendente',
 
-  [STATUS_VENDA.PAGO]:
-    'Pago',
+  [STATUS_VENDA.PAGO]: 'Pago',
 
-  [STATUS_VENDA.PARCIAL]:
-    'Parcial',
+  [STATUS_VENDA.PARCIAL]: 'Parcial',
 
-  [STATUS_VENDA.CANCELADO]:
-    'Cancelado',
+  [STATUS_VENDA.CANCELADO]: 'Cancelado',
 
-  [STATUS_VENDA.AGENDADO]:
-    'Agendado',
+  [STATUS_VENDA.AGENDADO]: 'Agendado',
 } as const
 
-export type StatusVenda =
-  (typeof STATUS_VENDA)[keyof typeof STATUS_VENDA]
+export type StatusVenda = (typeof STATUS_VENDA)[keyof typeof STATUS_VENDA]

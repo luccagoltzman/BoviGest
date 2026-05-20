@@ -38,10 +38,7 @@ export function MainLayout() {
         />
       )}
 
-      <Sidebar
-        isOpen={menuOpen}
-        onNavigate={() => setMenuOpen(false)}
-      />
+      <Sidebar isOpen={menuOpen} onNavigate={() => setMenuOpen(false)} />
 
       <div className={styles.main}>
         <Header

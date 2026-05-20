@@ -118,7 +118,10 @@
   color: $color-danger;
   font-weight: 800;
   cursor: pointer;
-  transition: background 0.2s, transform 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    transform 0.2s,
+    border-color 0.2s;
   white-space: nowrap;
 
   &:hover {
@@ -137,7 +140,11 @@
   color: #fff;
   font-size: 0.8rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--theme-primary), var(--theme-button-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary),
+    var(--theme-button-gradient-end)
+  );
   flex-shrink: 0;
 }
 

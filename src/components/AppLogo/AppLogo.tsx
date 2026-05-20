@@ -1,8 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  clearInvalidLogoFromCache,
-  getLogoUrl,
-} from '@/services/theme.service'
+import { clearInvalidLogoFromCache, getLogoUrl } from '@/services/theme.service'
 import styles from './AppLogo.module.scss'
 
 const BRAND_NAME = 'BoviGest'

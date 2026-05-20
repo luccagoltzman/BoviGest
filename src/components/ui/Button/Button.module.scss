@@ -11,7 +11,11 @@
   font-weight: 700;
   border: none;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s, box-shadow 0.2s, transform 0.2s;
+  transition:
+    background 0.2s,
+    color 0.2s,
+    box-shadow 0.2s,
+    transform 0.2s;
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
@@ -28,7 +32,11 @@
 }
 
 .primary {
-  background: linear-gradient(135deg, var(--theme-primary), var(--theme-button-gradient-end));
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary),
+    var(--theme-button-gradient-end)
+  );
   color: #fff;
   box-shadow: 0 10px 22px rgba($color-primary, 0.24);
 

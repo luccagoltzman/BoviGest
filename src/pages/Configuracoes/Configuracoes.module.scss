@@ -44,7 +44,9 @@
   place-items: center;
   cursor: pointer;
   overflow: hidden;
-  transition: border-color 0.2s, background 0.2s;
+  transition:
+    border-color 0.2s,
+    background 0.2s;
 
   &:hover {
     border-color: $color-primary;
@@ -118,12 +120,20 @@
   display: grid;
   grid-template-columns: 9rem 1fr;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--preview-background-glow) 18%, transparent), transparent 14rem),
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--preview-background-glow) 18%, transparent),
+      transparent 14rem
+    ),
     $color-bg;
 }
 
 .preview aside {
-  background: linear-gradient(180deg, var(--preview-sidebar), var(--preview-sidebar-end));
+  background: linear-gradient(
+    180deg,
+    var(--preview-sidebar),
+    var(--preview-sidebar-end)
+  );
   color: #fff;
   padding: 1rem;
   display: flex;
@@ -201,7 +211,11 @@
     border: 0;
     border-radius: 999px;
     padding: 0.6rem 1rem;
-    background: linear-gradient(135deg, var(--preview-primary), var(--preview-button-end));
+    background: linear-gradient(
+      135deg,
+      var(--preview-primary),
+      var(--preview-button-end)
+    );
     color: #fff;
     font-weight: 800;
   }

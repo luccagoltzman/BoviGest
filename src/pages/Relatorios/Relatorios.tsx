@@ -2,9 +2,15 @@ import { Card } from '@/components/ui'
 import styles from './Relatorios.module.scss'
 
 const sections = [
-  { title: 'Compras', items: ['Compras por período', 'Por fornecedor', 'Média kg / preço'] },
+  {
+    title: 'Compras',
+    items: ['Compras por período', 'Por fornecedor', 'Média kg / preço'],
+  },
   { title: 'Estoque', items: ['Saldo atual', 'Giro de estoque', 'Perdas'] },
-  { title: 'Vendas', items: ['Vendas por cliente', 'Produtos mais vendidos', 'Margem'] },
+  {
+    title: 'Vendas',
+    items: ['Vendas por cliente', 'Produtos mais vendidos', 'Margem'],
+  },
   { title: 'Financeiro', items: ['Caixa', 'Inadimplência', 'Lucro estimado'] },
 ]
 

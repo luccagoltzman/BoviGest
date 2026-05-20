@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import {
+  Button,
+  Card,
+  Input,
+  Table,
+  Modal,
+  ModalDetails,
+} from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import styles from './Usuarios.module.scss'
 
@@ -11,9 +18,24 @@ interface UsuarioRow {
 }
 
 const mock: UsuarioRow[] = [
-  { id: '1', nome: 'Carlos Silva', email: 'admin@bovigest.com', perfil: 'Administrador' },
-  { id: '2', nome: 'Maria Santos', email: 'maria@bovigest.com', perfil: 'Operador' },
-  { id: '3', nome: 'João Oliveira', email: 'joao.financeiro@bovigest.com', perfil: 'Financeiro' },
+  {
+    id: '1',
+    nome: 'Carlos Silva',
+    email: 'admin@bovigest.com',
+    perfil: 'Administrador',
+  },
+  {
+    id: '2',
+    nome: 'Maria Santos',
+    email: 'maria@bovigest.com',
+    perfil: 'Operador',
+  },
+  {
+    id: '3',
+    nome: 'João Oliveira',
+    email: 'joao.financeiro@bovigest.com',
+    perfil: 'Financeiro',
+  },
 ]
 
 export function Usuarios() {
@@ -48,7 +70,10 @@ export function Usuarios() {
           <Input label="Nome" />
           <Input label="E-mail" type="email" />
           <Input label="Senha" type="password" />
-          <Input label="Perfil" placeholder="Administrador, Operador, Financeiro" />
+          <Input
+            label="Perfil"
+            placeholder="Administrador, Operador, Financeiro"
+          />
           <div className={styles.actions}>
             <Button>Cadastrar</Button>
           </div>
@@ -57,7 +82,11 @@ export function Usuarios() {
       <Card title="Usuários">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
-      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do usuário">
+      <Modal
+        open={!!detalhe}
+        onClose={() => setDetalhe(null)}
+        title="Detalhes do usuário"
+      >
         {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
       </Modal>
     </div>

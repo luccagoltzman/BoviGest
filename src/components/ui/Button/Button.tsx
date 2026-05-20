@@ -18,7 +18,12 @@ export function Button({
   return (
     <button
       type="button"
-      className={[styles.btn, styles[variant], fullWidth && styles.fullWidth, className]
+      className={[
+        styles.btn,
+        styles[variant],
+        fullWidth && styles.fullWidth,
+        className,
+      ]
         .filter(Boolean)
         .join(' ')}
       {...props}

@@ -179,17 +179,15 @@ export function Compras() {
     try {
       setLoadingViagem(true)
 
-      const viagem = await viagensService.getByReferenciaId(
-        compra.id,
-      )
+      const viagem = await viagensService.getByReferenciaId(compra.id)
 
       setViagemInitial(
         viagem
           ? viagem
           : {
-            referenciaTipo: 'compra',
-            referenciaId: compra.id,
-          }
+              referenciaTipo: 'compra',
+              referenciaId: compra.id,
+            }
       )
 
       setViagemOpen(true)
@@ -218,8 +216,7 @@ export function Compras() {
     {
       key: 'condicao_gado',
       header: 'Condição',
-      render: (r: CompraRow) =>
-        r.condicao_gado === 1 ? 'Vivo' : 'Morto',
+      render: (r: CompraRow) => (r.condicao_gado === 1 ? 'Vivo' : 'Morto'),
     },
     { key: 'peso_total', header: 'Peso' },
     {
@@ -258,9 +255,7 @@ export function Compras() {
             onChange={(value) => {
               setFornecedorBusca(value)
 
-              const fornecedor = fornecedores.find(
-                (f) => f.nome === value
-              )
+              const fornecedor = fornecedores.find((f) => f.nome === value)
 
               setForm({
                 ...form,
@@ -273,9 +268,7 @@ export function Compras() {
             label="Data"
             type="date"
             value={form.data}
-            onChange={(e) =>
-              setForm({ ...form, data: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, data: e.target.value })}
           />
 
           <Input
@@ -294,18 +287,14 @@ export function Compras() {
             label="Peso total"
             type="number"
             value={form.peso_total}
-            onChange={(e) =>
-              setForm({ ...form, peso_total: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, peso_total: e.target.value })}
           />
 
           <Input
             label="Valor total"
             type="number"
             value={form.valor_total}
-            onChange={(e) =>
-              setForm({ ...form, valor_total: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, valor_total: e.target.value })}
           />
 
           <div className={styles.actions}>
@@ -340,14 +329,11 @@ export function Compras() {
               label="Fornecedor"
               options={fornecedores.map((f) => f.nome)}
               value={
-                fornecedores.find(
-                  (f) => f.id === editar.fornecedor_id
-                )?.nome || ''
+                fornecedores.find((f) => f.id === editar.fornecedor_id)?.nome ||
+                ''
               }
               onChange={(value) => {
-                const fornecedor = fornecedores.find(
-                  (f) => f.nome === value
-                )
+                const fornecedor = fornecedores.find((f) => f.nome === value)
 
                 setEditar({
                   ...editar,
@@ -383,16 +369,11 @@ export function Compras() {
             <Select
               label="Condição"
               options={['Vivo', 'Morto']}
-              value={
-                editar.condicao_gado === 1
-                  ? 'Vivo'
-                  : 'Morto'
-              }
+              value={editar.condicao_gado === 1 ? 'Vivo' : 'Morto'}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  condicao_gado:
-                    e.target.value === 'Vivo' ? 1 : 0,
+                  condicao_gado: e.target.value === 'Vivo' ? 1 : 0,
                 })
               }
             />
@@ -455,14 +436,9 @@ export function Compras() {
             />
 
             <div className={styles.actions}>
-              <Button onClick={handleSaveEdit}>
-                Salvar alterações
-              </Button>
+              <Button onClick={handleSaveEdit}>Salvar alterações</Button>
 
-              <Button
-                variant="danger"
-                onClick={() => handleDelete(editar.id)}
-              >
+              <Button variant="danger" onClick={() => handleDelete(editar.id)}>
                 Excluir
               </Button>
             </div>

@@ -50,42 +50,26 @@ export const estoqueService = {
       }
 
       if (startDate) {
-        query = query.gte(
-          'data_movimentacao',
-          startDate
-        )
+        query = query.gte('data_movimentacao', startDate)
       }
 
       if (endDate) {
-        query = query.lte(
-          'data_movimentacao',
-          endDate
-        )
+        query = query.lte('data_movimentacao', endDate)
       }
 
       if (lote) {
-        query = query.ilike(
-          'lote',
-          `%${lote}%`
-        )
+        query = query.ilike('lote', `%${lote}%`)
       }
 
       if (corte) {
-        query = query.ilike(
-          'corte',
-          `%${corte}%`
-        )
+        query = query.ilike('corte', `%${corte}%`)
       }
 
       if (tipoMovimentacao !== null) {
-        query = query.eq(
-          'tipo_movimentacao',
-          tipoMovimentacao
-        )
+        query = query.eq('tipo_movimentacao', tipoMovimentacao)
       }
 
-      const { data, count, error } =
-        await query
+      const { data, count, error } = await query
 
       if (error) {
         throw error
@@ -96,9 +80,7 @@ export const estoqueService = {
         total: count || 0,
         page,
         limit,
-        totalPages: Math.ceil(
-          (count || 0) / limit
-        ),
+        totalPages: Math.ceil((count || 0) / limit),
       }
     } catch {
       return {
@@ -149,18 +131,14 @@ export const estoqueService = {
     return data
   },
 
-  async updateMovimentacao(
-    id: number,
-    payload: any
-  ) {
+  async updateMovimentacao(id: number, payload: any) {
     const user = getUser()
 
     const { data, error } = await supabase
       .from('estoque_movimentacoes')
       .update({
         ...payload,
-        updated_at:
-          new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
@@ -194,11 +172,7 @@ export const estoqueService = {
    |--------------------------------------------------------------------------
    */
 
-  async getEstoqueAtual(
-    search = '',
-    lote = '',
-    corte = ''
-  ) {
+  async getEstoqueAtual(search = '', lote = '', corte = '') {
     try {
       const user = getUser()
 
@@ -215,17 +189,11 @@ export const estoqueService = {
       }
 
       if (lote) {
-        query = query.ilike(
-          'lote',
-          `%${lote}%`
-        )
+        query = query.ilike('lote', `%${lote}%`)
       }
 
       if (corte) {
-        query = query.ilike(
-          'corte',
-          `%${corte}%`
-        )
+        query = query.ilike('corte', `%${corte}%`)
       }
 
       const { data, error } = await query
@@ -240,18 +208,16 @@ export const estoqueService = {
     }
   },
   async getByLote(lote: string) {
-    const { data, error } =
-      await supabase
-        .from('estoque_movimentacoes')
-        .select('*')
-        .eq('lote', lote)
-        .single()
+    const { data, error } = await supabase
+      .from('estoque_movimentacoes')
+      .select('*')
+      .eq('lote', lote)
+      .single()
 
     if (error) {
       return null
     }
 
     return data
-  }
-
+  },
 }

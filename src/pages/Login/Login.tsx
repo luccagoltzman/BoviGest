@@ -40,7 +40,8 @@ export function Login() {
         </div>
         <h1>Gestão moderna para marchantes</h1>
         <p>
-          Controle compras de gado, abate, estoque, vendas e financeiro em uma única operação.
+          Controle compras de gado, abate, estoque, vendas e financeiro em uma
+          única operação.
         </p>
 
         <div className={styles.highlights}>

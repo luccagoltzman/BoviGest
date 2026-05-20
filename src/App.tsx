@@ -44,7 +44,10 @@ function App() {
             <Route path="custos/veiculos" element={<Veiculos />} />
             <Route path="custos/viagens" element={<Viagens />} />
             <Route path="custos/abate" element={<Abate />} />
-            <Route path="custos/operacionais" element={<CustosOperacionais />} />
+            <Route
+              path="custos/operacionais"
+              element={<CustosOperacionais />}
+            />
           </Route>
         </Route>
 

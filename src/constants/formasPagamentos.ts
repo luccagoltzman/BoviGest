@@ -10,5 +10,4 @@ export const FORMAS_PAGAMENTO = [
   'Outro',
 ] as const
 
-export type FormaPagamento =
-  (typeof FORMAS_PAGAMENTO)[number]
+export type FormaPagamento = (typeof FORMAS_PAGAMENTO)[number]

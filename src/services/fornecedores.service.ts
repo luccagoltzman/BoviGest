@@ -8,7 +8,13 @@ function getUser() {
 }
 
 export const fornecedoresService = {
-  async getAll(page = 1, limit = 10, search = '', startDate = '', endDate = '') {
+  async getAll(
+    page = 1,
+    limit = 10,
+    search = '',
+    startDate = '',
+    endDate = ''
+  ) {
     const from = (page - 1) * limit
     const to = from + limit - 1
 
@@ -59,30 +65,30 @@ export const fornecedoresService = {
     }
   },
 
- async getSelectOptions(search = '') {
-  try {
-    const user = getUser()
+  async getSelectOptions(search = '') {
+    try {
+      const user = getUser()
 
-    let query = supabase
-      .from('fornecedores')
-      .select('id, nome')
-      .eq('empresa_id', user.empresa_id)
-      .neq('status', 0)
-      .order('nome', { ascending: true })
+      let query = supabase
+        .from('fornecedores')
+        .select('id, nome')
+        .eq('empresa_id', user.empresa_id)
+        .neq('status', 0)
+        .order('nome', { ascending: true })
 
-    if (search) {
-      query = query.ilike('nome', `%${search}%`)
+      if (search) {
+        query = query.ilike('nome', `%${search}%`)
+      }
+
+      const { data, error } = await query
+
+      if (error) throw error
+
+      return data || []
+    } catch {
+      return []
     }
-
-    const { data, error } = await query
-
-    if (error) throw error
-
-    return data || []
-  } catch {
-    return []
-  }
-},
+  },
   async getById(id: string) {
     const user = getUser()
     const { data, error } = await supabase
@@ -115,7 +121,7 @@ export const fornecedoresService = {
       .from('fornecedores')
       .update({
         ...payload,
-        updated_at: new Date().toISOString()
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
@@ -136,5 +142,5 @@ export const fornecedoresService = {
       .eq('empresa_id', user.empresa_id)
 
     if (error) throw error
-  }
+  },
 }

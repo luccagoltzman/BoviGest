@@ -35,7 +35,7 @@ export function Clientes() {
     doc: '',
     telefone: '',
     endereco: '',
-    limiteCredito: ''
+    limiteCredito: '',
   })
 
   const loadClientes = async (
@@ -94,11 +94,19 @@ export function Clientes() {
         doc: createForm.doc,
         telefone: createForm.telefone,
         endereco: createForm.endereco,
-        limite_credito: createForm.limiteCredito ? Number(createForm.limiteCredito) : null,
+        limite_credito: createForm.limiteCredito
+          ? Number(createForm.limiteCredito)
+          : null,
       })
 
       toast.success('Cliente criado com sucesso')
-      setCreateForm({ nome: '', doc: '', telefone: '', endereco: '', limiteCredito: '' })
+      setCreateForm({
+        nome: '',
+        doc: '',
+        telefone: '',
+        endereco: '',
+        limiteCredito: '',
+      })
 
       loadClientes(1, limit, search, startDate, endDate)
     } catch (e: any) {
@@ -112,14 +120,15 @@ export function Clientes() {
       return
     }
 
-
     try {
       await clientesService.update(editar.id, {
         nome: editar.nome,
         doc: editar.doc,
         telefone: editar.telefone,
         endereco: editar.endereco,
-        limite_credito: editar.limiteCredito ? Number(editar.limiteCredito) : null,
+        limite_credito: editar.limiteCredito
+          ? Number(editar.limiteCredito)
+          : null,
       })
 
       toast.success('Cliente atualizado com sucesso')
@@ -166,7 +175,9 @@ export function Clientes() {
       header: 'Ações',
       render: (r: ClienteRow) => (
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => setEditar(r)}>Ver detalhes</Button>
+          <Button variant="ghost" onClick={() => setEditar(r)}>
+            Ver detalhes
+          </Button>
         </div>
       ),
     },
@@ -178,18 +189,47 @@ export function Clientes() {
 
       <Card title="Novo cliente">
         <div className={styles.form}>
-          <Input label="Nome / Empresa" value={createForm.nome} onChange={e => setCreateForm({ ...createForm, nome: e.target.value })} />
-          <Input label="CPF / CNPJ" value={createForm.doc} onChange={e => setCreateForm({ ...createForm, doc: e.target.value })} />
-          <Input label="Telefone / WhatsApp" value={createForm.telefone} onChange={e => setCreateForm({ ...createForm, telefone: e.target.value })} />
-          <Input label="Endereço" value={createForm.endereco} onChange={e => setCreateForm({ ...createForm, endereco: e.target.value })} />
-          <Input label="Limite de crédito" type="number" value={createForm.limiteCredito} onChange={e => setCreateForm({ ...createForm, limiteCredito: e.target.value })} />
+          <Input
+            label="Nome / Empresa"
+            value={createForm.nome}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, nome: e.target.value })
+            }
+          />
+          <Input
+            label="CPF / CNPJ"
+            value={createForm.doc}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, doc: e.target.value })
+            }
+          />
+          <Input
+            label="Telefone / WhatsApp"
+            value={createForm.telefone}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, telefone: e.target.value })
+            }
+          />
+          <Input
+            label="Endereço"
+            value={createForm.endereco}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, endereco: e.target.value })
+            }
+          />
+          <Input
+            label="Limite de crédito"
+            type="number"
+            value={createForm.limiteCredito}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, limiteCredito: e.target.value })
+            }
+          />
           <div className={styles.actions}>
-            <Button
-              onClick={handleCreate}
-              disabled={!isCreateFormValid}
-            >
+            <Button onClick={handleCreate} disabled={!isCreateFormValid}>
               Cadastrar
-            </Button>          </div>
+            </Button>{' '}
+          </div>
         </div>
       </Card>
 
@@ -230,17 +270,50 @@ export function Clientes() {
         />
       </Card>
 
-      <Modal open={!!editar} onClose={() => setEditar(null)} title="Editar cliente">
+      <Modal
+        open={!!editar}
+        onClose={() => setEditar(null)}
+        title="Editar cliente"
+      >
         {editar && (
           <div className={styles.form}>
-            <Input label="Nome / Empresa" value={editar.nome} onChange={e => setEditar({ ...editar, nome: e.target.value })} />
-            <Input label="CPF / CNPJ" value={editar.doc} onChange={e => setEditar({ ...editar, doc: e.target.value })} />
-            <Input label="Telefone / WhatsApp" value={editar.telefone} onChange={e => setEditar({ ...editar, telefone: e.target.value })} />
-            <Input label="Endereço" value={editar.endereco} onChange={e => setEditar({ ...editar, endereco: e.target.value })} />
-            <Input label="Limite de crédito" type="number" value={editar.limiteCredito} onChange={e => setEditar({ ...editar, limiteCredito: e.target.value })} />
+            <Input
+              label="Nome / Empresa"
+              value={editar.nome}
+              onChange={(e) => setEditar({ ...editar, nome: e.target.value })}
+            />
+            <Input
+              label="CPF / CNPJ"
+              value={editar.doc}
+              onChange={(e) => setEditar({ ...editar, doc: e.target.value })}
+            />
+            <Input
+              label="Telefone / WhatsApp"
+              value={editar.telefone}
+              onChange={(e) =>
+                setEditar({ ...editar, telefone: e.target.value })
+              }
+            />
+            <Input
+              label="Endereço"
+              value={editar.endereco}
+              onChange={(e) =>
+                setEditar({ ...editar, endereco: e.target.value })
+              }
+            />
+            <Input
+              label="Limite de crédito"
+              type="number"
+              value={editar.limiteCredito}
+              onChange={(e) =>
+                setEditar({ ...editar, limiteCredito: e.target.value })
+              }
+            />
             <div className={styles.actions}>
               <Button onClick={handleSaveEdit}>Salvar alterações</Button>
-              <Button variant="danger" onClick={() => handleDelete(editar.id)}>Excluir</Button>
+              <Button variant="danger" onClick={() => handleDelete(editar.id)}>
+                Excluir
+              </Button>
             </div>
           </div>
         )}

@@ -17,18 +17,28 @@ export function Dashboard() {
       <h1 className="page-title">Dashboard</h1>
       <div className={styles.cards}>
         <Card title="Compras no mês (fev/25)">
-          <p className={styles.valor}>R$ {resumoMes.comprasTotal.toLocaleString('pt-BR')}</p>
-          <p className={styles.sub}>{resumoMes.comprasQtd} compras registradas</p>
+          <p className={styles.valor}>
+            R$ {resumoMes.comprasTotal.toLocaleString('pt-BR')}
+          </p>
+          <p className={styles.sub}>
+            {resumoMes.comprasQtd} compras registradas
+          </p>
         </Card>
         <Card title="Vendas no mês (fev/25)">
-          <p className={styles.valor}>R$ {resumoMes.vendasTotal.toLocaleString('pt-BR')}</p>
+          <p className={styles.valor}>
+            R$ {resumoMes.vendasTotal.toLocaleString('pt-BR')}
+          </p>
           <p className={styles.sub}>{resumoMes.vendasQtd} vendas realizadas</p>
         </Card>
         <Card title="A receber">
-          <p className={styles.valorReceber}>R$ {resumoMes.aReceber.toLocaleString('pt-BR')}</p>
+          <p className={styles.valorReceber}>
+            R$ {resumoMes.aReceber.toLocaleString('pt-BR')}
+          </p>
         </Card>
         <Card title="A pagar">
-          <p className={styles.valorPagar}>R$ {resumoMes.aPagar.toLocaleString('pt-BR')}</p>
+          <p className={styles.valorPagar}>
+            R$ {resumoMes.aPagar.toLocaleString('pt-BR')}
+          </p>
         </Card>
       </div>
       <Card title="Ações rápidas" className={styles.acoes}>

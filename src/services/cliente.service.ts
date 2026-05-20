@@ -10,7 +10,13 @@ function getUser() {
 }
 
 export const clientesService = {
-  async getAll(page = 1, limit = 10, search = '', startDate = '', endDate = '') {
+  async getAll(
+    page = 1,
+    limit = 10,
+    search = '',
+    startDate = '',
+    endDate = ''
+  ) {
     const from = (page - 1) * limit
     const to = from + limit - 1
 
@@ -61,7 +67,6 @@ export const clientesService = {
     }
   },
 
-
   async create(payload: any) {
     try {
       const user = getUser()
@@ -85,7 +90,7 @@ export const clientesService = {
         .from('clientes')
         .update({
           ...payload,
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
         })
         .eq('id', id)
         .eq('status', 1)
@@ -130,24 +135,18 @@ export const clientesService = {
         .limit(20)
 
       if (search) {
-        query = query.ilike(
-          'nome',
-          `%${search}%`
-        )
+        query = query.ilike('nome', `%${search}%`)
       }
 
-      const { data, error } =
-        await query
+      const { data, error } = await query
 
       if (error) {
         throw error
       }
 
-      return (
-       data || []
-      )
+      return data || []
     } catch {
       return []
     }
-  }
+  },
 }

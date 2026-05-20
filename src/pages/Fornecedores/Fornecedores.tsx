@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import {
-  Button,
-  Card,
-  Input,
-  Table,
-  Modal,
-} from '@/components/ui'
+import { Button, Card, Input, Table, Modal } from '@/components/ui'
 
 import toast from 'react-hot-toast'
 
@@ -25,36 +19,30 @@ interface FornecedorRow {
 }
 
 export function Fornecedores() {
-  const [fornecedores, setFornecedores] =
-    useState<FornecedorRow[]>([])
+  const [fornecedores, setFornecedores] = useState<FornecedorRow[]>([])
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
 
   const [page, setPage] = useState(1)
 
   const [total, setTotal] = useState(0)
 
-  const [totalPages, setTotalPages] =
-    useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   const [search, setSearch] = useState('')
 
-  const [createForm, setCreateForm] =
-    useState({
-      nome: '',
-      doc: '',
-      telefone: '',
-      cidade: '',
-      endereco: '',
-      dados_bancarios: '',
-    })
+  const [createForm, setCreateForm] = useState({
+    nome: '',
+    doc: '',
+    telefone: '',
+    cidade: '',
+    endereco: '',
+    dados_bancarios: '',
+  })
 
-  const [detalhe, setDetalhe] =
-    useState<FornecedorRow | null>(null)
+  const [detalhe, setDetalhe] = useState<FornecedorRow | null>(null)
 
-  const [editForm, setEditForm] =
-    useState<FornecedorRow | null>(null)
+  const [editForm, setEditForm] = useState<FornecedorRow | null>(null)
 
   const createDisabled =
     !createForm.nome.trim() ||
@@ -72,24 +60,15 @@ export function Fornecedores() {
     setLoading(true)
 
     try {
-      const response =
-        await fornecedoresService.getAll(
-          page,
-          10,
-          search
-        )
+      const response = await fornecedoresService.getAll(page, 10, search)
 
       setFornecedores(response.data || [])
 
       setTotal(response.total || 0)
 
-      setTotalPages(
-        response.totalPages || 0
-      )
+      setTotalPages(response.totalPages || 0)
     } catch (e: any) {
-      toast.error(
-        'Erro ao carregar fornecedores'
-      )
+      toast.error('Erro ao carregar fornecedores')
     } finally {
       setLoading(false)
     }
@@ -103,19 +82,11 @@ export function Fornecedores() {
     if (createDisabled) return
 
     try {
-      const data =
-        await fornecedoresService.create(
-          createForm
-        )
+      const data = await fornecedoresService.create(createForm)
 
-      setFornecedores((prev) => [
-        data,
-        ...prev,
-      ])
+      setFornecedores((prev) => [data, ...prev])
 
-      toast.success(
-        'Fornecedor criado com sucesso'
-      )
+      toast.success('Fornecedor criado com sucesso')
 
       setCreateForm({
         nome: '',
@@ -128,60 +99,37 @@ export function Fornecedores() {
 
       fetchFornecedores()
     } catch (e: any) {
-      toast.error(
-        'Erro ao criar fornecedor'
-      )
+      toast.error('Erro ao criar fornecedor')
     }
   }
 
   const handleUpdate = async () => {
-    if (!editForm || updateDisabled)
-      return
+    if (!editForm || updateDisabled) return
 
     try {
-      const data =
-        await fornecedoresService.update(
-          editForm.id,
-          editForm
-        )
+      const data = await fornecedoresService.update(editForm.id, editForm)
 
-      setFornecedores((prev) =>
-        prev.map((f) =>
-          f.id === data.id ? data : f
-        )
-      )
+      setFornecedores((prev) => prev.map((f) => (f.id === data.id ? data : f)))
 
-      toast.success(
-        'Fornecedor atualizado com sucesso'
-      )
+      toast.success('Fornecedor atualizado com sucesso')
 
       setDetalhe(null)
     } catch (e: any) {
-      toast.error(
-        'Erro ao atualizar fornecedor'
-      )
+      toast.error('Erro ao atualizar fornecedor')
     }
   }
 
-  const handleDelete = async (
-    id: string
-  ) => {
+  const handleDelete = async (id: string) => {
     try {
       await fornecedoresService.delete(id)
 
-      setFornecedores((prev) =>
-        prev.filter((f) => f.id !== id)
-      )
+      setFornecedores((prev) => prev.filter((f) => f.id !== id))
 
-      toast.success(
-        'Fornecedor excluído com sucesso'
-      )
+      toast.success('Fornecedor excluído com sucesso')
 
       setDetalhe(null)
     } catch (e: any) {
-      toast.error(
-        'Erro ao excluir fornecedor'
-      )
+      toast.error('Erro ao excluir fornecedor')
     }
   }
 
@@ -222,9 +170,7 @@ export function Fornecedores() {
 
   return (
     <div className={styles.page}>
-      <h1 className="page-title">
-        Fornecedores
-      </h1>
+      <h1 className="page-title">Fornecedores</h1>
 
       <Card title="Novo fornecedor">
         <div className={styles.form}>
@@ -286,23 +232,17 @@ export function Fornecedores() {
           <Input
             label="Dados bancários"
             placeholder="Banco, agência, conta"
-            value={
-              createForm.dados_bancarios
-            }
+            value={createForm.dados_bancarios}
             onChange={(e) =>
               setCreateForm({
                 ...createForm,
-                dados_bancarios:
-                  e.target.value,
+                dados_bancarios: e.target.value,
               })
             }
           />
 
           <div className={styles.actions}>
-            <Button
-              onClick={handleCreate}
-              disabled={createDisabled}
-            >
+            <Button onClick={handleCreate} disabled={createDisabled}>
               Cadastrar
             </Button>
           </div>
@@ -319,9 +259,7 @@ export function Fornecedores() {
             label="Buscar fornecedor"
             placeholder="Nome, CPF/CNPJ ou telefone"
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
           />
         </div>
 
@@ -391,9 +329,7 @@ export function Fornecedores() {
 
             <Input
               label="Endereço"
-              value={
-                editForm.endereco || ''
-              }
+              value={editForm.endereco || ''}
               onChange={(e) =>
                 setEditForm({
                   ...editForm,
@@ -404,32 +340,23 @@ export function Fornecedores() {
 
             <Input
               label="Dados bancários"
-              value={
-                editForm.dados_bancarios ||
-                ''
-              }
+              value={editForm.dados_bancarios || ''}
               onChange={(e) =>
                 setEditForm({
                   ...editForm,
-                  dados_bancarios:
-                    e.target.value,
+                  dados_bancarios: e.target.value,
                 })
               }
             />
 
             <div className={styles.actions}>
-              <Button
-                onClick={handleUpdate}
-                disabled={updateDisabled}
-              >
+              <Button onClick={handleUpdate} disabled={updateDisabled}>
                 Salvar
               </Button>
 
               <Button
                 variant="danger"
-                onClick={() =>
-                  handleDelete(editForm.id)
-                }
+                onClick={() => handleDelete(editForm.id)}
               >
                 Excluir
               </Button>

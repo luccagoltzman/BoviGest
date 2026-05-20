@@ -18,13 +18,18 @@
   border: 1px solid $color-border;
   border-radius: $radius-sm;
   background:
-    linear-gradient(45deg, transparent 50%, $color-text-muted 50%) calc(100% - 1.05rem) 50% / 0.4rem 0.4rem no-repeat,
-    linear-gradient(135deg, $color-text-muted 50%, transparent 50%) calc(100% - 0.8rem) 50% / 0.4rem 0.4rem no-repeat,
+    linear-gradient(45deg, transparent 50%, $color-text-muted 50%)
+      calc(100% - 1.05rem) 50% / 0.4rem 0.4rem no-repeat,
+    linear-gradient(135deg, $color-text-muted 50%, transparent 50%)
+      calc(100% - 0.8rem) 50% / 0.4rem 0.4rem no-repeat,
     $color-surface-soft;
   color: $color-text;
   font: inherit;
   appearance: none;
-  transition: border-color 0.2s, box-shadow 0.2s, background-color 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s,
+    background-color 0.2s;
   height: 46px;
 
   &:focus {

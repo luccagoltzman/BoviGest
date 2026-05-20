@@ -32,7 +32,9 @@ export function Header({ menuOpen, onMenuToggle }: HeaderProps) {
 
         <div className={styles.heading}>
           <span className={styles.eyebrow}>Sistema de Gestão</span>
-          <h1 className={styles.title}>Compra de Gado & Distribuição de Carne</h1>
+          <h1 className={styles.title}>
+            Compra de Gado & Distribuição de Carne
+          </h1>
         </div>
       </div>
 
@@ -44,7 +46,11 @@ export function Header({ menuOpen, onMenuToggle }: HeaderProps) {
             <small>Operação ativa</small>
           </div>
         </div>
-        <button type="button" className={styles.logoutButton} onClick={handleLogout}>
+        <button
+          type="button"
+          className={styles.logoutButton}
+          onClick={handleLogout}
+        >
           Sair
         </button>
       </div>

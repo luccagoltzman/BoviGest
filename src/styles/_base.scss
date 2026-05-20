@@ -13,9 +13,19 @@
 }
 
 body {
-  font-family: Inter, 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family:
+    Inter,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   background:
-    radial-gradient(circle at top left, color-mix(in srgb, var(--theme-background-glow) 16%, transparent), transparent 34rem),
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--theme-background-glow) 16%, transparent),
+      transparent 34rem
+    ),
     linear-gradient(135deg, #f8faf7 0%, $color-bg 48%, #eef5ec 100%);
   color: $color-text;
   overflow-x: hidden;
@@ -39,4 +49,3 @@ body.menu-open {
     margin-bottom: 1rem;
   }
 }
-

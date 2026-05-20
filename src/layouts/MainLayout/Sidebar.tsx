@@ -5,7 +5,12 @@ import styles from './Sidebar.module.scss'
 
 type MenuItem =
   | { to: string; label: string; children?: never; requiresMaster?: boolean }
-  | { label: string; children: { to: string; label: string }[]; to?: never; requiresMaster?: boolean }
+  | {
+      label: string
+      children: { to: string; label: string }[]
+      to?: never
+      requiresMaster?: boolean
+    }
 
 type SidebarProps = {
   isOpen: boolean
@@ -35,16 +40,22 @@ const menu: MenuItem[] = [
   { to: '/configuracoes', label: 'Configurações', requiresMaster: true },
 ]
 
-function hasChildren(item: MenuItem): item is Extract<MenuItem, { children: { to: string; label: string }[] }> {
+function hasChildren(
+  item: MenuItem
+): item is Extract<MenuItem, { children: { to: string; label: string }[] }> {
   return Array.isArray(item.children)
 }
 
 export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
-  const visibleMenu = menu.filter((item) => !item.requiresMaster || canAccessSettings(currentUserRole))
+  const visibleMenu = menu.filter(
+    (item) => !item.requiresMaster || canAccessSettings(currentUserRole)
+  )
 
   return (
     <aside
-      className={[styles.sidebar, isOpen && styles.open].filter(Boolean).join(' ')}
+      className={[styles.sidebar, isOpen && styles.open]
+        .filter(Boolean)
+        .join(' ')}
     >
       <div className={styles.logo}>
         <AppLogo variant="sidebar" />
@@ -61,7 +72,9 @@ export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
                   to={child.to}
                   onClick={onNavigate}
                   className={({ isActive }) =>
-                    [styles.link, styles.sublink, isActive && styles.active].filter(Boolean).join(' ')
+                    [styles.link, styles.sublink, isActive && styles.active]
+                      .filter(Boolean)
+                      .join(' ')
                   }
                 >
                   {child.label}
@@ -74,12 +87,14 @@ export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
               to={item.to}
               onClick={onNavigate}
               className={({ isActive }) =>
-                [styles.link, isActive && styles.active].filter(Boolean).join(' ')
+                [styles.link, isActive && styles.active]
+                  .filter(Boolean)
+                  .join(' ')
               }
             >
               {item.label}
             </NavLink>
-          ),
+          )
         )}
       </nav>
     </aside>

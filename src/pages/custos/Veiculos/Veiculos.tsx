@@ -1,5 +1,12 @@
 import { useState } from 'react'
-import { Button, Card, Input, Table, Modal, ModalDetails } from '@/components/ui'
+import {
+  Button,
+  Card,
+  Input,
+  Table,
+  Modal,
+  ModalDetails,
+} from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import styles from './Veiculos.module.scss'
 
@@ -13,10 +20,38 @@ interface VeiculoRow {
 }
 
 const mock: VeiculoRow[] = [
-  { id: '1', placa: 'ABC-1D23', modelo: 'Caminhão refrigerado 15m³', capacidade: 5000, consumo: 3, status: 'Ativo' },
-  { id: '2', placa: 'DEF-4G56', modelo: 'Caminhão baú refrigerado', capacidade: 8000, consumo: 2.8, status: 'Ativo' },
-  { id: '3', placa: 'GHI-7J89', modelo: 'Van refrigerada', capacidade: 1500, consumo: 8, status: 'Ativo' },
-  { id: '4', placa: 'JKL-0M12', modelo: 'Caminhão refrigerado 22m³', capacidade: 10000, consumo: 2.5, status: 'Manutenção' },
+  {
+    id: '1',
+    placa: 'ABC-1D23',
+    modelo: 'Caminhão refrigerado 15m³',
+    capacidade: 5000,
+    consumo: 3,
+    status: 'Ativo',
+  },
+  {
+    id: '2',
+    placa: 'DEF-4G56',
+    modelo: 'Caminhão baú refrigerado',
+    capacidade: 8000,
+    consumo: 2.8,
+    status: 'Ativo',
+  },
+  {
+    id: '3',
+    placa: 'GHI-7J89',
+    modelo: 'Van refrigerada',
+    capacidade: 1500,
+    consumo: 8,
+    status: 'Ativo',
+  },
+  {
+    id: '4',
+    placa: 'JKL-0M12',
+    modelo: 'Caminhão refrigerado 22m³',
+    capacidade: 10000,
+    consumo: 2.5,
+    status: 'Manutenção',
+  },
 ]
 
 export function Veiculos() {
@@ -65,7 +100,11 @@ export function Veiculos() {
       <Card title="Veículos">
         <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
       </Card>
-      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes do veículo">
+      <Modal
+        open={!!detalhe}
+        onClose={() => setDetalhe(null)}
+        title="Detalhes do veículo"
+      >
         {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
       </Modal>
     </div>

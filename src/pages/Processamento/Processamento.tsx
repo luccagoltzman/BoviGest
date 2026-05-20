@@ -13,11 +13,7 @@ import type { DetailItem } from '@/components/ui'
 
 import { estoqueService } from '@/services/estoque.service'
 
-import {
-  TIPOS_CORTE,
-  CORTE_BD,
-  REGRA_BD,
-} from '@/constants/cortes'
+import { TIPOS_CORTE, CORTE_BD, REGRA_BD } from '@/constants/cortes'
 
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
@@ -40,37 +36,27 @@ interface EstoqueResumoRow {
 }
 
 export function Processamento() {
-  const [historico, setHistorico] =
-    useState<EstoqueRow[]>([])
+  const [historico, setHistorico] = useState<EstoqueRow[]>([])
 
-  const [estoqueAtual, setEstoqueAtual] =
-    useState<EstoqueResumoRow[]>([])
+  const [estoqueAtual, setEstoqueAtual] = useState<EstoqueResumoRow[]>([])
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const [detalhe, setDetalhe] =
-    useState<EstoqueRow | null>(null)
+  const [detalhe, setDetalhe] = useState<EstoqueRow | null>(null)
 
-  const [editar, setEditar] =
-    useState<EstoqueRow | null>(null)
+  const [editar, setEditar] = useState<EstoqueRow | null>(null)
 
-  const [search, setSearch] =
-    useState('')
+  const [search, setSearch] = useState('')
 
-  const [startDate, setStartDate] =
-    useState('')
+  const [startDate, setStartDate] = useState('')
 
-  const [endDate, setEndDate] =
-    useState('')
+  const [endDate, setEndDate] = useState('')
 
   const [lote, setLote] = useState('')
 
-  const [corte, setCorte] =
-    useState('')
+  const [corte, setCorte] = useState('')
 
-  const [tipoCorte, setTipoCorte] =
-    useState<string>('')
+  const [tipoCorte, setTipoCorte] = useState<string>('')
 
   const [novo, setNovo] = useState({
     lote: '',
@@ -78,48 +64,35 @@ export function Processamento() {
     tipo_movimentacao: 1,
     peso_bruto_kg: '',
     peso_liquido_kg: '',
-    data_movimentacao:
-      new Date()
-        .toISOString()
-        .split('T')[0],
+    data_movimentacao: new Date().toISOString().split('T')[0],
     observacoes: '',
   })
 
-  const isBD =
-    tipoCorte === CORTE_BD
+  const isBD = tipoCorte === CORTE_BD
 
   async function carregarDados() {
     try {
       setLoading(true)
 
-      const [movimentacoes, resumo] =
-        await Promise.all([
-          estoqueService.getMovimentacoes(
-            1,
-            100,
-            search,
-            startDate,
-            endDate,
-            lote,
-            corte
-          ),
+      const [movimentacoes, resumo] = await Promise.all([
+        estoqueService.getMovimentacoes(
+          1,
+          100,
+          search,
+          startDate,
+          endDate,
+          lote,
+          corte
+        ),
 
-          estoqueService.getEstoqueAtual(
-            search,
-            lote,
-            corte
-          ),
-        ])
+        estoqueService.getEstoqueAtual(search, lote, corte),
+      ])
 
-      setHistorico(
-        movimentacoes.data || []
-      )
+      setHistorico(movimentacoes.data || [])
 
       setEstoqueAtual(resumo || [])
     } catch {
-      toast.error(
-        'Erro ao carregar estoque'
-      )
+      toast.error('Erro ao carregar estoque')
     } finally {
       setLoading(false)
     }
@@ -127,80 +100,45 @@ export function Processamento() {
 
   useEffect(() => {
     carregarDados()
-  }, [
-    search,
-    startDate,
-    endDate,
-    lote,
-    corte,
-  ])
+  }, [search, startDate, endDate, lote, corte])
 
   async function handleCreate() {
     try {
       if (!novo.lote) {
-        toast.error(
-          'Informe o lote'
-        )
+        toast.error('Informe o lote')
 
         return
       }
 
       if (!novo.corte) {
-        toast.error(
-          'Selecione o corte'
-        )
+        toast.error('Selecione o corte')
 
         return
       }
 
-      if (
-        !novo.peso_bruto_kg ||
-        Number(
-          novo.peso_bruto_kg
-        ) <= 0
-      ) {
-        toast.error(
-          'Informe o peso bruto'
-        )
+      if (!novo.peso_bruto_kg || Number(novo.peso_bruto_kg) <= 0) {
+        toast.error('Informe o peso bruto')
 
         return
       }
 
-      if (
-        !novo.peso_liquido_kg ||
-        Number(
-          novo.peso_liquido_kg
-        ) <= 0
-      ) {
-        toast.error(
-          'Informe o peso líquido'
-        )
+      if (!novo.peso_liquido_kg || Number(novo.peso_liquido_kg) <= 0) {
+        toast.error('Informe o peso líquido')
 
         return
       }
 
-      await estoqueService.createMovimentacao(
-        {
-          lote: novo.lote,
-          corte: novo.corte,
-          tipo_movimentacao:
-            novo.tipo_movimentacao,
-          peso_bruto_kg: Number(
-            novo.peso_bruto_kg
-          ),
-          peso_liquido_kg: Number(
-            novo.peso_liquido_kg
-          ),
-          data_movimentacao:
-            novo.data_movimentacao,
-          observacoes:
-            novo.observacoes,
-        }
-      )
+      await estoqueService.createMovimentacao({
+        lote: novo.lote,
+        corte: novo.corte,
+        tipo_movimentacao: novo.tipo_movimentacao,
+        peso_bruto_kg: Number(novo.peso_bruto_kg),
+        peso_liquido_kg: Number(novo.peso_liquido_kg),
+        data_movimentacao: novo.data_movimentacao,
+        observacoes: novo.observacoes,
+      })
 
-      toast.success(
-        'Movimentação criada'
-      )
+      toast.success('Movimentação criada')
 
       setNovo({
         lote: '',
@@ -208,10 +146,7 @@ export function Processamento() {
         tipo_movimentacao: 1,
         peso_bruto_kg: '',
         peso_liquido_kg: '',
-        data_movimentacao:
-          new Date()
-            .toISOString()
-            .split('T')[0],
+        data_movimentacao: new Date().toISOString().split('T')[0],
         observacoes: '',
       })
 
@@ -219,9 +154,7 @@ export function Processamento() {
 
       carregarDados()
     } catch {
-      toast.error(
-        'Erro ao criar movimentação'
-      )
+      toast.error('Erro ao criar movimentação')
     }
   }
 
@@ -232,121 +165,73 @@ export function Processamento() {
       }
 
       if (!editar.lote) {
-        toast.error(
-          'Informe o lote'
-        )
+        toast.error('Informe o lote')
 
         return
       }
 
       if (!editar.corte) {
-        toast.error(
-          'Informe o corte'
-        )
+        toast.error('Informe o corte')
 
         return
       }
 
-      if (
-        !editar.peso_bruto_kg ||
-        Number(
-          editar.peso_bruto_kg
-        ) <= 0
-      ) {
-        toast.error(
-          'Informe o peso bruto'
-        )
+      if (!editar.peso_bruto_kg || Number(editar.peso_bruto_kg) <= 0) {
+        toast.error('Informe o peso bruto')
 
         return
       }
 
-      if (
-        !editar.peso_liquido_kg ||
-        Number(
-          editar.peso_liquido_kg
-        ) <= 0
-      ) {
-        toast.error(
-          'Informe o peso líquido'
-        )
+      if (!editar.peso_liquido_kg || Number(editar.peso_liquido_kg) <= 0) {
+        toast.error('Informe o peso líquido')
 
         return
       }
 
-      await estoqueService.updateMovimentacao(
-        editar.id,
-        {
-          lote: editar.lote,
-          corte: editar.corte,
-          tipo_movimentacao:
-            editar.tipo_movimentacao,
-          peso_bruto_kg:
-            editar.peso_bruto_kg,
-          peso_liquido_kg:
-            editar.peso_liquido_kg,
-          data_movimentacao:
-            editar.data_movimentacao,
-          observacoes:
-            editar.observacoes,
-        }
-      )
+      await estoqueService.updateMovimentacao(editar.id, {
+        lote: editar.lote,
+        corte: editar.corte,
+        tipo_movimentacao: editar.tipo_movimentacao,
+        peso_bruto_kg: editar.peso_bruto_kg,
+        peso_liquido_kg: editar.peso_liquido_kg,
+        data_movimentacao: editar.data_movimentacao,
+        observacoes: editar.observacoes,
+      })
 
-      toast.success(
-        'Movimentação atualizada'
-      )
+      toast.success('Movimentação atualizada')
 
       setEditar(null)
 
       carregarDados()
     } catch {
-      toast.error(
-        'Erro ao atualizar movimentação'
-      )
+      toast.error('Erro ao atualizar movimentação')
     }
   }
 
-  async function handleDelete(
-    id: number
-  ) {
+  async function handleDelete(id: number) {
     try {
-      await estoqueService.deleteMovimentacao(
-        id
-      )
+      await estoqueService.deleteMovimentacao(id)
 
-      toast.success(
-        'Movimentação excluída'
-      )
+      toast.success('Movimentação excluída')
 
       setDetalhe(null)
       setEditar(null)
 
       carregarDados()
     } catch {
-      toast.error(
-        'Erro ao excluir movimentação'
-      )
+      toast.error('Erro ao excluir movimentação')
     }
   }
 
-  const totalBruto =
-    estoqueAtual.reduce(
-      (acc, item) =>
-        acc +
-        Number(
-          item.saldo_bruto_kg || 0
-        ),
-      0
-    )
+  const totalBruto = estoqueAtual.reduce(
+    (acc, item) => acc + Number(item.saldo_bruto_kg || 0),
+    0
+  )
 
-  const totalLiquido =
-    estoqueAtual.reduce(
-      (acc, item) =>
-        acc +
-        Number(
-          item.saldo_liquido_kg || 0
-        ),
-      0
-    )
+  const totalLiquido = estoqueAtual.reduce(
+    (acc, item) => acc + Number(item.saldo_liquido_kg || 0),
+    0
+  )
 
   const columns = [
     {
@@ -369,29 +254,21 @@ export function Processamento() {
       header: 'Tipo',
 
       render: (r: EstoqueRow) =>
-        r.tipo_movimentacao === 1
-          ? 'Entrada'
-          : 'Saída',
+        r.tipo_movimentacao === 1 ? 'Entrada' : 'Saída',
     },
 
     {
       key: 'peso_bruto_kg',
       header: 'Peso bruto',
 
-      render: (r: EstoqueRow) =>
-        `${Number(
-          r.peso_bruto_kg
-        ).toFixed(2)} kg`,
+      render: (r: EstoqueRow) => `${Number(r.peso_bruto_kg).toFixed(2)} kg`,
     },
 
     {
       key: 'peso_liquido_kg',
       header: 'Peso líquido',
 
-      render: (r: EstoqueRow) =>
-        `${Number(
-          r.peso_liquido_kg
-        ).toFixed(2)} kg`,
+      render: (r: EstoqueRow) => `${Number(r.peso_liquido_kg).toFixed(2)} kg`,
     },
 
     {
@@ -399,70 +276,53 @@ export function Processamento() {
       header: 'Ações',
 
       render: (r: EstoqueRow) => (
-        <Button
-          variant="ghost"
-          onClick={() =>
-            setDetalhe(r)
-          }
-        >
+        <Button variant="ghost" onClick={() => setDetalhe(r)}>
           Ver detalhes
         </Button>
       ),
     },
   ]
 
-  const detalheItems = (
-    r: EstoqueRow
-  ): DetailItem[] => [
-      {
-        label: 'Lote',
-        value: r.lote,
-      },
+  const detalheItems = (r: EstoqueRow): DetailItem[] => [
+    {
+      label: 'Lote',
+      value: r.lote,
+    },
 
-      {
-        label: 'Corte',
-        value: r.corte,
-      },
+    {
+      label: 'Corte',
+      value: r.corte,
+    },
 
-      {
-        label: 'Tipo',
-        value:
-          r.tipo_movimentacao === 1
-            ? 'Entrada'
-            : 'Saída',
-      },
+    {
+      label: 'Tipo',
+      value: r.tipo_movimentacao === 1 ? 'Entrada' : 'Saída',
+    },
 
-      {
-        label: 'Peso bruto',
-        value: `${Number(
-          r.peso_bruto_kg
-        ).toFixed(2)} kg`,
-      },
+    {
+      label: 'Peso bruto',
+      value: `${Number(r.peso_bruto_kg).toFixed(2)} kg`,
+    },
 
-      {
-        label: 'Peso líquido',
-        value: `${Number(
-          r.peso_liquido_kg
-        ).toFixed(2)} kg`,
-      },
+    {
+      label: 'Peso líquido',
+      value: `${Number(r.peso_liquido_kg).toFixed(2)} kg`,
+    },
 
-      {
-        label: 'Data',
-        value: r.data_movimentacao,
-      },
+    {
+      label: 'Data',
+      value: r.data_movimentacao,
+    },
 
-      {
-        label: 'Observações',
-        value:
-          r.observacoes || '-',
-      },
-    ]
+    {
+      label: 'Observações',
+      value: r.observacoes || '-',
+    },
+  ]
 
   return (
     <div className={styles.page}>
-      <h1 className="page-title">
-        Processamento / Estoque
-      </h1>
+      <h1 className="page-title">Processamento / Estoque</h1>
 
       <Card title="Nova movimentação">
         <div className={styles.form}>
@@ -478,133 +338,78 @@ export function Processamento() {
             }
           /> */}
 
-          <div
-            className={
-              styles.selectWrap
-            }
-          >
-            <label
-              className={styles.label}
-            >
-              Tipo de corte
-            </label>
+          <div className={styles.selectWrap}>
+            <label className={styles.label}>Tipo de corte</label>
 
             <select
-              className={
-                styles.select
-              }
+              className={styles.select}
               value={novo.corte}
               onChange={(e) => {
-                setTipoCorte(
-                  e.target.value
-                )
+                setTipoCorte(e.target.value)
 
                 setNovo({
                   ...novo,
-                  corte:
-                    e.target.value,
+                  corte: e.target.value,
                 })
               }}
             >
-              <option value="">
-                Selecione...
-              </option>
+              <option value="">Selecione...</option>
 
-              {TIPOS_CORTE.map(
-                (c) => (
-                  <option
-                    key={c}
-                    value={c}
-                  >
-                    {c}
-                  </option>
-                )
-              )}
+              {TIPOS_CORTE.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
             </select>
           </div>
 
-          <div
-            className={
-              styles.selectWrap
-            }
-          >
-            <label
-              className={styles.label}
-            >
-              Tipo movimentação
-            </label>
+          <div className={styles.selectWrap}>
+            <label className={styles.label}>Tipo movimentação</label>
 
             <select
-              className={
-                styles.select
-              }
-              value={
-                novo.tipo_movimentacao
-              }
+              className={styles.select}
+              value={novo.tipo_movimentacao}
               onChange={(e) =>
                 setNovo({
                   ...novo,
-                  tipo_movimentacao:
-                    Number(
-                      e.target.value
-                    ),
+                  tipo_movimentacao: Number(e.target.value),
                 })
               }
             >
-              <option value={1}>
-                Entrada
-              </option>
+              <option value={1}>Entrada</option>
 
-              <option value={0}>
-                Saída
-              </option>
+              <option value={0}>Saída</option>
             </select>
           </div>
 
           <Input
             label="Peso bruto (kg)"
             type="number"
-            value={
-              novo.peso_bruto_kg
-            }
+            value={novo.peso_bruto_kg}
             onChange={(e) =>
               setNovo({
                 ...novo,
-                peso_bruto_kg:
-                  e.target.value,
+                peso_bruto_kg: e.target.value,
               })
             }
           />
 
           {isBD && (
-            <div
-              className={
-                styles.totalBD
-              }
-            >
-              <span>
-                {REGRA_BD}
-              </span>
+            <div className={styles.totalBD}>
+              <span>{REGRA_BD}</span>
 
-              <strong>
-                BD é a soma do
-                dianteiro +
-                traseiro
-              </strong>
+              <strong>BD é a soma do dianteiro + traseiro</strong>
             </div>
           )}
 
           <Input
             label="Peso líquido (kg)"
             type="number"
-            value={
-              novo.peso_liquido_kg
-            }
+            value={novo.peso_liquido_kg}
             onChange={(e) =>
               setNovo({
                 ...novo,
-                peso_liquido_kg:
-                  e.target.value,
+                peso_liquido_kg: e.target.value,
               })
             }
           />
@@ -612,196 +417,114 @@ export function Processamento() {
           <Input
             label="Data movimentação"
             type="date"
-            value={
-              novo.data_movimentacao
-            }
+            value={novo.data_movimentacao}
             onChange={(e) =>
               setNovo({
                 ...novo,
-                data_movimentacao:
-                  e.target.value,
+                data_movimentacao: e.target.value,
               })
             }
           />
 
           <Input
             label="Observações"
-            value={
-              novo.observacoes
-            }
+            value={novo.observacoes}
             onChange={(e) =>
               setNovo({
                 ...novo,
-                observacoes:
-                  e.target.value,
+                observacoes: e.target.value,
               })
             }
           />
 
-          <div
-            className={
-              styles.actions
-            }
-          >
+          <div className={styles.actions}>
             <Button
-              disabled={loading || !novo.lote || !novo.corte || !novo.peso_bruto_kg || !novo.peso_liquido_kg}
-              onClick={
-                handleCreate
+              disabled={
+                loading ||
+                !novo.lote ||
+                !novo.corte ||
+                !novo.peso_bruto_kg ||
+                !novo.peso_liquido_kg
               }
+              onClick={handleCreate}
             >
-              Registrar
-              movimentação
+              Registrar movimentação
             </Button>
           </div>
         </div>
       </Card>
 
       <Card title="Resumo do estoque">
-        <div
-          className={
-            styles.cardsResumo
-          }
-        >
-          {estoqueAtual.map(
-            (item) => (
-              <div
-                key={item.corte}
-                className={
-                  styles.cardResumo
-                }
-              >
-                <h3>
-                  {item.corte}
-                </h3>
+        <div className={styles.cardsResumo}>
+          {estoqueAtual.map((item) => (
+            <div key={item.corte} className={styles.cardResumo}>
+              <h3>{item.corte}</h3>
 
-                <div>
-                  <span>
-                    Bruto
-                  </span>
+              <div>
+                <span>Bruto</span>
 
-                  <strong>
-                    {Number(
-                      item.saldo_bruto_kg
-                    ).toFixed(
-                      2
-                    )}{' '}
-                    kg
-                  </strong>
-                </div>
-
-                <div>
-                  <span>
-                    Líquido
-                  </span>
-
-                  <strong>
-                    {Number(
-                      item.saldo_liquido_kg
-                    ).toFixed(
-                      2
-                    )}{' '}
-                    kg
-                  </strong>
-                </div>
+                <strong>{Number(item.saldo_bruto_kg).toFixed(2)} kg</strong>
               </div>
-            )
-          )}
 
-          <div
-            className={
-              styles.cardResumoTotal
-            }
-          >
-            <h3>
-              Total geral
-            </h3>
+              <div>
+                <span>Líquido</span>
+
+                <strong>{Number(item.saldo_liquido_kg).toFixed(2)} kg</strong>
+              </div>
+            </div>
+          ))}
+
+          <div className={styles.cardResumoTotal}>
+            <h3>Total geral</h3>
 
             <div>
-              <span>
-                Bruto
-              </span>
+              <span>Bruto</span>
 
-              <strong>
-                {totalBruto.toFixed(
-                  2
-                )}{' '}
-                kg
-              </strong>
+              <strong>{totalBruto.toFixed(2)} kg</strong>
             </div>
 
             <div>
-              <span>
-                Líquido
-              </span>
+              <span>Líquido</span>
 
-              <strong>
-                {totalLiquido.toFixed(
-                  2
-                )}{' '}
-                kg
-              </strong>
+              <strong>{totalLiquido.toFixed(2)} kg</strong>
             </div>
           </div>
         </div>
       </Card>
 
       <Card title="Filtros">
-        <div
-          className={
-            styles.filters
-          }
-        >
+        <div className={styles.filters}>
           <Input
             label="Buscar"
             placeholder="Lote, corte..."
             value={search}
-            onChange={(e) =>
-              setSearch(
-                e.target.value
-              )
-            }
+            onChange={(e) => setSearch(e.target.value)}
           />
 
           <Input
             label="Lote"
             value={lote}
-            onChange={(e) =>
-              setLote(
-                e.target.value
-              )
-            }
+            onChange={(e) => setLote(e.target.value)}
           />
 
           <Input
             label="Corte"
             value={corte}
-            onChange={(e) =>
-              setCorte(
-                e.target.value
-              )
-            }
+            onChange={(e) => setCorte(e.target.value)}
           />
 
           <Input
             label="Data inicial"
             type="date"
             value={startDate}
-            onChange={(e) =>
-              setStartDate(
-                e.target.value
-              )
-            }
+            onChange={(e) => setStartDate(e.target.value)}
           />
 
           <Input
             label="Data final"
             type="date"
             value={endDate}
-            onChange={(e) =>
-              setEndDate(
-                e.target.value
-              )
-            }
+            onChange={(e) => setEndDate(e.target.value)}
           />
         </div>
       </Card>
@@ -810,9 +533,7 @@ export function Processamento() {
         <Table
           columns={columns}
           data={historico}
-          keyExtractor={(r) =>
-            String(r.id)
-          }
+          keyExtractor={(r) => String(r.id)}
           loading={loading}
           emptyMessage="Nenhuma movimentação encontrada."
         />
@@ -820,18 +541,12 @@ export function Processamento() {
 
       <Modal
         open={!!detalhe}
-        onClose={() =>
-          setDetalhe(null)
-        }
+        onClose={() => setDetalhe(null)}
         title="Detalhes da movimentação"
       >
         {detalhe && (
           <>
-            <ModalDetails
-              items={detalheItems(
-                detalhe
-              )}
-            />
+            <ModalDetails items={detalheItems(detalhe)} />
 
             <div
               style={{
@@ -842,26 +557,15 @@ export function Processamento() {
             >
               <Button
                 onClick={() => {
-                  setEditar(
-                    detalhe
-                  )
+                  setEditar(detalhe)
 
-                  setDetalhe(
-                    null
-                  )
+                  setDetalhe(null)
                 }}
               >
                 Editar
               </Button>
 
-              <Button
-                variant="danger"
-                onClick={() =>
-                  handleDelete(
-                    detalhe.id
-                  )
-                }
-              >
+              <Button variant="danger" onClick={() => handleDelete(detalhe.id)}>
                 Excluir
               </Button>
             </div>
@@ -871,121 +575,70 @@ export function Processamento() {
 
       <Modal
         open={!!editar}
-        onClose={() =>
-          setEditar(null)
-        }
+        onClose={() => setEditar(null)}
         title="Editar movimentação"
       >
         {editar && (
-          <div
-            className={styles.form}
-          >
+          <div className={styles.form}>
             <Input
               label="Lote"
               value={editar.lote}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  lote:
-                    e.target.value,
+                  lote: e.target.value,
                 })
               }
             />
 
-            <div
-              className={
-                styles.selectWrap
-              }
-            >
-              <label
-                className={
-                  styles.label
-                }
-              >
-                Tipo de corte
-              </label>
+            <div className={styles.selectWrap}>
+              <label className={styles.label}>Tipo de corte</label>
 
               <select
-                className={
-                  styles.select
-                }
-                value={
-                  editar.corte
-                }
+                className={styles.select}
+                value={editar.corte}
                 onChange={(e) =>
                   setEditar({
                     ...editar,
-                    corte:
-                      e.target.value,
+                    corte: e.target.value,
                   })
                 }
               >
-                {TIPOS_CORTE.map(
-                  (c) => (
-                    <option
-                      key={c}
-                      value={c}
-                    >
-                      {c}
-                    </option>
-                  )
-                )}
+                {TIPOS_CORTE.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
 
-            <div
-              className={
-                styles.selectWrap
-              }
-            >
-              <label
-                className={
-                  styles.label
-                }
-              >
-                Tipo movimentação
-              </label>
+            <div className={styles.selectWrap}>
+              <label className={styles.label}>Tipo movimentação</label>
 
               <select
-                className={
-                  styles.select
-                }
-                value={
-                  editar.tipo_movimentacao
-                }
+                className={styles.select}
+                value={editar.tipo_movimentacao}
                 onChange={(e) =>
                   setEditar({
                     ...editar,
-                    tipo_movimentacao:
-                      Number(
-                        e.target.value
-                      ),
+                    tipo_movimentacao: Number(e.target.value),
                   })
                 }
               >
-                <option value={1}>
-                  Entrada
-                </option>
+                <option value={1}>Entrada</option>
 
-                <option value={0}>
-                  Saída
-                </option>
+                <option value={0}>Saída</option>
               </select>
             </div>
 
             <Input
               label="Peso bruto (kg)"
               type="number"
-              value={
-                editar.peso_bruto_kg
-              }
+              value={editar.peso_bruto_kg}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  peso_bruto_kg:
-                    Number(
-                      e.target.value
-                    ),
+                  peso_bruto_kg: Number(e.target.value),
                 })
               }
             />
@@ -993,16 +646,11 @@ export function Processamento() {
             <Input
               label="Peso líquido (kg)"
               type="number"
-              value={
-                editar.peso_liquido_kg
-              }
+              value={editar.peso_liquido_kg}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  peso_liquido_kg:
-                    Number(
-                      e.target.value
-                    ),
+                  peso_liquido_kg: Number(e.target.value),
                 })
               }
             />
@@ -1010,55 +658,30 @@ export function Processamento() {
             <Input
               label="Data movimentação"
               type="date"
-              value={
-                editar.data_movimentacao
-              }
+              value={editar.data_movimentacao}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  data_movimentacao:
-                    e.target.value,
+                  data_movimentacao: e.target.value,
                 })
               }
             />
 
             <Input
               label="Observações"
-              value={
-                editar.observacoes ||
-                ''
-              }
+              value={editar.observacoes || ''}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  observacoes:
-                    e.target.value,
+                  observacoes: e.target.value,
                 })
               }
             />
 
-            <div
-              className={
-                styles.actions
-              }
-            >
-              <Button
-                onClick={
-                  handleSaveEdit
-                }
-              >
-                Salvar
-                alterações
-              </Button>
+            <div className={styles.actions}>
+              <Button onClick={handleSaveEdit}>Salvar alterações</Button>
 
-              <Button
-                variant="danger"
-                onClick={() =>
-                  handleDelete(
-                    editar.id
-                  )
-                }
-              >
+              <Button variant="danger" onClick={() => handleDelete(editar.id)}>
                 Excluir
               </Button>
             </div>

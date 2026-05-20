@@ -127,7 +127,7 @@ export function ModalViagem({
     <Modal
       open={open}
       onClose={onClose}
-        width="900px" 
+      width="900px"
       title={initialData?.custo_total ? 'Editar viagem' : 'Nova viagem'}
     >
       <div className={styles.form}>
@@ -135,68 +135,51 @@ export function ModalViagem({
           label="Data"
           type="date"
           value={form.data}
-          onChange={(e) =>
-            setForm({ ...form, data: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, data: e.target.value })}
         />
 
         <Input
           label="Veículo"
           value={form.veiculo}
-          onChange={(e) =>
-            setForm({ ...form, veiculo: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, veiculo: e.target.value })}
         />
 
         <Input
           label="Motorista"
           value={form.motorista}
-          onChange={(e) =>
-            setForm({ ...form, motorista: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, motorista: e.target.value })}
         />
 
         <Input
           label="Origem"
           value={form.origem}
-          onChange={(e) =>
-            setForm({ ...form, origem: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, origem: e.target.value })}
         />
 
         <Input
           label="Destino"
           value={form.destino}
-          onChange={(e) =>
-            setForm({ ...form, destino: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, destino: e.target.value })}
         />
-
 
         <Input
           label="Finalidade"
           value={form.finalidade}
-          onChange={(e) =>
-            setForm({ ...form, finalidade: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, finalidade: e.target.value })}
         />
 
         <Input
           label="KM"
           type="number"
           value={form.km}
-          onChange={(e) =>
-            setForm({ ...form, km: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, km: e.target.value })}
         />
 
         <Input
           label="Carga KG"
           type="number"
           value={form.carga_kg}
-          onChange={(e) =>
-            setForm({ ...form, carga_kg: e.target.value })
-          }
+          onChange={(e) => setForm({ ...form, carga_kg: e.target.value })}
         />
 
         <Input
@@ -229,17 +212,13 @@ export function ModalViagem({
           onChange={(e) =>
             setForm({
               ...form,
-              status:
-                e.target.value === 'Ativo' ? '1' : '0',
+              status: e.target.value === 'Ativo' ? '1' : '0',
             })
           }
         />
 
         <div className={styles.actions}>
-          <Button
-            onClick={handleSubmit}
-            disabled={loading || !isValid}
-          >
+          <Button onClick={handleSubmit} disabled={loading || !isValid}>
             {loading
               ? 'Salvando...'
               : initialData

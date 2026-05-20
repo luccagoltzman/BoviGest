@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import {
-  Button,
-  Card,
-  Input,
-  Table,
-} from '@/components/ui'
-
+import { Button, Card, Input, Table } from '@/components/ui'
 
 import styles from './Viagens.module.scss'
 import { ModalViagem } from './ModalViagem'
@@ -28,49 +22,40 @@ interface ViagemRow {
 }
 
 export function Viagens() {
-  const [viagens, setViagens] = useState<
-    ViagemRow[]
-  >([])
+  const [viagens, setViagens] = useState<ViagemRow[]>([])
 
-  const [loading, setLoading] =
-    useState(false)
+  const [loading, setLoading] = useState(false)
 
   const [page, setPage] = useState(1)
 
   const [total, setTotal] = useState(0)
 
-  const [totalPages, setTotalPages] =
-    useState(0)
+  const [totalPages, setTotalPages] = useState(0)
 
   const [search, setSearch] = useState('')
 
-  const [startDate, setStartDate] =
-    useState('')
+  const [startDate, setStartDate] = useState('')
 
-  const [endDate, setEndDate] =
-    useState('')
+  const [endDate, setEndDate] = useState('')
 
   const [referenciaTipo] = useState('')
 
-  const [modalOpen, setModalOpen] =
-    useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
 
-  const [editar, setEditar] =
-    useState<any>(null)
+  const [editar, setEditar] = useState<any>(null)
 
   async function carregarViagens() {
     try {
       setLoading(true)
 
-      const response =
-        await viagensService.getAll(
-          page,
-          10,
-          search,
-          startDate,
-          endDate,
-          referenciaTipo
-        )
+      const response = await viagensService.getAll(
+        page,
+        10,
+        search,
+        startDate,
+        endDate,
+        referenciaTipo
+      )
 
       setViagens(response.data || [])
 
@@ -84,13 +69,7 @@ export function Viagens() {
 
   useEffect(() => {
     carregarViagens()
-  }, [
-    page,
-    search,
-    startDate,
-    endDate,
-    referenciaTipo,
-  ])
+  }, [page, search, startDate, endDate, referenciaTipo])
 
   async function handleDelete(id: number) {
     await viagensService.delete(id)
@@ -131,9 +110,7 @@ export function Viagens() {
       key: 'custo_total',
       header: 'Custo',
       render: (r: ViagemRow) =>
-        `R$ ${Number(
-          r.custo_total
-        ).toLocaleString('pt-BR')}`,
+        `R$ ${Number(r.custo_total).toLocaleString('pt-BR')}`,
     },
     {
       key: 'referencia_tipo',
@@ -159,12 +136,7 @@ export function Viagens() {
             Editar
           </Button>
 
-          <Button
-            variant="danger"
-            onClick={() =>
-              handleDelete(r.id)
-            }
-          >
+          <Button variant="danger" onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
         </div>
@@ -174,9 +146,7 @@ export function Viagens() {
 
   return (
     <div className={styles.page}>
-      <h1 className="page-title">
-        Registro de viagens / transporte
-      </h1>
+      <h1 className="page-title">Registro de viagens / transporte</h1>
 
       <Card title="Nova viagem">
         <div className={styles.actions}>
@@ -197,27 +167,21 @@ export function Viagens() {
             label="Buscar"
             placeholder="Veículo, motorista, origem..."
             value={search}
-            onChange={(e) =>
-              setSearch(e.target.value)
-            }
+            onChange={(e) => setSearch(e.target.value)}
           />
 
           <Input
             label="Data inicial"
             type="date"
             value={startDate}
-            onChange={(e) =>
-              setStartDate(e.target.value)
-            }
+            onChange={(e) => setStartDate(e.target.value)}
           />
 
           <Input
             label="Data final"
             type="date"
             value={endDate}
-            onChange={(e) =>
-              setEndDate(e.target.value)
-            }
+            onChange={(e) => setEndDate(e.target.value)}
           />
 
           {/* <Select
@@ -247,9 +211,7 @@ export function Viagens() {
         <Table
           columns={columns}
           data={viagens}
-          keyExtractor={(r) =>
-            String(r.id)
-          }
+          keyExtractor={(r) => String(r.id)}
           loading={loading}
           page={page}
           total={total}

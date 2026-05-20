@@ -53,14 +53,10 @@ export const viagensService = {
       }
 
       if (referenciaTipo) {
-        query = query.eq(
-          'referencia_tipo',
-          referenciaTipo
-        )
+        query = query.eq('referencia_tipo', referenciaTipo)
       }
 
-      const { data, count, error } =
-        await query
+      const { data, count, error } = await query
 
       if (error) {
         throw error
@@ -71,9 +67,7 @@ export const viagensService = {
         total: count || 0,
         page,
         limit,
-        totalPages: Math.ceil(
-          (count || 0) / limit
-        ),
+        totalPages: Math.ceil((count || 0) / limit),
       }
     } catch {
       return {
@@ -103,7 +97,6 @@ export const viagensService = {
 
     return data
   },
-
 
   async getByReferenciaId(id: number) {
     const user = getUser()
@@ -152,8 +145,7 @@ export const viagensService = {
       .from('viagens')
       .update({
         ...payload,
-        updated_at:
-          new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       })
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)

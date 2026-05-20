@@ -8,7 +8,13 @@ function getUser() {
 }
 
 export const custosOperacionaisService = {
-  async getAll(page = 1, limit = 10, search = '', startDate = '', endDate = '') {
+  async getAll(
+    page = 1,
+    limit = 10,
+    search = '',
+    startDate = '',
+    endDate = ''
+  ) {
     const from = (page - 1) * limit
     const to = from + limit - 1
 
@@ -89,13 +95,16 @@ export const custosOperacionaisService = {
     return data
   },
 
-  async update(id: string, payload: {
-    data?: string
-    categoria?: string
-    descricao?: string
-    valor?: number
-    centroCusto?: string
-  }) {
+  async update(
+    id: string,
+    payload: {
+      data?: string
+      categoria?: string
+      descricao?: string
+      valor?: number
+      centroCusto?: string
+    }
+  ) {
     const user = getUser()
     const { data, error } = await supabase
       .from('custos_operacionais')
@@ -118,5 +127,5 @@ export const custosOperacionaisService = {
       .eq('empresa_id', user.empresa_id)
 
     if (error) throw error
-  }
+  },
 }

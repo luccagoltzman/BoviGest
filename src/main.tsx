@@ -10,16 +10,15 @@ async function bootstrap() {
   ReactDOM.createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <App />
-    </BrowserRouter>,
+    </BrowserRouter>
   )
 }
 
 bootstrap()
 
-
-  // <React.StrictMode>
-  //   <BrowserRouter>
-  //     <App />
-  //   </BrowserRouter>
-  // </React.StrictMode>,
-  // assim ele faz requets duas vezes local
+// <React.StrictMode>
+//   <BrowserRouter>
+//     <App />
+//   </BrowserRouter>
+// </React.StrictMode>,
+// assim ele faz requets duas vezes local

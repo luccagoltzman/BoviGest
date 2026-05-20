@@ -5,9 +5,7 @@ function getUser() {
   const user = AuthService.getCachedUser()
 
   if (!user) {
-    throw new Error(
-      'Usuário não encontrado no cache'
-    )
+    throw new Error('Usuário não encontrado no cache')
   }
 
   return user
@@ -43,10 +41,7 @@ export const vendasService = {
             count: 'exact',
           }
         )
-        .eq(
-          'empresa_id',
-          user.empresa_id
-        )
+        .eq('empresa_id', user.empresa_id)
         .neq('status', 3)
         .order('data_venda', {
           ascending: false,
@@ -60,28 +55,18 @@ export const vendasService = {
       }
 
       if (startDate) {
-        query = query.gte(
-          'data_venda',
-          startDate
-        )
+        query = query.gte('data_venda', startDate)
       }
 
       if (endDate) {
-        query = query.lte(
-          'data_venda',
-          endDate
-        )
+        query = query.lte('data_venda', endDate)
       }
 
       if (status !== '') {
-        query = query.eq(
-          'status',
-          status
-        )
+        query = query.eq('status', status)
       }
 
-      const { data, count, error } =
-        await query
+      const { data, count, error } = await query
 
       if (error) {
         throw error
@@ -92,9 +77,7 @@ export const vendasService = {
         total: count || 0,
         page,
         limit,
-        totalPages: Math.ceil(
-          (count || 0) / limit
-        ),
+        totalPages: Math.ceil((count || 0) / limit),
       }
     } catch {
       return {
@@ -110,11 +93,10 @@ export const vendasService = {
   async getById(id: number) {
     const user = getUser()
 
-    const { data, error } =
-      await supabase
-        .from('vendas')
-        .select(
-          `
+    const { data, error } = await supabase
+      .from('vendas')
+      .select(
+        `
             *,
             cliente:clientes(
               id,
@@ -123,13 +105,10 @@ export const vendasService = {
               endereco
             )
           `
-        )
-        .eq('id', id)
-        .eq(
-          'empresa_id',
-          user.empresa_id
-        )
-        .single()
+      )
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
+      .single()
 
     if (error) {
       throw error
@@ -141,18 +120,16 @@ export const vendasService = {
   async create(payload: any) {
     const user = getUser()
 
-    const { data, error } =
-      await supabase
-        .from('vendas')
-        .insert([
-          {
-            ...payload,
-            empresa_id:
-              user.empresa_id,
-          },
-        ])
-        .select()
-        .single()
+    const { data, error } = await supabase
+      .from('vendas')
+      .insert([
+        {
+          ...payload,
+          empresa_id: user.empresa_id,
+        },
+      ])
+      .select()
+      .single()
 
     if (error) {
       throw error
@@ -161,27 +138,19 @@ export const vendasService = {
     return data
   },
 
-  async update(
-    id: number,
-    payload: any
-  ) {
+  async update(id: number, payload: any) {
     const user = getUser()
 
-    const { data, error } =
-      await supabase
-        .from('vendas')
-        .update({
-          ...payload,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq(
-          'empresa_id',
-          user.empresa_id
-        )
-        .select()
-        .single()
+    const { data, error } = await supabase
+      .from('vendas')
+      .update({
+        ...payload,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
+      .select()
+      .single()
 
     if (error) {
       throw error
@@ -193,19 +162,14 @@ export const vendasService = {
   async delete(id: number) {
     const user = getUser()
 
-    const { error } =
-      await supabase
-        .from('vendas')
-        .update({
-          status: 3,
-          updated_at:
-            new Date().toISOString(),
-        })
-        .eq('id', id)
-        .eq(
-          'empresa_id',
-          user.empresa_id
-        )
+    const { error } = await supabase
+      .from('vendas')
+      .update({
+        status: 3,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
 
     if (error) {
       throw error

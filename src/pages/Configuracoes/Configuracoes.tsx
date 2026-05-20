@@ -61,7 +61,7 @@ export function Configuracoes() {
       form.sidebarEndColor,
       form.buttonGradientEndColor,
       form.backgroundGlowColor,
-    ],
+    ]
   )
 
   const loadConfiguracoes = async () => {
@@ -80,10 +80,8 @@ export function Configuracoes() {
         secondaryColor: data.secondary_color ?? '#d69e2e',
         sidebarColor: data.sidebar_color ?? '#11351f',
         sidebarEndColor: data.sidebar_end_color ?? '#092012',
-        buttonGradientEndColor:
-          data.button_gradient_end_color ?? '#38a169',
-        backgroundGlowColor:
-          data.background_glow_color ?? '#38a169',
+        buttonGradientEndColor: data.button_gradient_end_color ?? '#38a169',
+        backgroundGlowColor: data.background_glow_color ?? '#38a169',
       })
 
       persistThemeConfig({
@@ -124,10 +122,8 @@ export function Configuracoes() {
         secondary_color: form.secondaryColor,
         sidebar_color: form.sidebarColor,
         sidebar_end_color: form.sidebarEndColor,
-        button_gradient_end_color:
-          form.buttonGradientEndColor,
-        background_glow_color:
-          form.backgroundGlowColor,
+        button_gradient_end_color: form.buttonGradientEndColor,
+        background_glow_color: form.backgroundGlowColor,
       }
 
       const savedConfig = await configuracoesService.upsert(payload)
@@ -151,9 +147,7 @@ export function Configuracoes() {
     } catch (error: unknown) {
       console.error(error)
       const message =
-        error instanceof Error
-          ? error.message
-          : 'Erro ao salvar configurações'
+        error instanceof Error ? error.message : 'Erro ao salvar configurações'
       toast.error(message)
     } finally {
       setLoading(false)
@@ -186,17 +180,13 @@ export function Configuracoes() {
         <Card title="Identidade visual">
           <div className={styles.form}>
             <div className={styles.logoField}>
-              <span className={styles.fieldLabel}>
-                Logo do sistema
-              </span>
+              <span className={styles.fieldLabel}>Logo do sistema</span>
 
               <label className={styles.logoUpload}>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp,image/svg+xml"
-                  onChange={(e) =>
-                    handleLogoChange(e.target.files?.[0])
-                  }
+                  onChange={(e) => handleLogoChange(e.target.files?.[0])}
                 />
 
                 {form.logoPreviewUrl ? (
@@ -215,9 +205,7 @@ export function Configuracoes() {
                 )}
               </label>
 
-              <small>
-                Formatos sugeridos: PNG, JPG, WEBP ou SVG.
-              </small>
+              <small>Formatos sugeridos: PNG, JPG, WEBP ou SVG.</small>
             </div>
 
             <ColorField
@@ -342,14 +330,9 @@ export function Configuracoes() {
               <div className={styles.previewCard}>
                 <strong>Card de exemplo</strong>
 
-                <p>
-                  Botões, destaques e menu usam as cores
-                  configuradas.
-                </p>
+                <p>Botões, destaques e menu usam as cores configuradas.</p>
 
-                <button type="button">
-                  Ação principal
-                </button>
+                <button type="button">Ação principal</button>
               </div>
             </main>
           </div>

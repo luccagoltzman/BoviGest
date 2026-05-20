@@ -10,11 +10,14 @@ const STORAGE_KEY = 'auth_user'
 
 export const AuthService = {
   async login(email: string, password: string): Promise<AuthUser> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
     if (error) throw error
 
     const user = await this.me(data.user?.id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user)) 
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     return user
   },
 
@@ -23,7 +26,7 @@ export const AuthService = {
     if (error) throw error
 
     const user = await this.me(data.user?.id)
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(user)) 
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     return user
   },
 
@@ -45,7 +48,7 @@ export const AuthService = {
     const user: AuthUser = {
       id,
       email: userData.user?.email || '',
-      empresa_id: vinculo?.empresa_id ?? null
+      empresa_id: vinculo?.empresa_id ?? null,
     }
 
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
@@ -58,15 +61,15 @@ export const AuthService = {
   },
 
   getToken() {
-    return supabase.auth.getSession().then(r => r.data.session?.access_token)
+    return supabase.auth.getSession().then((r) => r.data.session?.access_token)
   },
 
   isAuthenticated() {
-    return supabase.auth.getSession().then(r => !!r.data.session)
+    return supabase.auth.getSession().then((r) => !!r.data.session)
   },
 
   getCachedUser(): AuthUser | null {
     const cached = localStorage.getItem(STORAGE_KEY)
     return cached ? JSON.parse(cached) : null
-  }
+  },
 }

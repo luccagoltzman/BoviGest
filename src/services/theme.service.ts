@@ -72,7 +72,7 @@ function adjustColor(hex: string, amount: number) {
   return rgbToHex(
     Math.max(0, Math.min(255, r + amount)),
     Math.max(0, Math.min(255, g + amount)),
-    Math.max(0, Math.min(255, b + amount)),
+    Math.max(0, Math.min(255, b + amount))
   )
 }
 
@@ -85,54 +85,36 @@ function applyTheme(config: any) {
     const primaryLight = adjustColor(primary, 35)
     const primaryDark = adjustColor(primary, -35)
 
-    root.style.setProperty(
-      '--theme-primary',
-      primary,
-    )
+    root.style.setProperty('--theme-primary', primary)
 
-    root.style.setProperty(
-      '--theme-primary-light',
-      primaryLight,
-    )
+    root.style.setProperty('--theme-primary-light', primaryLight)
 
-    root.style.setProperty(
-      '--theme-primary-dark',
-      primaryDark,
-    )
+    root.style.setProperty('--theme-primary-dark', primaryDark)
   }
 
   if (config?.secondary_color) {
-    root.style.setProperty(
-      '--theme-secondary',
-      config.secondary_color,
-    )
+    root.style.setProperty('--theme-secondary', config.secondary_color)
   }
 
   if (config?.sidebar_color) {
-    root.style.setProperty(
-      '--theme-sidebar-start',
-      config.sidebar_color,
-    )
+    root.style.setProperty('--theme-sidebar-start', config.sidebar_color)
   }
 
   if (config?.sidebar_end_color) {
-    root.style.setProperty(
-      '--theme-sidebar-end',
-      config.sidebar_end_color,
-    )
+    root.style.setProperty('--theme-sidebar-end', config.sidebar_end_color)
   }
 
   if (config?.button_gradient_end_color) {
     root.style.setProperty(
       '--theme-button-gradient-end',
-      config.button_gradient_end_color,
+      config.button_gradient_end_color
     )
   }
 
   if (config?.background_glow_color) {
     root.style.setProperty(
       '--theme-background-glow',
-      config.background_glow_color,
+      config.background_glow_color
     )
   }
 }

@@ -6,7 +6,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   error?: string
 }
 
-export function Input({ label, error, id, className = '', ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  id,
+  className = '',
+  ...props
+}: InputProps) {
   const inputId = id ?? `input-${Math.random().toString(36).slice(2)}`
   return (
     <div className={[styles.wrap, className].filter(Boolean).join(' ')}>
@@ -15,7 +21,13 @@ export function Input({ label, error, id, className = '', ...props }: InputProps
           {label}
         </label>
       )}
-      <input id={inputId} className={[styles.input, error && styles.hasError].filter(Boolean).join(' ')} {...props} />
+      <input
+        id={inputId}
+        className={[styles.input, error && styles.hasError]
+          .filter(Boolean)
+          .join(' ')}
+        {...props}
+      />
       {error && <span className={styles.error}>{error}</span>}
     </div>
   )

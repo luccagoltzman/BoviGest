@@ -1,18 +1,18 @@
-import { defineConfig } from 'vite';
-import react from '@vitejs/plugin-react';
-import path from 'path';
-import { fileURLToPath } from 'url';
-var __dirname = path.dirname(fileURLToPath(import.meta.url));
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import path from 'path'
+import { fileURLToPath } from 'url'
+var __dirname = path.dirname(fileURLToPath(import.meta.url))
 export default defineConfig({
-    plugins: [react()],
-    resolve: {
-        alias: { '@': path.resolve(__dirname, 'src') },
+  plugins: [react()],
+  resolve: {
+    alias: { '@': path.resolve(__dirname, 'src') },
+  },
+  css: {
+    preprocessorOptions: {
+      scss: {
+        includePaths: [path.resolve(__dirname, 'src')],
+      },
     },
-    css: {
-        preprocessorOptions: {
-            scss: {
-                includePaths: [path.resolve(__dirname, 'src')],
-            },
-        },
-    },
-});
+  },
+})
