@@ -184,7 +184,7 @@ export function Vendas() {
           corte: form.corte,
           lote: `v-${venda.id}`,
           tipo_movimentacao: 0,
-          peso_bruto_kg: pesoVenda,
+          peso_bruto_kg: 0,
           peso_liquido_kg: pesoVenda,
           data_movimentacao: form.data_venda,
           referencia_tipo: 'VENDA',
