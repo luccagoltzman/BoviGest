@@ -106,7 +106,9 @@
   border: 1px solid rgba($color-border, 0.9);
   border-radius: $radius;
   box-shadow: $shadow-sm;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);

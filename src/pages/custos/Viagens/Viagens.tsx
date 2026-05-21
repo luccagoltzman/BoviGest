@@ -18,7 +18,6 @@ interface ViagemRow {
   carga_kg: number
   custo_total: number
   referencia_tipo?: string
-  status: number
 }
 
 export function Viagens() {

@@ -338,8 +338,7 @@ export function Processamento() {
             onChange={(e) =>
               setNovo({
                 ...novo,
-                lote:
-                  e.target.value,
+                lote: e.target.value,
               })
             }
           />
@@ -471,7 +470,9 @@ export function Processamento() {
           <>
             <p className={styles.resumoIntro}>
               {estoqueAtual.length}{' '}
-              {estoqueAtual.length === 1 ? 'corte com saldo' : 'cortes com saldo'}
+              {estoqueAtual.length === 1
+                ? 'corte com saldo'
+                : 'cortes com saldo'}
             </p>
 
             <div className={styles.resumoGrid}>
@@ -504,7 +505,7 @@ export function Processamento() {
 
               <article
                 className={[styles.resumoCard, styles.resumoCardTotal].join(
-                  ' ',
+                  ' '
                 )}
               >
                 <span className={styles.resumoCorte}>Total geral</span>

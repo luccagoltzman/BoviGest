@@ -39,7 +39,6 @@ export function ModalViagem({
     carga_kg: '',
     custo_total: '',
     observacoes: '',
-    status: '1',
   })
 
   useEffect(() => {
@@ -57,7 +56,6 @@ export function ModalViagem({
         carga_kg: String(initialData.carga_kg || ''),
         custo_total: String(initialData.custo_total || ''),
         observacoes: initialData.observacoes || '',
-        status: String(initialData.status || 1),
       })
       return
     }
@@ -75,7 +73,6 @@ export function ModalViagem({
       carga_kg: '',
       custo_total: '',
       observacoes: '',
-      status: '1',
     })
   }, [initialData, open])
 
@@ -103,7 +100,6 @@ export function ModalViagem({
         km: Number(form.km || 0),
         carga_kg: Number(form.carga_kg || 0),
         custo_total: Number(form.custo_total || 0),
-        status: Number(form.status),
       }
 
       if (initialData?.id) {
@@ -201,18 +197,6 @@ export function ModalViagem({
             setForm({
               ...form,
               observacoes: e.target.value,
-            })
-          }
-        />
-
-        <Select
-          label="Status"
-          options={['Ativo', 'Inativo']}
-          value={form.status === '1' ? 'Ativo' : 'Inativo'}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              status: e.target.value === 'Ativo' ? '1' : '0',
             })
           }
         />

@@ -10,638 +10,421 @@ import {
   Table,
 } from '@/components/ui'
 
-import type { DetailItem } from '@/components/ui'
-import styles from './Vendas.module.scss'
-
-import { estoqueService } from '@/services/estoque.service'
-
-import { TIPOS_CORTE } from '@/constants/cortes'
-
-import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
-
-import {
-  STATUS_VENDA,
-  STATUS_VENDA_LABEL,
-  StatusVenda,
-} from '@/constants/statusVenda'
-
 import toast from 'react-hot-toast'
+import styles from './Vendas.module.scss'
+import { TIPOS_CORTE } from '@/constants/cortes'
+import { ClienteExtratoModal } from '../Clientes/ClienteExtratoModal'
 import { clientesService } from '@/services/cliente.service'
-import { vendasService } from '@/services/venda.service'
+import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 
-interface Cliente {
-  id: string
-  nome: string
-}
-
-interface EstoqueRow {
-  corte: string
-  saldo_liquido_kg: number
-}
-
-interface VendaRow {
-  id: number
-  cliente_id: string
-  cliente?: {
-    nome: string
-  }
-  corte: string
-  peso_kg: number
-  valor_kg: number
-  valor_total: number
-  valor_pago: number
-  forma_pagamento: string
-  status: StatusVenda
-  data_venda: string
-  data_entrega?: string
-  observacoes?: string
-}
-
-interface FormVenda {
-  cliente_id: string
-  corte: string
-  peso_kg: string
-  valor_kg: string
-  valor_total: string
-  valor_pago: string
-  forma_pagamento: string
-  status: StatusVenda
-  data_venda: string
-  data_entrega: string
-  observacoes: string
+const emptyItem = {
+  tipo_corte: '',
+  peso_total_kg: '',
+  valor_kg: '',
+  composicoes: [],
 }
 
 export function Vendas() {
-  const [clientes, setClientes] = useState<Cliente[]>([])
-
-  const [estoqueAtual, setEstoqueAtual] = useState<EstoqueRow[]>([])
-
+  const [clientes, setClientes] = useState<any[]>([])
+  const [historico, setHistorico] = useState<any[]>([])
   const [clienteBusca, setClienteBusca] = useState('')
-
-  const [loading, setLoading] = useState(false)
-
-  const [search, setSearch] = useState('')
-
-  const [historico, setHistorico] = useState<VendaRow[]>([])
-
-  const [detalhe, setDetalhe] = useState<VendaRow | null>(null)
-
-  const [editar, setEditar] = useState<VendaRow | null>(null)
-
-  const [form, setForm] = useState<FormVenda>({
+  const [totalGeral, setTotalGeral] = useState(0)
+  const [editando, setEditando] = useState<any>(null)
+  const [detalhe, setDetalhe] = useState<any>(null)
+  const [clienteExtrato, setClienteExtrato] = useState<any>(null)
+  const [form, setForm] = useState<any>({
     cliente_id: '',
-    corte: '',
-    peso_kg: '',
-    valor_kg: '',
-    valor_total: '',
-    valor_pago: '',
-    forma_pagamento: '',
-    status: STATUS_VENDA.PENDENTE,
-    data_venda: new Date().toISOString().split('T')[0],
-    data_entrega: '',
-    observacoes: '',
+    observacao: '',
+    data_movimentacao: new Date().toISOString().split('T')[0],
+    itens: [{ ...emptyItem }],
+    movimentacao_status: 'pendente',
   })
 
-  const estoqueSelecionado = estoqueAtual.find((e) => e.corte === form.corte)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [loadingSave, setLoadingSave] = useState(false)
+  useEffect(() => {
+    carregarClientes()
+  }, [])
 
-  const saldoDisponivel = Number(estoqueSelecionado?.saldo_liquido_kg || 0)
+  useEffect(() => {
+    carregarMovimentacoes(page)
+  }, [page])
+
+  useEffect(() => {
+    setTotalGeral(calcularTotal())
+  }, [form.itens])
+
+  useEffect(() => {
+    setTotalGeral(calcularTotal())
+  }, [form.itens])
+
+  const isBanda = (tipo: string) =>
+    (tipo || '').toLowerCase().includes('banda') ||
+    (tipo || '').toLowerCase().includes('bd')
 
   async function carregarClientes() {
     const data = await clientesService.getOptions()
-
     setClientes(data || [])
   }
 
-  async function carregarEstoque() {
-    const data = await estoqueService.getEstoqueAtual()
-
-    setEstoqueAtual(data || [])
-  }
-
-  async function carregarDados() {
+  async function carregarMovimentacoes(currentPage = 1) {
     try {
       setLoading(true)
 
-      const response = await vendasService.getAll(1, 100, search)
+      const data = await movimentacoesClientesService.getAll(currentPage, 2)
 
-      setHistorico(response.data || [])
-    } catch {
-      toast.error('Erro ao carregar vendas')
+      setHistorico(data.data || [])
+      setTotal(data.total || 0)
+      setTotalPages(data.totalPages || 1)
     } finally {
       setLoading(false)
     }
   }
 
-  useEffect(() => {
-    carregarClientes()
-    carregarEstoque()
-  }, [])
+  // ─── form (criar) ───────────────────────────────────────────
 
-  useEffect(() => {
-    carregarDados()
-  }, [search])
+  function addItem() {
+    setForm((prev: any) => ({
+      ...prev,
+      itens: [...prev.itens, { ...emptyItem }],
+    }))
+  }
+
+  function removeItem(index: number) {
+    setForm((prev: any) => ({
+      ...prev,
+      itens: prev.itens.filter((_: any, i: number) => i !== index),
+    }))
+  }
+
+  function updateItem(index: number, field: string, value: any) {
+    const itens = [...form.itens]
+    itens[index][field] = value
+    const peso = Number(itens[index].peso_total_kg || 0)
+    const valorKg = Number(itens[index].valor_kg || 0)
+    itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+    setForm({ ...form, itens })
+  }
+
+  function changeTipo(index: number, tipo: string) {
+    const itens = [...form.itens]
+    itens[index].tipo_corte = tipo
+    if (isBanda(tipo)) {
+      itens[index].composicoes = [
+        { tipo_corte: 'Dianteiro', peso_kg: '' },
+        { tipo_corte: 'Traseiro', peso_kg: '' },
+      ]
+    } else {
+      itens[index].composicoes = []
+    }
+    setForm({ ...form, itens })
+  }
+
+  function updateComposicao(itemIndex: number, compIndex: number, value: any) {
+    const itens = [...form.itens]
+    itens[itemIndex].composicoes[compIndex].peso_kg = value
+    const total = itens[itemIndex].composicoes.reduce(
+      (acc: number, c: any) => acc + Number(c.peso_kg || 0),
+      0
+    )
+    itens[itemIndex].peso_total_kg = String(total)
+    const valorKg = Number(itens[itemIndex].valor_kg || 0)
+    itens[itemIndex].valor_total = total * valorKg
+    setForm({ ...form, itens })
+  }
+
+  function calcularTotal() {
+    return form.itens.reduce(
+      (acc: number, i: any) => acc + Number(i.valor_total || 0),
+      0
+    )
+  }
 
   async function handleCreate() {
     try {
+      setLoadingSave(true)
       if (!form.cliente_id) {
-        toast.error('Selecione o cliente')
-
+        toast.error('Selecione cliente')
         return
       }
 
-      if (!form.forma_pagamento) {
-        toast.error('Selecione a forma de pagamento')
-      }
-      if (!form.corte) {
-        toast.error('Selecione o corte')
-
-        return
-      }
-
-      const pesoVenda = Number(form.peso_kg)
-
-      if (
-        form.status !== STATUS_VENDA.AGENDADO &&
-        pesoVenda > saldoDisponivel
-      ) {
-        toast.error(`Estoque insuficiente. Disponível: ${saldoDisponivel} kg`)
-
-        return
+      const payload = {
+        cliente_id: form.cliente_id,
+        observacao: form.observacao,
+        data_movimentacao: form.data_movimentacao,
+        movimentacao_status: form.movimentacao_status,
+        itens: form.itens.map((i: any) => ({
+          tipo_corte: i.tipo_corte,
+          peso_total_kg: Number(i.peso_total_kg || 0),
+          valor_kg: Number(i.valor_kg || 0),
+          valor_total: Number(i.valor_total || 0),
+          composicoes: i.composicoes || [],
+        })),
+        valor_total: totalGeral,
       }
 
-      const venda = await vendasService.create({
-        ...form,
-        data_entrega: form.data_entrega || null,
-        peso_kg: pesoVenda,
-        valor_kg: Number(form.valor_kg),
-        valor_total: Number(form.valor_total),
-        valor_pago: Number(form.valor_pago),
-        reservado_estoque: form.status !== STATUS_VENDA.AGENDADO,
-      })
-
-      if (form.status !== STATUS_VENDA.AGENDADO) {
-        await estoqueService.createMovimentacao({
-          corte: form.corte,
-          lote: `v-${venda.id}`,
-          tipo_movimentacao: 0,
-          peso_bruto_kg: 0,
-          peso_liquido_kg: pesoVenda,
-          data_movimentacao: form.data_venda,
-          observacoes: 'Venda realizada',
-        })
-      }
-      toast.success('Venda cadastrada')
+      await movimentacoesClientesService.create(payload)
+      toast.success('Movimentação criada')
 
       setForm({
         cliente_id: '',
-        corte: '',
-        peso_kg: '',
-        valor_kg: '',
-        valor_total: '',
-        valor_pago: '',
-        forma_pagamento: '',
-        status: STATUS_VENDA.PENDENTE,
-        data_venda: new Date().toISOString().split('T')[0],
-        data_entrega: '',
-        observacoes: '',
+        observacao: '',
+        data_movimentacao: new Date().toISOString().split('T')[0],
+        itens: [{ ...emptyItem }],
+        movimentacao_status: 'pendente', // 👈 aqui também
       })
-
       setClienteBusca('')
-
-      carregarDados()
-
-      carregarEstoque()
+      setTotalGeral(0)
+      carregarMovimentacoes()
+      setLoadingSave(false)
     } catch {
-      toast.error('Erro ao cadastrar venda')
+      setLoadingSave(false)
+
+      toast.error('Erro ao salvar')
     }
   }
 
-  async function handleUpdate() {
+  // ─── editar ─────────────────────────────────────────────────
+
+  function calcularTotalEdit(itens: any[]) {
+    return itens.reduce(
+      (acc: number, i: any) => acc + Number(i.valor_total || 0),
+      0
+    )
+  }
+
+  function addEditItem() {
+    setEditando((prev: any) => ({
+      ...prev,
+      itens: [...prev.itens, { ...emptyItem }],
+    }))
+  }
+
+  function removeEditItem(index: number) {
+    setEditando((prev: any) => ({
+      ...prev,
+      itens: prev.itens.filter((_: any, i: number) => i !== index),
+    }))
+  }
+
+  function updateEditItem(index: number, field: string, value: any) {
+    const itens = [...editando.itens]
+    itens[index][field] = value
+    const peso = Number(itens[index].peso_total_kg || 0)
+    const valorKg = Number(itens[index].valor_kg || 0)
+    itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+    setEditando({ ...editando, itens })
+  }
+
+  function changeEditTipo(index: number, tipo: string) {
+    const itens = [...editando.itens]
+    itens[index].tipo_corte = tipo
+    if (isBanda(tipo)) {
+      itens[index].composicoes = [
+        { tipo_corte: 'Dianteiro', peso_kg: '' },
+        { tipo_corte: 'Traseiro', peso_kg: '' },
+      ]
+    } else {
+      itens[index].composicoes = []
+    }
+    setEditando({ ...editando, itens })
+  }
+
+  function updateEditComposicao(
+    itemIndex: number,
+    compIndex: number,
+    value: any
+  ) {
+    const itens = [...editando.itens]
+    itens[itemIndex].composicoes[compIndex].peso_kg = value
+    const total = itens[itemIndex].composicoes.reduce(
+      (acc: number, c: any) => acc + Number(c.peso_kg || 0),
+      0
+    )
+    itens[itemIndex].peso_total_kg = String(total)
+    itens[itemIndex].valor_total =
+      total * Number(itens[itemIndex].valor_kg || 0)
+    setEditando({ ...editando, itens })
+  }
+
+  async function handleEdit() {
     try {
-      if (!editar) {
-        return
+      const payload = {
+        cliente_id: editando.cliente_id,
+        observacao: editando.observacao,
+        data_movimentacao: editando.data_movimentacao,
+        movimentacao_status: editando.movimentacao_status,
+        itens: editando.itens.map((i: any) => ({
+          tipo_corte: i.tipo_corte,
+          peso_total_kg: Number(i.peso_total_kg || 0),
+          valor_kg: Number(i.valor_kg || 0),
+          valor_total: Number(i.valor_total || 0),
+          composicoes: i.composicoes || [],
+        })),
+        valor_total: calcularTotalEdit(editando.itens),
       }
 
-      const { cliente, ...payload } = editar
-
-      await vendasService.update(editar.id, payload)
-
-      const stockMovement = await estoqueService.getByLote(`v-${editar.id}`)
-
-      if (stockMovement) {
-        const shouldUpdate =
-          stockMovement.corte !== editar.corte ||
-          Number(stockMovement.peso_liquido_kg) !== Number(editar.peso_kg) ||
-          stockMovement.data_movimentacao !== editar.data_venda
-
-        if (shouldUpdate) {
-          await estoqueService.updateMovimentacao(stockMovement.id, {
-            corte: editar.corte,
-            peso_bruto_kg: editar.peso_kg,
-            peso_liquido_kg: editar.peso_kg,
-            data_movimentacao: editar.data_venda,
-            observacoes: 'Venda atualizada',
-          })
-        }
-      }
-
-      toast.success('Venda atualizada')
-
-      setEditar(null)
-
-      carregarDados()
-
-      carregarEstoque()
+      await movimentacoesClientesService.update(editando.id, payload)
+      toast.success('Movimentação atualizada')
+      setEditando(null)
+      carregarMovimentacoes()
     } catch {
-      toast.error('Erro ao atualizar venda')
+      toast.error('Erro ao editar')
     }
   }
 
   async function handleDelete(id: number) {
+    if (!confirm('Excluir esta movimentação?')) return
     try {
-      await vendasService.delete(id)
-
-      toast.success('Venda excluída')
-
-      setDetalhe(null)
-
-      setEditar(null)
-
-      carregarDados()
+      await movimentacoesClientesService.delete(id)
+      toast.success('Movimentação excluída')
+      setEditando(null)
+      carregarMovimentacoes()
     } catch {
-      toast.error('Erro ao excluir venda')
+      toast.error('Erro ao excluir')
     }
   }
+
+  // ─── tabela ──────────────────────────────────────────────────
 
   const columns = [
     {
       key: 'cliente',
       header: 'Cliente',
-
-      render: (r: VendaRow) => r.cliente?.nome,
+      render: (r: any) => r.cliente?.nome,
     },
-
     {
-      key: 'corte',
-      header: 'Corte',
+      key: 'data',
+      header: 'Data',
+      render: (r: any) => r.data_movimentacao,
     },
-
     {
-      key: 'peso_kg',
-      header: 'Peso',
+      key: 'detalhes',
+      header: 'Itens',
+      render: (r: any) => (
+        <div className={styles.tooltipWrapper}>
+          <button className={styles.detalhesButton}>
+            Ver itens ({r.itens?.length || 0})
+          </button>
 
-      render: (r: VendaRow) => `${r.peso_kg} kg`,
+          <div className={styles.tooltipContent}>
+            {r.itens?.map((item: any, index: number) => (
+              <div key={index} className={styles.tooltipItem}>
+                <strong>{item.tipo_corte}</strong>
+
+                <span>
+                  {Number(item.peso_total_kg).toFixed(2)}kg × R${' '}
+                  {Number(item.valor_kg).toFixed(2)}
+                </span>
+
+                <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
+
+                {item.composicoes?.length > 0 && (
+                  <div className={styles.tooltipComposicoes}>
+                    {item.composicoes.map((c: any, i: number) => (
+                      <small key={i}>
+                        {c.tipo_corte}: {Number(c.peso_kg).toFixed(2)}kg
+                      </small>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
     },
-
     {
-      key: 'valor_total',
-      header: 'Valor',
-
-      render: (r: VendaRow) => `R$ ${Number(r.valor_total).toFixed(2)}`,
+      key: 'total',
+      header: 'Total',
+      render: (r: any) => `R$ ${Number(r.valor_total).toFixed(2)}`,
     },
-
     {
       key: 'status',
       header: 'Status',
-
-      render: (r: VendaRow) =>
-        STATUS_VENDA_LABEL[r.status as keyof typeof STATUS_VENDA_LABEL],
+      render: (r: any) => (
+        <span
+          className={
+            r.movimentacao_status === 'finalizado'
+              ? styles.badgeFinalizado
+              : styles.badgePendente
+          }
+        >
+          {r.movimentacao_status === 'finalizado' ? 'Finalizado' : 'Pendente'}
+        </span>
+      ),
     },
-
     {
-      key: 'acoes',
-      header: 'Ações',
-
-      render: (r: VendaRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+      key: 'acao',
+      header: 'Ação',
+      render: (r: any) => (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Button onClick={() => setEditando(r)}>Editar</Button>
+          <Button variant="destructive" onClick={() => handleDelete(r)}>
+            Excluir
+          </Button>
+          <Button onClick={() => setClienteExtrato(r)}>Extrato</Button>
+        </div>
       ),
     },
   ]
-
-  const detalheItems = (r: VendaRow): DetailItem[] => [
-    {
-      label: 'Cliente',
-      value: r.cliente?.nome || '-',
-    },
-
-    {
-      label: 'Corte',
-      value: r.corte,
-    },
-
-    {
-      label: 'Peso',
-      value: `${r.peso_kg} kg`,
-    },
-
-    {
-      label: 'Valor KG',
-      value: `R$ ${r.valor_kg}`,
-    },
-
-    {
-      label: 'Valor total',
-      value: `R$ ${r.valor_total}`,
-    },
-
-    {
-      label: 'Forma pagamento',
-      value: r.forma_pagamento || '-',
-    },
-
-    {
-      label: 'Status',
-      value: STATUS_VENDA_LABEL[r.status as keyof typeof STATUS_VENDA_LABEL],
-    },
-
-    {
-      label: 'Data venda',
-      value: r.data_venda,
-    },
-
-    {
-      label: 'Entrega',
-      value: r.data_entrega || '-',
-    },
-
-    {
-      label: 'Observações',
-      value: r.observacoes || '-',
-    },
-  ]
+  // ─── render ──────────────────────────────────────────────────
 
   return (
     <div>
-      <h1 className="page-title">Vendas</h1>
+      <h1>Movimentações</h1>
 
-      <Card title="Nova venda">
-        <div className={styles.form}>
+      {/* ── Formulário de criação ── */}
+      <Card className={styles.card} title="Nova movimentação">
+        <div className={styles.formSimples}>
           <Autocomplete
             label="Cliente"
             options={clientes.map((c) => c.nome)}
             value={clienteBusca}
-            onChange={(value) => {
-              setClienteBusca(value)
-
-              const cliente = clientes.find((c) => c.nome === value)
-
-              setForm({
-                ...form,
-                cliente_id: cliente?.id || '',
-              })
-            }}
-          />
-
-          <div className={styles.selectWrap}>
-            <label className={styles.estoqueInfo}>
-              Corte
-              {form.corte && (
-                <div className={styles.fontenfo}>
-                  em estoque:{' '}
-                  <strong>{saldoDisponivel.toFixed(2)} kg (Liq.)</strong>
-                </div>
-              )}
-            </label>
-
-            <select
-              className={styles.select}
-              value={form.corte}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  corte: e.target.value,
-                })
-              }
-            >
-              <option value="">Selecione</option>
-
-              {TIPOS_CORTE.map((corte) => (
-                <option key={corte} value={corte}>
-                  {corte}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <Input
-            label="Peso KG"
-            type="number"
-            value={form.peso_kg}
-            onChange={(e) => {
-              const peso = Number(e.target.value)
-              const valorKg = Number(form.valor_kg)
-
-              setForm({
-                ...form,
-                peso_kg: e.target.value,
-                valor_total: String(valorKg * peso),
-
-              })
+            onChange={(v) => {
+              setClienteBusca(v)
+              const cli = clientes.find((c) => c.nome === v)
+              setForm({ ...form, cliente_id: cli?.id || '' })
             }}
           />
 
           <Input
-            label="Valor KG"
-            type="number"
-            value={form.valor_kg}
-            onChange={(e) => {
-              const valorKg = Number(e.target.value)
-
-              const peso = Number(form.peso_kg)
-
-              setForm({
-                ...form,
-                valor_kg: e.target.value,
-                valor_total: String(valorKg * peso),
-              })
-            }}
-          />
-
-          <Input
-            label="Valor total"
-            type="number"
-            value={form.valor_total}
+            label="Data movimentação"
+            type="date"
+            value={form.data_movimentacao}
             onChange={(e) =>
-              setForm({
-                ...form,
-                valor_total: e.target.value,
-              })
+              setForm({ ...form, data_movimentacao: e.target.value })
             }
           />
-
-          <Input
-            label="Valor pago"
-            type="number"
-            value={form.valor_pago}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                valor_pago: e.target.value,
-              })
-            }
-          />
-
-          <div className={styles.selectWrap}>
-            <label>Forma pagamento</label>
-
-            <select
-              className={styles.select}
-              value={form.forma_pagamento}
-              onChange={(e) =>
-                setForm({
-                  ...form,
-                  forma_pagamento: e.target.value,
-                })
-              }
-            >
-              <option value="">Selecione</option>
-
-              {FORMAS_PAGAMENTO.map((forma) => (
-                <option key={forma} value={forma}>
-                  {forma}
-                </option>
-              ))}
-            </select>
-          </div>
 
           <div className={styles.selectWrap}>
             <label>Status</label>
-
             <select
               className={styles.select}
-              value={form.status}
+              value={form.movimentacao_status ?? 'pendente'}
               onChange={(e) =>
-                setForm({
-                  ...form,
-                  status: Number(e.target.value) as StatusVenda,
-                })
+                setForm({ ...form, movimentacao_status: e.target.value })
               }
             >
-              {Object.entries(STATUS_VENDA_LABEL).map(([key, value]) => (
-                <option key={key} value={key}>
-                  {value}
-                </option>
-              ))}
+              <option value="pendente">Pendente</option>
+              <option value="finalizado">Finalizado</option>
             </select>
           </div>
-
-          <Input
-            label="Data venda"
-            type="date"
-            value={form.data_venda}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                data_venda: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Data entrega"
-            type="date"
-            value={form.data_entrega}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                data_entrega: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Observações"
-            value={form.observacoes}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                observacoes: e.target.value,
-              })
-            }
-          />
-        </div>
-        <Button
-          disabled={
-            loading ||
-            form.cliente_id === '' ||
-            form.corte === '' ||
-            form.forma_pagamento === ''
-          }
-          onClick={handleCreate}
-        >
-          Cadastrar venda
-        </Button>
-      </Card>
-
-      <Card title="Vendas">
-        <div className={styles.form}>
-          <Input
-            label="Buscar"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
         </div>
 
-        <Table
-          columns={columns}
-          data={historico}
-          keyExtractor={(r) => String(r.id)}
-          loading={loading}
-          emptyMessage="Nenhuma venda encontrada."
-        />
-      </Card>
-
-      <Modal open={!!detalhe} onClose={() => setDetalhe(null)} title="Detalhes">
-        {detalhe && (
-          <>
-            <ModalDetails items={detalheItems(detalhe)} />
-
-            <div
-              style={{
-                display: 'flex',
-                gap: 12,
-                marginTop: 20,
-              }}
-            >
-              <Button
-                onClick={() => {
-                  setEditar(detalhe)
-
-                  setDetalhe(null)
-                }}
-              >
-                Editar
-              </Button>
-
-              <Button variant="danger" onClick={() => handleDelete(detalhe.id)}>
-                Excluir
-              </Button>
-            </div>
-          </>
-        )}
-      </Modal>
-      <Modal
-        open={!!editar}
-        onClose={() => setEditar(null)}
-        title="Editar venda"
-      >
-        {editar && (
-          <div className={styles.form}>
+        {form.itens.map((item: any, index: number) => (
+          <Card className={styles.form} key={index}>
             <div className={styles.selectWrap}>
               <label>Corte</label>
-
               <select
                 className={styles.select}
-                value={editar.corte}
-                onChange={(e) =>
-                  setEditar({
-                    ...editar,
-                    corte: e.target.value,
-                  })
-                }
+                value={item.tipo_corte}
+                onChange={(e) => changeTipo(index, e.target.value)}
               >
+                <option value="">Selecione</option>
                 {TIPOS_CORTE.map((corte) => (
                   <option key={corte} value={corte}>
                     {corte}
@@ -651,137 +434,290 @@ export function Vendas() {
             </div>
 
             <Input
-              label="Peso KG"
+              label="Valor por KG"
               type="number"
-              value={editar.peso_kg}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  peso_kg: Number(e.target.value),
-                })
-              }
+              value={item.valor_kg ?? ''}
+              onChange={(e) => updateItem(index, 'valor_kg', e.target.value)}
             />
 
-            <Input
-              label="Valor KG"
-              type="number"
-              value={editar.valor_kg}
-              onChange={(e) => {
-                const valorKg = Number(e.target.value)
-
-                setEditar({
-                  ...editar,
-                  valor_kg: valorKg,
-                  valor_total: valorKg * editar.peso_kg,
-                })
-              }}
-            />
-
-            <Input
-              label="Valor total"
-              type="number"
-              value={editar.valor_total}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  valor_total: Number(e.target.value),
-                })
-              }
-            />
-
-            <Input
-              label="Valor pago"
-              type="number"
-              value={editar.valor_pago}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  valor_pago: Number(e.target.value),
-                })
-              }
-            />
-
-            <div className={styles.selectWrap}>
-              <label>Forma pagamento</label>
-
-              <select
-                className={styles.select}
-                value={editar.forma_pagamento}
+            {!isBanda(item.tipo_corte) && (
+              <Input
+                label="Peso total KG"
+                type="number"
+                value={item.peso_total_kg ?? ''}
                 onChange={(e) =>
-                  setEditar({
-                    ...editar,
-                    forma_pagamento: e.target.value,
-                  })
+                  updateItem(index, 'peso_total_kg', e.target.value)
                 }
-              >
-                {FORMAS_PAGAMENTO.map((forma) => (
-                  <option key={forma} value={forma}>
-                    {forma}
-                  </option>
-                ))}
-              </select>
+              />
+            )}
+
+            {isBanda(item.tipo_corte) &&
+              item.composicoes.map((c: any, i: number) => (
+                <Input
+                  key={i}
+                  label={c.tipo_corte}
+                  type="number"
+                  value={c.peso_kg ?? ''}
+                  onChange={(e) => updateComposicao(index, i, e.target.value)}
+                />
+              ))}
+
+            <Input label="Total" value={item.valor_total ?? ''} disabled />
+
+            <Button variant="destructive" onClick={() => removeItem(index)}>
+              Remover
+            </Button>
+          </Card>
+        ))}
+
+        <Button onClick={addItem}>+ Peça</Button>
+
+        <Input
+          label="Observação"
+          value={form.observacao}
+          onChange={(e) => setForm({ ...form, observacao: e.target.value })}
+        />
+
+        <div className={styles.form}>
+          <Input
+            label="Total geral"
+            type="number"
+            value={totalGeral}
+            disabled
+          />
+        </div>
+
+        <Button
+          disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
+          onClick={handleCreate}
+        >
+          Salvar movimentação
+        </Button>
+      </Card>
+
+      {/* ── Histórico ── */}
+      <Card title="Histórico">
+        <Table
+          columns={columns}
+          data={historico}
+          keyExtractor={(r) => String(r.id)}
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          emptyMessage="Nenhuma movimentação encontrada."
+        />
+      </Card>
+
+      <Modal
+        open={!!detalhe}
+        onClose={() => setDetalhe(null)}
+        title="Detalhes da movimentação"
+      >
+        {detalhe && (
+          <div className={styles.modalContent}>
+            <ModalDetails
+              items={[
+                {
+                  label: 'Cliente',
+                  value: detalhe.cliente?.nome || '-',
+                },
+                {
+                  label: 'Data',
+                  value: detalhe.data_movimentacao,
+                },
+                {
+                  label: 'Total',
+                  value: `R$ ${Number(detalhe.valor_total).toFixed(2)}`,
+                },
+                {
+                  label: 'Observação',
+                  value: detalhe.observacao || '-',
+                },
+              ]}
+            />
+
+            <div className={styles.items}>
+              {detalhe.itens?.map((item: any, idx: number) => (
+                <div key={idx} className={styles.itemCard}>
+                  <strong>{item.tipo_corte}</strong>
+                  <p>Peso: {item.peso_total_kg} kg</p>
+                  <p>Valor/kg: R$ {Number(item.valor_kg).toFixed(2)}</p>
+                  <p>Total: R$ {Number(item.valor_total).toFixed(2)}</p>
+
+                  {item.composicoes?.length > 0 && (
+                    <div className={styles.composicoes}>
+                      {item.composicoes.map((c: any, i: number) => (
+                        <span key={i}>
+                          {c.tipo_corte}: {c.peso_kg} kg
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
 
-            <div className={styles.selectWrap}>
-              <label>Status</label>
-
-              <select
-                className={styles.select}
-                value={editar.status}
-                onChange={(e) =>
-                  setEditar({
-                    ...editar,
-                    status: Number(e.target.value) as StatusVenda,
-                  })
-                }
+            <div className={styles.modalActions}>
+              <Button
+                onClick={() => {
+                  setEditando(detalhe)
+                  setDetalhe(null)
+                }}
               >
-                {Object.entries(STATUS_VENDA_LABEL).map(([key, value]) => (
-                  <option key={key} value={key}>
-                    {value}
-                  </option>
-                ))}
-              </select>
+                Editar
+              </Button>
             </div>
-
-            <Input
-              label="Data venda"
-              type="date"
-              value={editar.data_venda}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  data_venda: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Data entrega"
-              type="date"
-              value={editar.data_entrega || ''}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  data_entrega: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Observações"
-              value={editar.observacoes || ''}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  observacoes: e.target.value,
-                })
-              }
-            />
-
-            <Button onClick={handleUpdate}>Salvar</Button>
           </div>
         )}
       </Modal>
+      {/* ── Modal de edição ── */}
+      <Modal
+        open={!!editando}
+        onClose={() => setEditando(null)}
+        title="Editar movimentação"
+      >
+        {editando && (
+          <div className={styles.modalContent}>
+            <Input
+              label="Data movimentação"
+              type="date"
+              value={editando.data_movimentacao ?? ''}
+              onChange={(e) =>
+                setEditando({ ...editando, data_movimentacao: e.target.value })
+              }
+            />
+            <div className={styles.selectWrap}>
+              <label>Status</label>
+              <select
+                className={styles.select}
+                value={editando.movimentacao_status ?? 'pendente'}
+                onChange={(e) =>
+                  setEditando({
+                    ...editando,
+                    movimentacao_status: e.target.value,
+                  })
+                }
+              >
+                <option value="pendente">Pendente</option>
+                <option value="finalizado">Finalizado</option>
+              </select>
+            </div>
+
+            <Input
+              label="Observação"
+              value={editando.observacao ?? ''}
+              onChange={(e) =>
+                setEditando({ ...editando, observacao: e.target.value })
+              }
+            />
+
+            <div className={styles.items}>
+              {editando.itens?.map((item: any, index: number) => (
+                <Card key={index} className={styles.form}>
+                  <div className={styles.selectWrap}>
+                    <label>Corte</label>
+                    <select
+                      className={styles.select}
+                      value={item.tipo_corte}
+                      onChange={(e) => changeEditTipo(index, e.target.value)}
+                    >
+                      <option value="">Selecione</option>
+                      {TIPOS_CORTE.map((corte) => (
+                        <option key={corte} value={corte}>
+                          {corte}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <Input
+                    label="Valor por KG"
+                    type="number"
+                    value={item.valor_kg ?? ''}
+                    onChange={(e) =>
+                      updateEditItem(index, 'valor_kg', e.target.value)
+                    }
+                  />
+
+                  {!isBanda(item.tipo_corte) && (
+                    <Input
+                      label="Peso total KG"
+                      type="number"
+                      value={item.peso_total_kg ?? ''}
+                      onChange={(e) =>
+                        updateEditItem(index, 'peso_total_kg', e.target.value)
+                      }
+                    />
+                  )}
+
+                  {isBanda(item.tipo_corte) &&
+                    item.composicoes?.map((c: any, i: number) => (
+                      <Input
+                        key={i}
+                        label={c.tipo_corte}
+                        type="number"
+                        value={c.peso_kg ?? ''}
+                        onChange={(e) =>
+                          updateEditComposicao(index, i, e.target.value)
+                        }
+                      />
+                    ))}
+
+                  <Input
+                    label="Total"
+                    value={item.valor_total ?? ''}
+                    disabled
+                  />
+
+                  <Button
+                    variant="destructive"
+                    onClick={() => removeEditItem(index)}
+                  >
+                    Remover item
+                  </Button>
+                </Card>
+              ))}
+            </div>
+
+            <Button onClick={addEditItem}>+ Item</Button>
+
+            {/* Total geral do edit */}
+            <div className={styles.form}>
+              <Input
+                label="Total geral"
+                value={calcularTotalEdit(editando.itens).toFixed(2)}
+                disabled
+              />
+            </div>
+
+            <div className={styles.modalActions}>
+              <Button variant="danger" onClick={() => setEditando(null)}>
+                Cancelar
+              </Button>
+              <div style={{ flex: 1 }} />
+
+              {/* {editando.movimentacao_status !== 'finalizado' && (
+                <Button
+                  variant="outline"
+                  onClick={() => setEditando({ ...editando, movimentacao_status: 'finalizado' })}
+                >
+                  ✓ Finalizar
+                </Button>
+              )} */}
+              <Button disabled={loadingSave} onClick={handleEdit}>
+                Salvar
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+      <ClienteExtratoModal
+        open={!!clienteExtrato}
+        cliente={clienteExtrato?.cliente}
+        onClose={() => setClienteExtrato(null)}
+      />
     </div>
   )
 }

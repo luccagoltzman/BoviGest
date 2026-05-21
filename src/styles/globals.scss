@@ -1,0 +1,81 @@
+@use './variables' as *;
+@use './mixins' as *;
+
+:root {
+  --color-primary: #{$color-primary};
+  --color-primary-light: #{$color-primary-light};
+  --color-primary-dark: #{$color-primary-dark};
+
+  --color-secondary: #{$color-secondary};
+
+  --color-bg: #{$color-bg};
+  --color-surface: #{$color-surface};
+  --color-surface-soft: #{$color-surface-soft};
+
+  --color-text: #{$color-text};
+  --color-text-muted: #{$color-text-muted};
+
+  --color-border: #{$color-border};
+
+  --color-success: #{$color-success};
+  --color-warning: #{$color-warning};
+  --color-danger: #{$color-danger};
+  --color-danger-light: #{$color-danger-light};
+  --color-danger-dark: #{$color-danger-dark};
+  --color-info: #{$color-info};
+
+  --radius: #{$radius};
+  --radius-sm: #{$radius-sm};
+
+  --shadow: #{$shadow};
+  --shadow-sm: #{$shadow-sm};
+
+  --sidebar-width: #{$sidebar-width};
+  --header-height: #{$header-height};
+
+  --theme-sidebar-start: #0f2f1d;
+  --theme-sidebar-end: #092012;
+  --theme-button-gradient-end: #{$color-primary-light};
+  --theme-background-glow: #{$color-primary-light};
+}
+
+body {
+  font-family:
+    Inter,
+    'Segoe UI',
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
+
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in srgb, var(--theme-background-glow) 16%, transparent),
+      transparent 34rem
+    ),
+    linear-gradient(135deg, #f8faf7 0%, var(--color-bg) 48%, #eef5ec 100%);
+
+  color: var(--color-text);
+
+  overflow-x: hidden;
+}
+
+body.menu-open {
+  overflow: hidden;
+}
+
+.page-title {
+  margin: 0 0 1.25rem;
+  font-size: clamp(1.35rem, 4vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  color: var(--color-primary-dark);
+  line-height: 1.15;
+}
+
+@include mobile-down {
+  .page-title {
+    margin-bottom: 1rem;
+  }
+}

@@ -10,7 +10,7 @@ interface ClienteRow {
   doc: string
   telefone: string
   endereco?: string
-  limiteCredito?: string
+  limite_credito?: string
   status: string
 }
 
@@ -28,14 +28,14 @@ export function Clientes() {
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
 
-  const debounceRef = useRef<NodeJS.Timeout | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [createForm, setCreateForm] = useState({
     nome: '',
     doc: '',
     telefone: '',
     endereco: '',
-    limiteCredito: '',
+    limite_credito: '',
   })
 
   const loadClientes = async (
@@ -94,8 +94,8 @@ export function Clientes() {
         doc: createForm.doc,
         telefone: createForm.telefone,
         endereco: createForm.endereco,
-        limite_credito: createForm.limiteCredito
-          ? Number(createForm.limiteCredito)
+        limite_credito: createForm.limite_credito
+          ? Number(createForm.limite_credito)
           : null,
       })
 
@@ -105,7 +105,7 @@ export function Clientes() {
         doc: '',
         telefone: '',
         endereco: '',
-        limiteCredito: '',
+        limite_credito: '',
       })
 
       loadClientes(1, limit, search, startDate, endDate)
@@ -126,8 +126,8 @@ export function Clientes() {
         doc: editar.doc,
         telefone: editar.telefone,
         endereco: editar.endereco,
-        limite_credito: editar.limiteCredito
-          ? Number(editar.limiteCredito)
+        limite_credito: editar.limite_credito
+          ? Number(editar.limite_credito)
           : null,
       })
 
@@ -168,7 +168,7 @@ export function Clientes() {
     { key: 'nome', header: 'Nome / Empresa' },
     { key: 'doc', header: 'CPF/CNPJ' },
     { key: 'telefone', header: 'Telefone / WhatsApp' },
-    { key: 'limiteCredito', header: 'Limite de crédito' },
+    { key: 'limite_credito', header: 'Limite de crédito' },
     { key: 'status', header: 'Status' },
     {
       key: 'acoes',
@@ -220,9 +220,9 @@ export function Clientes() {
           <Input
             label="Limite de crédito"
             type="number"
-            value={createForm.limiteCredito}
+            value={createForm.limite_credito}
             onChange={(e) =>
-              setCreateForm({ ...createForm, limiteCredito: e.target.value })
+              setCreateForm({ ...createForm, limite_credito: e.target.value })
             }
           />
           <div className={styles.actions}>
@@ -304,9 +304,9 @@ export function Clientes() {
             <Input
               label="Limite de crédito"
               type="number"
-              value={editar.limiteCredito}
+              value={editar.limite_credito}
               onChange={(e) =>
-                setEditar({ ...editar, limiteCredito: e.target.value })
+                setEditar({ ...editar, limite_credito: e.target.value })
               }
             />
             <div className={styles.actions}>

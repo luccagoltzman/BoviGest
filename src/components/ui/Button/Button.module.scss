@@ -39,7 +39,8 @@
   );
   color: #fff;
   box-shadow: 0 10px 22px rgba($color-primary, 0.24);
-
+  max-height: 42px;
+  max-width: 200px;
   &:hover:not(:disabled) {
     box-shadow: 0 14px 28px rgba($color-primary, 0.28);
   }
@@ -48,7 +49,18 @@
 .secondary {
   background: $color-secondary;
   color: #fff;
+  max-height: 42px;
+  max-width: 200px;
+  &:hover:not(:disabled) {
+    opacity: 0.9;
+  }
+}
 
+.destructive {
+  background: $color-danger;
+  color: #fff;
+  max-height: 42px;
+  max-width: 200px;
   &:hover:not(:disabled) {
     opacity: 0.9;
   }

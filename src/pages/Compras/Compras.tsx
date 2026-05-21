@@ -29,6 +29,11 @@ interface CompraRow {
   quantidade_animais: number
   condicao_gado: number
   peso_total: number
+  valor_kg: number
+  tipo_imposto: 'fixo' | 'percentual'
+  valor_imposto: number
+  gta_valor: number
+  subtotal: number
   valor_total: number
   tipo_gado?: string
   observacoes?: string
@@ -38,7 +43,9 @@ interface CompraRow {
 export function Compras() {
   const [compras, setCompras] = useState<CompraRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [, setLoadingViagem] = useState(false)
+  const [loadingSave, setLoadingSave] = useState(false)
+
+  const [loadingViagem, setLoadingViagem] = useState(false)
 
   const [page, setPage] = useState(1)
   const [limit] = useState(10)
@@ -64,11 +71,37 @@ export function Compras() {
     quantidade_animais: '',
     condicao_gado: '1',
     peso_total: '',
+    valor_kg: '',
+    tipo_imposto: 'fixo',
+    valor_imposto: '',
+    gta_valor: '',
     valor_total: '',
     tipo_gado: '',
     observacoes: '',
     status: 'Pendente',
   })
+
+  function calcularSubtotal(data: any) {
+    return Number(data.peso_total || 0) * Number(data.valor_kg || 0)
+  }
+
+  function calcularImposto(data: any) {
+    const subtotal = calcularSubtotal(data)
+
+    if (data.tipo_imposto === 'percentual') {
+      return subtotal * (Number(data.valor_imposto || 0) / 100)
+    }
+
+    return Number(data.valor_imposto || 0)
+  }
+
+  function calcularTotal(data: any) {
+    return (
+      calcularSubtotal(data) +
+      calcularImposto(data) +
+      Number(data.gta_valor || 0)
+    )
+  }
 
   async function carregarCompras() {
     setLoading(true)
@@ -106,13 +139,22 @@ export function Compras() {
 
   async function salvarCompra() {
     try {
+      setLoadingSave(true)
+      const subtotal = calcularSubtotal(form)
+      const valorTotal = calcularTotal(form)
+
       await comprasService.create({
         fornecedor_id: form.fornecedor_id,
         data: form.data,
         quantidade_animais: Number(form.quantidade_animais),
         condicao_gado: Number(form.condicao_gado),
         peso_total: Number(form.peso_total),
-        valor_total: Number(form.valor_total),
+        valor_kg: Number(form.valor_kg),
+        tipo_imposto: form.tipo_imposto,
+        valor_imposto: Number(form.valor_imposto),
+        gta_valor: Number(form.gta_valor),
+        subtotal,
+        valor_total: valorTotal,
         tipo_gado: form.tipo_gado,
         observacoes: form.observacoes,
         status: form.status,
@@ -126,6 +168,10 @@ export function Compras() {
         quantidade_animais: '',
         condicao_gado: '1',
         peso_total: '',
+        valor_kg: '',
+        tipo_imposto: 'fixo',
+        valor_imposto: '',
+        gta_valor: '',
         valor_total: '',
         tipo_gado: '',
         observacoes: '',
@@ -133,8 +179,10 @@ export function Compras() {
       })
 
       setFornecedorBusca('')
+      setLoadingSave(false)
       carregarCompras()
     } catch (e: any) {
+      setLoadingSave(false)
       toast.error(e?.message || 'Erro ao cadastrar compra')
     }
   }
@@ -155,13 +203,21 @@ export function Compras() {
     if (!editar) return
 
     try {
+      const subtotal = calcularSubtotal(editar)
+      const valorTotal = calcularTotal(editar)
+
       await comprasService.update(editar.id, {
         fornecedor_id: editar.fornecedor_id,
         data: editar.data,
         quantidade_animais: Number(editar.quantidade_animais),
         condicao_gado: Number(editar.condicao_gado),
         peso_total: Number(editar.peso_total),
-        valor_total: Number(editar.valor_total),
+        valor_kg: Number(editar.valor_kg),
+        tipo_imposto: editar.tipo_imposto,
+        valor_imposto: Number(editar.valor_imposto),
+        gta_valor: Number(editar.gta_valor),
+        subtotal,
+        valor_total: valorTotal,
         tipo_gado: editar.tipo_gado,
         observacoes: editar.observacoes,
         status: editar.status,
@@ -203,7 +259,7 @@ export function Compras() {
     form.data &&
     Number(form.quantidade_animais) > 0 &&
     Number(form.peso_total) > 0 &&
-    Number(form.valor_total) > 0
+    Number(form.valor_kg) > 0
 
   const columns = [
     {
@@ -211,30 +267,53 @@ export function Compras() {
       header: 'Fornecedor',
       render: (r: CompraRow) => r.fornecedor?.nome || '-',
     },
-    { key: 'data', header: 'Data' },
-    { key: 'quantidade_animais', header: 'Qtd animais' },
+    {
+      key: 'data',
+      header: 'Data',
+    },
     {
       key: 'condicao_gado',
       header: 'Condição',
       render: (r: CompraRow) => (r.condicao_gado === 1 ? 'Vivo' : 'Morto'),
     },
-    { key: 'peso_total', header: 'Peso' },
+    {
+      key: 'quantidade_animais',
+      header: 'Qtd',
+    },
+    {
+      key: 'peso_total',
+      header: 'Peso',
+      render: (r: CompraRow) => `${Number(r.peso_total).toFixed(2)} KG`,
+    },
+    {
+      key: 'valor_kg',
+      header: 'R$/KG',
+      render: (r: CompraRow) => `R$ ${Number(r.valor_kg).toFixed(2)}`,
+    },
+    {
+      key: 'subtotal',
+      header: 'Subtotal',
+      render: (r: CompraRow) => `R$ ${Number(r.subtotal).toFixed(2)}`,
+    },
     {
       key: 'valor_total',
-      header: 'Valor',
-      render: (r: CompraRow) =>
-        `R$ ${Number(r.valor_total).toLocaleString('pt-BR')}`,
+      header: 'Total',
+      render: (r: CompraRow) => `R$ ${Number(r.valor_total).toFixed(2)}`,
     },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: CompraRow) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="ghost" onClick={() => setEditar(r)}>
+          <Button variant="outline" onClick={() => setEditar(r)}>
             Ver detalhes
           </Button>
 
-          <Button variant="ghost" onClick={() => abrirViagem(r)}>
+          <Button
+            disabled={loadingViagem}
+            variant="ghost"
+            onClick={() => abrirViagem(r)}
+          >
             Ver viagem
           </Button>
         </div>
@@ -268,7 +347,24 @@ export function Compras() {
             label="Data"
             type="date"
             value={form.data}
-            onChange={(e) => setForm({ ...form, data: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                data: e.target.value,
+              })
+            }
+          />
+
+          <Select
+            label="Condição"
+            options={['Vivo', 'Morto']}
+            value={form.condicao_gado === '1' ? 'Vivo' : 'Morto'}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                condicao_gado: e.target.value === 'Vivo' ? '1' : '0',
+              })
+            }
           />
 
           <Input
@@ -287,18 +383,105 @@ export function Compras() {
             label="Peso total"
             type="number"
             value={form.peso_total}
-            onChange={(e) => setForm({ ...form, peso_total: e.target.value })}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                peso_total: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label="Valor por KG"
+            type="number"
+            value={form.valor_kg}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                valor_kg: e.target.value,
+              })
+            }
+          />
+
+          <Select
+            label="Tipo imposto"
+            options={['fixo', 'percentual']}
+            value={form.tipo_imposto}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                tipo_imposto: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label={
+              form.tipo_imposto === 'percentual'
+                ? 'Imposto (%)'
+                : 'Imposto (R$)'
+            }
+            type="number"
+            value={form.valor_imposto}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                valor_imposto: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label="GTA / Transporte"
+            type="number"
+            value={form.gta_valor}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                gta_valor: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label="Subtotal"
+            value={calcularSubtotal(form).toFixed(2)}
+            disabled
           />
 
           <Input
             label="Valor total"
-            type="number"
-            value={form.valor_total}
-            onChange={(e) => setForm({ ...form, valor_total: e.target.value })}
+            value={calcularTotal(form).toFixed(2)}
+            disabled
+          />
+
+          <Input
+            label="Tipo gado"
+            value={form.tipo_gado}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                tipo_gado: e.target.value,
+              })
+            }
+          />
+
+          <Input
+            label="Observações"
+            value={form.observacoes}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                observacoes: e.target.value,
+              })
+            }
           />
 
           <div className={styles.actions}>
-            <Button onClick={salvarCompra} disabled={!canSaveCompra}>
+            <Button
+              onClick={salvarCompra}
+              disabled={!canSaveCompra || loadingSave}
+            >
               Salvar compra
             </Button>
           </div>
@@ -354,18 +537,6 @@ export function Compras() {
               }
             />
 
-            <Input
-              label="Quantidade de animais"
-              type="number"
-              value={editar.quantidade_animais}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  quantidade_animais: Number(e.target.value),
-                })
-              }
-            />
-
             <Select
               label="Condição"
               options={['Vivo', 'Morto']}
@@ -374,6 +545,18 @@ export function Compras() {
                 setEditar({
                   ...editar,
                   condicao_gado: e.target.value === 'Vivo' ? 1 : 0,
+                })
+              }
+            />
+
+            <Input
+              label="Quantidade de animais"
+              type="number"
+              value={editar.quantidade_animais}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  quantidade_animais: Number(e.target.value),
                 })
               }
             />
@@ -391,15 +574,67 @@ export function Compras() {
             />
 
             <Input
-              label="Valor total"
+              label="Valor por KG"
               type="number"
-              value={editar.valor_total}
+              value={editar.valor_kg}
               onChange={(e) =>
                 setEditar({
                   ...editar,
-                  valor_total: Number(e.target.value),
+                  valor_kg: Number(e.target.value),
                 })
               }
+            />
+
+            <Select
+              label="Tipo imposto"
+              options={['fixo', 'percentual']}
+              value={editar.tipo_imposto}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  tipo_imposto: e.target.value as any,
+                })
+              }
+            />
+
+            <Input
+              label={
+                editar.tipo_imposto === 'percentual'
+                  ? 'Imposto (%)'
+                  : 'Imposto (R$)'
+              }
+              type="number"
+              value={editar.valor_imposto}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  valor_imposto: Number(e.target.value),
+                })
+              }
+            />
+
+            <Input
+              label="GTA / Transporte"
+              type="number"
+              value={editar.gta_valor}
+              onChange={(e) =>
+                setEditar({
+                  ...editar,
+                  gta_valor: Number(e.target.value),
+                })
+              }
+            />
+
+            <Input
+              label="Subtotal"
+              value={calcularSubtotal(editar).toFixed(2)}
+              disabled
+            />
+
+            <Input
+              label="Valor total"
+              value={calcularTotal(editar).toFixed(2)}
+              disabled
             />
 
             <Input
@@ -445,6 +680,7 @@ export function Compras() {
           </div>
         )}
       </Modal>
+
       <ModalViagem
         open={viagemOpen}
         onClose={() => {

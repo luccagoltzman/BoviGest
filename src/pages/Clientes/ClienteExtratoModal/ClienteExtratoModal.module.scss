@@ -1,0 +1,453 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  font-family: 'Inter', sans-serif;
+}
+
+.filters {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.resumoGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.resumoCard {
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--shadow-sm);
+}
+
+.cardLabel {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.cardValor {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.cardSub {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 2px;
+}
+
+.cardVendas {
+  background: color-mix(in srgb, var(--color-info) 10%, transparent);
+  color: var(--color-info);
+}
+
+.cardRecebido {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  color: var(--color-success);
+}
+
+.cardDevedor {
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  color: var(--color-danger);
+}
+
+.cardQuitado {
+  background: color-mix(in srgb, var(--color-success) 10%, transparent);
+  color: var(--color-success);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sectionTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.cortesGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.corteChip {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+}
+
+.corteNome {
+  min-width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  span:first-child {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+}
+
+.bandaTag {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  border-radius: 6px;
+  padding: 4px 8px;
+  width: fit-content;
+}
+
+.bandaComposicao {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.composicaoTag {
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+
+  &.dianteiro {
+    color: var(--color-info);
+    background: color-mix(in srgb, var(--color-info) 10%, transparent);
+  }
+
+  &.traseiro {
+    color: var(--color-secondary);
+    background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+  }
+}
+
+.corteNumeros {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  align-items: center;
+  flex: 1;
+
+  span {
+    font-size: 13px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+
+    strong {
+      color: var(--color-text);
+      font-weight: 700;
+    }
+  }
+}
+
+.btnNovo {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-primary);
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-primary) 20%, transparent);
+  border-radius: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+  }
+}
+
+.novoRecebimento {
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recebimentoForm {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.historicoLista {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.historicoItem {
+  border-radius: var(--radius-sm);
+  overflow: visible;
+  transition: box-shadow 0.15s;
+
+  &.venda {
+    background: var(--color-surface-soft);
+    border: 1px solid var(--color-border);
+  }
+
+  &.recebimento {
+    background: color-mix(in srgb, var(--color-success) 6%, transparent);
+    border: 1px solid color-mix(in srgb, var(--color-success) 18%, transparent);
+  }
+}
+
+.vendaRow,
+.recebimentoRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.historicoLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tipoBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 6px;
+  padding: 3px 7px;
+
+  &[data-tipo='venda'] {
+    background: color-mix(in srgb, var(--color-info) 14%, transparent);
+    color: var(--color-info);
+  }
+
+  &[data-tipo='recebimento'] {
+    background: color-mix(in srgb, var(--color-success) 14%, transparent);
+    color: var(--color-success);
+  }
+}
+
+.historicoData {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.vendaItensInline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+
+.itemTag {
+  font-size: 11px;
+  background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+  color: var(--color-primary-dark);
+  border-radius: 6px;
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.itemComposicao {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 2px;
+
+  span {
+    font-size: 10px;
+    border-radius: 4px;
+    padding: 2px 6px;
+    white-space: nowrap;
+
+    &.dianteiro {
+      color: var(--color-info);
+      background: color-mix(in srgb, var(--color-info) 10%, transparent);
+    }
+
+    &.traseiro {
+      color: var(--color-secondary);
+      background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
+    }
+  }
+}
+
+.historicoValor {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  white-space: nowrap;
+  margin-left: auto;
+
+  &[data-tipo='recebimento'] {
+    color: var(--color-success);
+  }
+}
+
+.formaTag {
+  font-size: 11px;
+  background: var(--color-surface);
+  border: 1px solid color-mix(in srgb, var(--color-success) 20%, transparent);
+  color: var(--color-success);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.obsText {
+  font-size: 12px;
+  color: var(--color-text-muted);
+  font-style: italic;
+  flex: 1;
+}
+
+.btnEditar {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  transition:
+    background 0.15s,
+    color 0.15s;
+
+  &:hover {
+    background: var(--color-surface-soft);
+    color: var(--color-text);
+  }
+}
+
+.editRow {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editForm {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.editActions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btnCancelar {
+  background: none;
+  border: none;
+  font-size: 13px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+
+  &:hover {
+    background: var(--color-surface-soft);
+  }
+}
+
+.selectWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-text);
+  }
+}
+
+.select {
+  height: 42px;
+  border-radius: 8px;
+  border: 1px solid var(--color-border);
+  padding: 0 12px;
+  background: var(--color-surface);
+  font-size: 14px;
+  color: var(--color-text);
+  outline: none;
+
+  &:focus {
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--color-primary) 14%, transparent);
+  }
+}
+
+.empty,
+.loadingMsg {
+  text-align: center;
+  padding: 28px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+}
+
+@media (max-width: 640px) {
+  .resumoGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .recebimentoForm,
+  .editForm,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .corteChip {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .corteNome {
+    min-width: 100%;
+  }
+
+  .corteNumeros {
+    width: 100%;
+    gap: 12px;
+  }
+
+  .vendaRow,
+  .recebimentoRow {
+    gap: 8px;
+  }
+}
