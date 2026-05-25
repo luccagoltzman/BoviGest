@@ -4,24 +4,47 @@
   padding: 0;
 }
 
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.formSimples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
 .form {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 1rem;
+  align-items: end;
+}
+
+.itemForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
 }
 
 .actions {
   grid-column: 1 / -1;
   margin-top: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
 }
 
 .selectWrap {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
-  top: -5px;
-  position: relative;
 }
+
 .label {
   font-size: 0.875rem;
   font-weight: 500;
@@ -52,19 +75,21 @@
   margin: 0;
 }
 
-.totalBD {
+.totalPeso {
   grid-column: 1 / -1;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   background: rgba($color-primary, 0.06);
   border-radius: $radius;
-}
-
-.totalBDLabel {
   font-size: 0.9rem;
   color: $color-text-muted;
+
+  strong {
+    color: var(--theme-primary);
+    font-size: 1rem;
+  }
 }
 
 .filters {
@@ -106,9 +131,7 @@
   border: 1px solid rgba($color-border, 0.9);
   border-radius: $radius;
   box-shadow: $shadow-sm;
-  transition:
-    transform 0.2s ease,
-    box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 
   &:hover {
     transform: translateY(-2px);
@@ -185,15 +208,50 @@
   letter-spacing: -0.03em;
 }
 
+.tableActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.badgeEntrada {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #d1fae5;
+  color: #065f46;
+}
+
+.badgeSaida {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.modalContent {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
 .modalActions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: 0.75rem;
-  margin-top: 1.5rem;
+  margin-top: 1rem;
 }
 
 @media (max-width: 768px) {
+  .formSimples,
   .form,
+  .itemForm,
   .filters {
     grid-template-columns: 1fr;
   }

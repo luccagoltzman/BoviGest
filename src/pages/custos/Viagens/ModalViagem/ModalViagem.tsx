@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Modal, Input, Button, Select } from '@/components/ui'
+import { Modal, Input, Button } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './ViagemModal.module.scss'
 
