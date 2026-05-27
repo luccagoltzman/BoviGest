@@ -12,29 +12,40 @@ type Variant =
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
   fullWidth?: boolean
+  loading?: boolean
 }
 
 export function Button({
   variant = 'primary',
   fullWidth,
+  loading = false,
   className = '',
   children,
+  disabled,
   ...props
 }: ButtonProps) {
   return (
     <button
       type="button"
+      disabled={disabled || loading}
       className={[
         styles.btn,
         styles[variant],
         fullWidth && styles.fullWidth,
+        loading && styles.loading,
         className,
       ]
         .filter(Boolean)
         .join(' ')}
       {...props}
     >
-      {children}
+
+      <span className={loading ? styles.loadingText : ''}>
+        {children}
+      </span>
+
+      {loading && <span className={styles.spinner} />}
+
     </button>
   )
 }

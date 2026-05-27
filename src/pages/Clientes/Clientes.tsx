@@ -3,6 +3,7 @@ import { Button, Card, Input, Table, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
 import { clientesService } from '@/services/cliente.service'
+import { ClienteExtratoModal } from './ClienteExtratoModal'
 
 interface ClienteRow {
   id: string
@@ -29,6 +30,7 @@ export function Clientes() {
   const [endDate, setEndDate] = useState('')
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const [clienteExtrato, setClienteExtrato] = useState<any>(null)
 
   const [createForm, setCreateForm] = useState({
     nome: '',
@@ -165,8 +167,18 @@ export function Clientes() {
     editar.telefone.trim() !== ''
 
   const columns = [
-    { key: 'nome', header: 'Nome / Empresa' },
-    { key: 'doc', header: 'CPF/CNPJ' },
+    {
+      key: 'nome',
+      header: 'Cliente',
+      render: (r: any) => (
+        <a
+          onClick={() => setClienteExtrato(r)}
+          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          {r?.name}
+        </a>
+      ),
+    },    { key: 'doc', header: 'CPF/CNPJ' },
     { key: 'telefone', header: 'Telefone / WhatsApp' },
     { key: 'limite_credito', header: 'Limite de crédito' },
     { key: 'status', header: 'Status' },
@@ -318,6 +330,11 @@ export function Clientes() {
           </div>
         )}
       </Modal>
+       <ClienteExtratoModal
+              open={!!clienteExtrato}
+              cliente={clienteExtrato}
+              onClose={() => setClienteExtrato(null)}
+            />
     </div>
   )
 }

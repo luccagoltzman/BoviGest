@@ -30,7 +30,6 @@ export const viagensService = {
         .from('viagens')
         .select('*', { count: 'exact' })
         .eq('empresa_id', user.empresa_id)
-        .eq('status', 1)
         .order('data', { ascending: false })
         .range(from, to)
 
@@ -106,7 +105,6 @@ export const viagensService = {
       .select('*')
       .eq('referencia_id', id)
       .eq('empresa_id', user.empresa_id)
-      .eq('status', 1)
       .maybeSingle()
 
     if (error) {
@@ -125,7 +123,6 @@ export const viagensService = {
         {
           ...payload,
           empresa_id: user.empresa_id,
-          status: 1,
         },
       ])
       .select()
@@ -149,7 +146,6 @@ export const viagensService = {
       })
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
-      .eq('status', 1)
       .select()
       .single()
 
@@ -165,9 +161,7 @@ export const viagensService = {
 
     const { error } = await supabase
       .from('viagens')
-      .update({
-        status: 0,
-      })
+      .delete()
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
 

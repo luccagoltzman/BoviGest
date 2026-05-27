@@ -80,6 +80,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   const seteDiasAtras = new Date(hoje)
   seteDiasAtras.setDate(hoje.getDate() - 7)
 
+  console.log(cliente)
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])

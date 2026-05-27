@@ -216,7 +216,7 @@ export function Vendas() {
         observacao: '',
         data_movimentacao: new Date().toISOString().split('T')[0],
         itens: [{ ...emptyItem }],
-        movimentacao_status: 'pendente', // 👈 aqui também
+        movimentacao_status: 'pendente',
       })
       setClienteBusca('')
       setTotalGeral(0)
@@ -292,83 +292,107 @@ export function Vendas() {
     setEditando({ ...editando, itens })
   }
 
-  async function handleEdit() {
-    try {
-      setLoadingSave(true)
-      const payload = {
-        cliente_id: editando.cliente_id,
-        observacao: editando.observacao,
-        data_movimentacao: editando.data_movimentacao,
-        movimentacao_status: editando.movimentacao_status,
-        itens: editando.itens.map((i: any) => ({
-          tipo_corte: i.tipo_corte,
-          peso_total_kg: Number(i.peso_total_kg || 0),
-          valor_kg: Number(i.valor_kg || 0),
-          valor_total: Number(i.valor_total || 0),
-          composicoes: i.composicoes || [],
-        })),
-        valor_total: calcularTotalEdit(editando.itens),
-      }
+  const [movimentacaoOriginal, setMovimentacaoOriginal] = useState<any>(null)
 
-      await movimentacoesClientesService.update(editando.id, payload)
+async function handleEdit() {
+  try {
+    setLoadingSave(true)
 
-      await estoqueService.deleteByReferencia(editando.id)
+    const payload = {
+      cliente_id: editando.cliente_id,
+      observacao: editando.observacao,
+      data_movimentacao: editando.data_movimentacao,
+      movimentacao_status: editando.movimentacao_status,
+      itens: editando.itens.map((i: any) => ({
+        tipo_corte: i.tipo_corte,
+        peso_total_kg: Number(i.peso_total_kg || 0),
+        valor_kg: Number(i.valor_kg || 0),
+        valor_total: Number(i.valor_total || 0),
+        composicoes: i.composicoes || [],
+      })),
+      valor_total: calcularTotalEdit(editando.itens),
+    }
+
+    await movimentacoesClientesService.update(
+      editando.id,
+      payload
+    )
+
+    const houveMudancaItens =
+      JSON.stringify(editando.itens) !==
+      JSON.stringify(movimentacaoOriginal.itens)
+
+    if (houveMudancaItens) {
+      await estoqueService.deleteByReferencia(
+        editando.id
+      )
 
       const agrupamentoId = crypto.randomUUID()
 
-      const itensSaida = editando.itens.flatMap((item: any) => {
-        const banda = isBanda(item.tipo_corte)
+      const itensSaida = editando.itens.flatMap(
+        (item: any) => {
+          const banda = isBanda(item.tipo_corte)
 
-        if (banda) {
-          return (item.composicoes || []).map((c: any) => ({
-            corte: c.tipo_corte,
-            peso_bruto_kg: Number(c.peso_kg || 0),
-            peso_liquido_kg: Number(c.peso_kg || 0),
-            agrupamento_id: agrupamentoId
-          }))
+          if (banda) {
+            return (item.composicoes || []).map(
+              (c: any) => ({
+                corte: c.tipo_corte,
+                peso_bruto_kg: Number(c.peso_kg || 0),
+                peso_liquido_kg: Number(c.peso_kg || 0),
+                agrupamento_id: agrupamentoId,
+              })
+            )
+          }
+
+          return [
+            {
+              corte: item.tipo_corte,
+              peso_bruto_kg: Number(
+                item.peso_total_kg || 0
+              ),
+              peso_liquido_kg: Number(
+                item.peso_total_kg || 0
+              ),
+              agrupamento_id: null,
+            },
+          ]
         }
+      )
 
-        return [
-          {
-            corte: item.tipo_corte,
-            peso_bruto_kg: Number(item.peso_total_kg || 0),
-            peso_liquido_kg: Number(item.peso_total_kg || 0),
-            agrupamento_id: null,
-          },
-        ]
-      })
-
-      const mov = await estoqueService.createMovimentacao({
-        lote: `venda-${editando.id}`,
-        tipo_movimentacao: 0,
-        data_movimentacao: editando.data_movimentacao,
-        observacoes: `Atualização venda ${editando.id}`,
-        peso_bruto_kg: calcularTotalEdit(editando.itens),
-        peso_liquido_kg: calcularTotalEdit(editando.itens),
-        venda_id: editando.id
-
-      })
+      const mov =
+        await estoqueService.createMovimentacao({
+          lote: `venda-${editando.id}`,
+          tipo_movimentacao: 0,
+          data_movimentacao:
+            editando.data_movimentacao,
+          observacoes: `Atualização venda ${editando.id}`,
+          peso_bruto_kg:
+            calcularTotalEdit(editando.itens),
+          peso_liquido_kg:
+            calcularTotalEdit(editando.itens),
+          venda_id: editando.id,
+        })
 
       await estoqueService.createMovimentacaoItem(
         itensSaida.map((i: any) => ({
           ...i,
-          movimentacao_id: mov.id
+          movimentacao_id: mov.id,
         }))
       )
-      toast.success('Movimentação atualizada')
-
-      setEditando(null)
-      setLoadingSave(false)
-
-      carregarMovimentacoes()
-
-
-    } catch {
-      setLoadingSave(false)
-
-      toast.error('Erro ao editar')
     }
+
+    toast.success('Movimentação atualizada')
+
+    setEditando(null)
+    setMovimentacaoOriginal(null)
+
+    carregarMovimentacoes()
+  } catch {
+    toast.error('Erro ao editar')
+  } finally {
+    setLoadingSave(false)
   }
+}
 
   async function handleDelete(id: number) {
     if (!confirm('Excluir esta movimentação?')) return
@@ -389,7 +413,14 @@ export function Vendas() {
     {
       key: 'cliente',
       header: 'Cliente',
-      render: (r: any) => r.cliente?.nome,
+      render: (r: any) => (
+        <a
+          onClick={() => setClienteExtrato(r)}
+          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+        >
+          {r.cliente?.nome}
+        </a>
+      ),
     },
     {
       key: 'data',
@@ -457,11 +488,18 @@ export function Vendas() {
       header: 'Ação',
       render: (r: any) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant='outline' onClick={() => setEditando(r)}>Editar</Button>
+          <Button
+            variant="outline"
+            onClick={() => {
+              setMovimentacaoOriginal(structuredClone(r))
+              setEditando(structuredClone(r))
+            }}
+          >
+            Editar
+          </Button>
           <Button variant="destructive" onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
-          <Button onClick={() => setClienteExtrato(r)}>Extrato</Button>
         </div>
       ),
     },
@@ -802,7 +840,7 @@ export function Vendas() {
                   ✓ Finalizar
                 </Button>
               )} */}
-              <Button disabled={loadingSave} onClick={handleEdit}>
+              <Button loading={loadingSave} disabled={loadingSave} onClick={handleEdit}>
                 Salvar
               </Button>
             </div>

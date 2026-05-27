@@ -234,7 +234,6 @@ export function Processamento() {
         }
       }
 
-      console.log(itensPayload)
       const mov = await estoqueService.createMovimentacao({
         lote: form.lote,
         tipo_movimentacao: form.tipo_movimentacao,
@@ -408,12 +407,33 @@ export function Processamento() {
         formatKg(r.itens?.reduce((a, i) => a + i.peso_liquido_kg, 0) || 0),
     },
     {
+      key: 'itens',
+      header: 'Itens',
+      render: (r: EstoqueRow) => (
+        <div className={styles.tooltipWrapper}>
+          <button className={styles.detalhesButton}>
+            Ver itens ({r.itens?.length || 0})
+          </button>
+
+          <div className={styles.tooltipContent}>
+            {r.itens?.map((item) => (
+              <div key={item.id} className={styles.tooltipItem}>
+                <strong>
+                  {item.agrupamento_id ? 'BANDA -' : ''}  {item.corte } - {item.peso_bruto_kg} Kg
+                </strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      ),
+    },
+    {
       key: 'acoes',
       header: 'Ações',
       render: (r: EstoqueRow) => (
-        <div>
-          <Button variant="outline"  onClick={() => setEditar(r)}>Editar</Button>
-          <Button variant="danger"   disabled={!!r.referencia_venda_id} onClick={() => handleDelete(r.id)}>
+        <div className={styles.actions}>
+          <Button variant="outline" onClick={() => setEditar(r)}>Editar</Button>
+          <Button variant="danger" disabled={!!r.referencia_venda_id} onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
         </div>
@@ -580,7 +600,7 @@ export function Processamento() {
         />
 
         <div className={styles.totalPeso}>
-          <span>Total líquido da movimentação</span>
+          <span>Total do peso da movimentação</span>
           <strong>{formatKg(totalPesoForm)}</strong>
         </div>
 

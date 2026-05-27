@@ -258,13 +258,13 @@ export const estoqueService = {
     if (error) throw error
   },
 
-    async deleteByReferencia(referencia: number) {
+  async deleteByReferencia(referencia: number) {
     const user = getUser()
 
     const { error } = await supabase
       .from('estoque_movimentacoes')
       .delete()
-    .eq('referencia_venda_id', referencia)
+      .eq('referencia_venda_id', referencia)
       .eq('empresa_id', user.empresa_id)
 
     if (error) throw error
