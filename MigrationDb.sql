@@ -710,3 +710,104 @@ select
 from estoque_movimentacao_itens i
 join estoque_movimentacoes m on m.id = i.movimentacao_id
 group by i.empresa_id, i.corte;
+
+
+-- =========================
+-- ABATES
+-- =========================
+
+drop table if exists abates cascade;
+
+create table abates (
+  id bigserial primary key,
+  empresa_id int not null references empresas (id),
+  data_abate date not null default current_date,
+  lote text,
+  tipo_animal text,
+  tipo_cobranca smallint not null check (tipo_cobranca in (0, 1)),
+  -- 0 = por kg
+  -- 1 = por animal
+  qtd_animais int not null default 0,
+  peso_bruto_kg numeric(12, 2) not null default 0, 
+  peso_liquido_kg numeric(12, 2) not null default 0,
+  valor_unitario numeric(12, 2) not null default 0,
+  valor_total numeric(12, 2) not null default 0,
+  salvar_couro boolean not null default false,
+  couro_deixado int not null default 0,
+  desconto_por_couro numeric(12, 2) not null default 0,
+  desconto_total numeric(12, 2) not null default 0,
+  taxas numeric(12, 2) not null default 0,
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create index idx_abates_empresa
+on abates (empresa_id);
+
+create index idx_abates_lote
+on abates (lote);
+
+create index idx_abates_data
+on abates (data_abate);
+
+alter table abates enable row level security;
+
+create policy "abates_por_empresa"
+on abates
+for all
+using (
+  empresa_id in (
+    select empresa_id
+    from usuarios_empresas
+    where user_id = auth.uid()
+  )
+);
+
+insert into abates (
+  empresa_id,
+  data_abate,
+  lote,
+  tipo_animal,
+  tipo_cobranca,
+  qtd_animais,
+  peso_bruto_kg,
+  peso_liquido_kg,
+  valor_unitario,
+  valor_total,
+  salvar_couro,
+  couro_deixado,
+  desconto_por_couro,
+  desconto_total,
+  taxas
+)
+values
+(1, '2026-05-01', 'LT-001', 'Bovino', 0, 12, 3500, 1800, 5.20, 9480, true, 10, 45, 450, 570),
+(1, '2026-05-02', 'LT-002', 'Bovino', 1, 8, 2400, 1200, 750, 6120, false, 0, 0, 0, 120),
+(1, '2026-05-03', 'LT-003', 'Suíno', 0, 20, 1800, 950, 4.10, 4015, true, 6, 30, 180, 300),
+(1, '2026-05-04', 'LT-004', 'Bovino', 1, 15, 4200, 2100, 820, 12150, true, 12, 40, 480, 330),
+(1, '2026-05-05', 'LT-005', 'Caprino', 1, 25, 900, 430, 180, 4550, false, 0, 0, 0, 50),
+(1, '2026-05-06', 'LT-006', 'Bovino', 0, 18, 5100, 2600, 5.50, 14000, true, 14, 50, 700, 400),
+(1, '2026-05-07', 'LT-007', 'Ovino', 1, 30, 1200, 600, 160, 4880, false, 0, 0, 0, 80),
+(1, '2026-05-08', 'LT-008', 'Bovino', 0, 10, 3000, 1500, 5.80, 8650, true, 8, 35, 280, 230),
+(1, '2026-05-09', 'LT-009', 'Suíno', 0, 22, 2000, 1000, 4.50, 4520, true, 5, 25, 125, 145),
+(1, '2026-05-10', 'LT-010', 'Bovino', 1, 9, 2600, 1300, 780, 7030, false, 0, 0, 0, 10),
+(1, '2026-05-11', 'LT-011', 'Bovino', 0, 14, 4100, 2050, 5.00, 10050, true, 9, 42, 378, 178),
+(1, '2026-05-12', 'LT-012', 'Caprino', 1, 35, 1400, 720, 170, 6040, false, 0, 0, 0, 90),
+(1, '2026-05-13', 'LT-013', 'Bovino', 0, 11, 3200, 1600, 5.60, 9000, true, 7, 38, 266, 306),
+(1, '2026-05-14', 'LT-014', 'Ovino', 1, 28, 1100, 550, 150, 4290, false, 0, 0, 0, 90),
+(1, '2026-05-15', 'LT-015', 'Suíno', 0, 19, 1900, 980, 4.30, 4204, true, 4, 20, 80, 70),
+(1, '2026-05-16', 'LT-016', 'Bovino', 1, 16, 4700, 2400, 850, 13300, true, 13, 48, 624, 324),
+(1, '2026-05-17', 'LT-017', 'Caprino', 1, 18, 760, 390, 175, 3220, false, 0, 0, 0, 70),
+(1, '2026-05-18', 'LT-018', 'Bovino', 0, 13, 3800, 1900, 5.40, 10110, true, 6, 40, 240, 90),
+(1, '2026-05-19', 'LT-019', 'Suíno', 0, 24, 2100, 1080, 4.60, 4868, true, 5, 22, 110, 10),
+(1, '2026-05-20', 'LT-020', 'Bovino', 1, 7, 2100, 1080, 790, 5730, false, 0, 0, 0, 200),
+(1, '2026-05-21', 'LT-021', 'Bovino', 0, 17, 4900, 2450, 5.70, 13615, true, 15, 52, 780, 430),
+(1, '2026-05-22', 'LT-022', 'Ovino', 1, 26, 980, 510, 155, 4100, false, 0, 0, 0, 70),
+(1, '2026-05-23', 'LT-023', 'Caprino', 1, 20, 810, 410, 185, 3740, false, 0, 0, 0, 40),
+(1, '2026-05-24', 'LT-024', 'Bovino', 0, 9, 2700, 1400, 5.30, 7550, true, 6, 37, 222, 352),
+(1, '2026-05-25', 'LT-025', 'Suíno', 0, 21, 1950, 990, 4.40, 4326, true, 5, 24, 120, 90),
+(1, '2026-05-26', 'LT-026', 'Bovino', 1, 12, 3600, 1820, 810, 9560, true, 10, 45, 450, 290),
+(1, '2026-05-27', 'LT-027', 'Ovino', 1, 32, 1250, 640, 165, 5280, false, 0, 0, 0, 0),
+(1, '2026-05-28', 'LT-028', 'Caprino', 1, 22, 860, 450, 190, 4200, false, 0, 0, 0, 20),
+(1, '2026-05-29', 'LT-029', 'Bovino', 0, 15, 4300, 2200, 5.90, 12880, true, 11, 49, 539, 439),
+(1, '2026-05-30', 'LT-030', 'Suíno', 0, 18, 1750, 900, 4.20, 3850, true, 3, 20, 60, 130);
