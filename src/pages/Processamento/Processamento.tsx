@@ -1,29 +1,33 @@
 import { useEffect, useState } from 'react'
 
-import {
-  Button,
-  Card,
-  Input,
-  Modal,
-  Table,
-} from '@/components/ui'
-
+import { Button, Card, Input, Modal, Table } from '@/components/ui'
 import { estoqueService } from '@/services/estoque.service'
-
 import { TIPOS_CORTE, REGRA_BD } from '@/constants/cortes'
-
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
+import { useDebounce } from '@/hook/useDebounce'
+
+interface Composicao {
+  id?: number
+  tipo_corte: string
+  peso_kg: number | string
+}
+
+interface EstoqueItem {
+  id?: number
+  corte: string
+  peso_liquido_kg: number
+  peso_bruto_kg: number
+  agrupamento_id: any
+}
 
 interface EstoqueRow {
   id: number
   lote: string
-  corte: string
   tipo_movimentacao: number
-  peso_bruto_kg: number
-  peso_liquido_kg: number
   data_movimentacao: string
   observacoes?: string
+  itens: EstoqueItem[]
 }
 
 interface EstoqueResumoRow {
@@ -36,6 +40,7 @@ interface ItemForm {
   corte: string
   peso_liquido_kg: string
   composicoes: { tipo_corte: string; peso_kg: string }[]
+  agrupamento_id?: string
 }
 
 const emptyItem = (): ItemForm => ({
@@ -66,6 +71,12 @@ export function Processamento() {
   const [lote, setLote] = useState('')
   const [corteFiltro, setCorteFiltro] = useState('')
 
+  const searchDebounced = useDebounce(search, 500)
+  const loteDebounced = useDebounce(lote, 500)
+  const corteDebounced = useDebounce(corteFiltro, 500)
+  const startDateDebounced = useDebounce(startDate, 500)
+  const endDateDebounced = useDebounce(endDate, 500)
+
   const [form, setForm] = useState({
     lote: '',
     tipo_movimentacao: 1,
@@ -84,27 +95,22 @@ export function Processamento() {
 
   const calcularPesoItem = (item: ItemForm) => {
     if (isBanda(item.corte)) {
-      return item.composicoes.reduce(
-        (acc, c) => acc + Number(c.peso_kg || 0),
-        0,
-      )
+      return item.composicoes.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
     }
-
     return Number(item.peso_liquido_kg || 0)
   }
 
-  const calcularTotalForm = (itens: ItemForm[]) =>
-    itens.reduce((acc, item) => acc + calcularPesoItem(item), 0)
-
   useEffect(() => {
-    setTotalPesoForm(calcularTotalForm(form.itens))
+    setTotalPesoForm(
+      form.itens.reduce((acc, i) => acc + calcularPesoItem(i), 0),
+    )
   }, [form.itens])
 
   async function carregarResumo() {
     const resumo = await estoqueService.getEstoqueAtual(
-      search,
-      lote,
-      corteFiltro,
+      searchDebounced,
+      loteDebounced,
+      corteDebounced,
     )
     setEstoqueAtual(resumo || [])
   }
@@ -113,21 +119,18 @@ export function Processamento() {
     try {
       setLoading(true)
 
-      const movimentacoes = await estoqueService.getMovimentacoes(
+      const res = await estoqueService.getMovimentacoes(
         currentPage,
         10,
-        search,
-        startDate,
-        endDate,
-        lote,
-        corteFiltro,
+        searchDebounced,
+        startDateDebounced,
+        endDateDebounced,
+        loteDebounced,
       )
 
-      setHistorico(movimentacoes.data || [])
-      setTotal(movimentacoes.total || 0)
-      setTotalPages(movimentacoes.totalPages || 1)
-    } catch {
-      toast.error('Erro ao carregar histórico')
+      setHistorico(res.data || [])
+      setTotal(res.total || 0)
+      setTotalPages(res.totalPages || 1)
     } finally {
       setLoading(false)
     }
@@ -140,23 +143,20 @@ export function Processamento() {
   useEffect(() => {
     carregarResumo()
     setPage(1)
-  }, [search, startDate, endDate, lote, corteFiltro])
+  }, [searchDebounced, loteDebounced, corteDebounced])
 
   useEffect(() => {
     carregarHistorico(page)
-  }, [page, search, startDate, endDate, lote, corteFiltro])
+  }, [page, searchDebounced, startDateDebounced, endDateDebounced, loteDebounced, corteDebounced])
 
   function addItem() {
-    setForm((prev) => ({
-      ...prev,
-      itens: [...prev.itens, emptyItem()],
-    }))
+    setForm((p) => ({ ...p, itens: [...p.itens, emptyItem()] }))
   }
 
   function removeItem(index: number) {
-    setForm((prev) => ({
-      ...prev,
-      itens: prev.itens.filter((_, i) => i !== index),
+    setForm((p) => ({
+      ...p,
+      itens: p.itens.filter((_, i) => i !== index),
     }))
   }
 
@@ -165,6 +165,7 @@ export function Processamento() {
     itens[index].corte = corte
 
     if (isBanda(corte)) {
+      itens[index].agrupamento_id = crypto.randomUUID()
       itens[index].composicoes = [
         { tipo_corte: 'Dianteiro', peso_kg: '' },
         { tipo_corte: 'Traseiro', peso_kg: '' },
@@ -172,29 +173,24 @@ export function Processamento() {
       itens[index].peso_liquido_kg = ''
     } else {
       itens[index].composicoes = []
+      itens[index].agrupamento_id = undefined
     }
 
     setForm({ ...form, itens })
   }
 
-  function updateItem(index: number, field: keyof ItemForm, value: string) {
+  function updateComposicao(itemIndex: number, compIndex: number, value: string) {
     const itens = [...form.itens]
-    itens[index] = { ...itens[index], [field]: value }
-    setForm({ ...form, itens })
-  }
 
-  function updateComposicao(
-    itemIndex: number,
-    compIndex: number,
-    value: string,
-  ) {
-    const itens = [...form.itens]
     itens[itemIndex].composicoes[compIndex].peso_kg = value
+
     const total = itens[itemIndex].composicoes.reduce(
       (acc, c) => acc + Number(c.peso_kg || 0),
       0,
     )
+
     itens[itemIndex].peso_liquido_kg = String(total)
+
     setForm({ ...form, itens })
   }
 
@@ -202,39 +198,56 @@ export function Processamento() {
     try {
       setLoadingSave(true)
 
-      if (!form.lote.trim()) {
-        toast.error('Informe o lote')
-        return
+      const itensPayload: any[] = []
+      let total = 0
+
+      const movimentacaoId = crypto.randomUUID()
+
+      for (const item of form.itens) {
+        if (isBanda(item.corte)) {
+          const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+
+          for (const c of item.composicoes) {
+            const peso = Number(c.peso_kg)
+            total += peso
+
+            itensPayload.push({
+              corte: c.tipo_corte,
+              peso_bruto_kg: peso,
+              peso_liquido_kg: peso,
+              agrupamento_id: agrupamentoId,
+              movimentacao_id: movimentacaoId,
+            })
+          }
+        } else {
+          const peso = Number(item.peso_liquido_kg)
+          total += peso
+
+          itensPayload.push({
+            corte: item.corte,
+            peso_bruto_kg: peso,
+            peso_liquido_kg: peso,
+            agrupamento_id: null,
+            movimentacao_id: movimentacaoId,
+          })
+        }
       }
 
-      const itensValidos = form.itens.filter(
-        (item) => item.corte && calcularPesoItem(item) > 0,
+      console.log(itensPayload)
+      const mov = await estoqueService.createMovimentacao({
+        lote: form.lote,
+        tipo_movimentacao: form.tipo_movimentacao,
+        data_movimentacao: form.data_movimentacao,
+        observacoes: form.observacoes,
+        peso_bruto_kg: total,
+        peso_liquido_kg: total,
+      })
+
+      await estoqueService.createMovimentacaoItem(
+        itensPayload.map((i) => ({ ...i, movimentacao_id: mov.id })),
       )
 
-      if (itensValidos.length === 0) {
-        toast.error('Adicione ao menos uma peça com corte e peso')
-        return
-      }
-
-      for (const item of itensValidos) {
-        const pesoLiquido = calcularPesoItem(item)
-
-        await estoqueService.createMovimentacao({
-          lote: form.lote.trim(),
-          corte: item.corte,
-          tipo_movimentacao: form.tipo_movimentacao,
-          peso_bruto_kg: pesoLiquido,
-          peso_liquido_kg: pesoLiquido,
-          data_movimentacao: form.data_movimentacao,
-          observacoes: form.observacoes,
-        })
-      }
-
-      toast.success(
-        itensValidos.length === 1
-          ? 'Movimentação registrada'
-          : `${itensValidos.length} movimentações registradas`,
-      )
+      toast.success('Criado')
 
       setForm({
         lote: '',
@@ -244,49 +257,50 @@ export function Processamento() {
         itens: [emptyItem()],
       })
 
-      setPage(1)
       await carregarDados()
-    } catch {
-      toast.error('Erro ao registrar movimentação')
     } finally {
       setLoadingSave(false)
     }
   }
 
+  function updateItem(index: number, field: keyof ItemForm, value: string) {
+    setForm((prev) => {
+      const itens = [...prev.itens]
+      itens[index] = {
+        ...itens[index],
+        [field]: value,
+      }
+      return { ...prev, itens }
+    })
+  }
   async function handleSaveEdit() {
     if (!editar) return
 
     try {
       setLoadingSave(true)
 
-      if (!editar.lote.trim()) {
-        toast.error('Informe o lote')
-        return
-      }
-
-      if (!editar.corte) {
-        toast.error('Selecione o corte')
-        return
-      }
-
-      const pesoLiquido = Number(editar.peso_liquido_kg)
-
-      if (!pesoLiquido || pesoLiquido <= 0) {
-        toast.error('Informe o peso líquido')
-        return
-      }
-
       await estoqueService.updateMovimentacao(editar.id, {
         lote: editar.lote,
-        corte: editar.corte,
         tipo_movimentacao: editar.tipo_movimentacao,
-        peso_bruto_kg: pesoLiquido,
-        peso_liquido_kg: pesoLiquido,
         data_movimentacao: editar.data_movimentacao,
         observacoes: editar.observacoes,
       })
 
+      const itensPayload = editar.itens.map((i) => ({
+        movimentacao_id: editar.id,
+        corte: i.corte,
+        peso_bruto_kg: Number(i.peso_liquido_kg),
+        peso_liquido_kg: Number(i.peso_liquido_kg),
+        agrupamento_id: i.agrupamento_id || null,
+      }))
+
+      await estoqueService.replaceMovimentacaoItens(
+        editar.id,
+        itensPayload,
+      )
+
       toast.success('Movimentação atualizada')
+
       setEditar(null)
       await carregarDados()
     } catch {
@@ -295,18 +309,11 @@ export function Processamento() {
       setLoadingSave(false)
     }
   }
-
   async function handleDelete(id: number) {
-    if (!confirm('Excluir esta movimentação?')) return
-
-    try {
-      await estoqueService.deleteMovimentacao(id)
-      toast.success('Movimentação excluída')
-      setEditar(null)
-      await carregarDados()
-    } catch {
-      toast.error('Erro ao excluir movimentação')
-    }
+    if (!confirm('Excluir?')) return
+    await estoqueService.deleteMovimentacao(id)
+    toast.success('Excluído')
+    await carregarDados()
   }
 
   const totalLiquido = estoqueAtual.reduce(
@@ -314,36 +321,97 @@ export function Processamento() {
     0,
   )
 
+  function updateEditarItem(itemId: number, value: string) {
+    if (!editar) return
+
+    const itens = editar.itens.map((i) =>
+      i.id === itemId
+        ? {
+          ...i,
+          peso_liquido_kg: Number(value),
+        }
+        : i,
+    )
+
+    setEditar({
+      ...editar,
+      itens,
+    })
+  }
+
+  function agruparItens(itens: any[]) {
+    const grupos: any[] = []
+    const usados = new Set()
+
+    for (const item of itens) {
+      if (item.agrupamento_id) {
+        if (usados.has(item.agrupamento_id)) continue
+
+        const grupo = itens.filter(
+          (i) => i.agrupamento_id === item.agrupamento_id,
+        )
+
+        grupos.push({
+          tipo: 'banda',
+          agrupamento_id: item.agrupamento_id,
+          itens: grupo,
+          corte: grupo[0]?.corte,
+        })
+
+        usados.add(item.agrupamento_id)
+      } else {
+        grupos.push({
+          tipo: 'normal',
+          itens: [item],
+        })
+      }
+    }
+
+    return grupos
+  }
+
+  function removeEditarItem(item: any, indexGrupo: number) {
+    if (!editar) return
+
+    let itens = [...editar.itens]
+
+    // CASO BANDA → remove TODOS do grupo
+    if (item.tipo === 'banda') {
+      const ids = item.itens.map((i: any) => i.id)
+
+      itens = itens.filter((i) => !ids.includes(i.id))
+
+      setEditar({ ...editar, itens })
+      return
+    }
+
+    // CASO NORMAL
+    const id = item.itens[0].id
+    itens = itens.filter((i) => i.id !== id)
+
+    setEditar({ ...editar, itens })
+  }
   const columns = [
     { key: 'data_movimentacao', header: 'Data' },
     { key: 'lote', header: 'Lote' },
-    { key: 'corte', header: 'Corte' },
     {
       key: 'tipo_movimentacao',
       header: 'Tipo',
-      render: (r: EstoqueRow) => (
-        <span
-          className={
-            r.tipo_movimentacao === 1
-              ? styles.badgeEntrada
-              : styles.badgeSaida
-          }
-        >
-          {r.tipo_movimentacao === 1 ? 'Entrada' : 'Saída'}
-        </span>
-      ),
+      render: (r: EstoqueRow) =>
+        r.tipo_movimentacao === 1 ? 'Entrada' : 'Saída',
     },
     {
-      key: 'peso_liquido_kg',
-      header: 'Peso líquido',
-      render: (r: EstoqueRow) => formatKg(r.peso_liquido_kg),
+      key: 'peso',
+      header: 'Peso',
+      render: (r: EstoqueRow) =>
+        formatKg(r.itens?.reduce((a, i) => a + i.peso_liquido_kg, 0) || 0),
     },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: EstoqueRow) => (
-        <div className={styles.tableActions}>
-          <Button onClick={() => setEditar(r)}>Editar</Button>
+        <div>
+          <Button variant="outline" onClick={() => setEditar(r)}>Editar</Button>
           <Button variant="danger" onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
@@ -356,39 +424,6 @@ export function Processamento() {
     <div className={styles.page}>
       <h1 className="page-title">Processamento / Estoque</h1>
 
-      <Card title="Filtros">
-        <div className={styles.filters}>
-          <Input
-            label="Buscar"
-            placeholder="Lote, corte..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Input
-            label="Lote"
-            value={lote}
-            onChange={(e) => setLote(e.target.value)}
-          />
-          <Input
-            label="Corte"
-            value={corteFiltro}
-            onChange={(e) => setCorteFiltro(e.target.value)}
-          />
-          <Input
-            label="Data inicial"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <Input
-            label="Data final"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
-        </div>
-      </Card>
-
       <Card title="Resumo do estoque">
         {loading && estoqueAtual.length === 0 ? (
           <p className={styles.resumoEmpty}>Carregando saldos...</p>
@@ -398,26 +433,15 @@ export function Processamento() {
           </p>
         ) : (
           <>
-            <p className={styles.resumoIntro}>
-              {estoqueAtual.length}{' '}
-              {estoqueAtual.length === 1
-                ? 'corte com saldo'
-                : 'cortes com saldo'}
-            </p>
-
             <div className={styles.resumoGrid}>
               {estoqueAtual.map((item) => (
                 <article key={item.corte} className={styles.resumoCard}>
                   <span className={styles.resumoCorte}>{item.corte}</span>
+
                   <div className={styles.resumoMetrics}>
                     <div className={styles.resumoMetric}>
                       <span className={styles.resumoLabel}>Peso líquido</span>
-                      <strong
-                        className={[
-                          styles.resumoValor,
-                          styles.resumoValorHighlight,
-                        ].join(' ')}
-                      >
+                      <strong className={styles.resumoValorHighlight}>
                         {formatKg(item.saldo_liquido_kg)}
                       </strong>
                     </div>
@@ -425,11 +449,7 @@ export function Processamento() {
                 </article>
               ))}
 
-              <article
-                className={[styles.resumoCard, styles.resumoCardTotal].join(
-                  ' ',
-                )}
-              >
+              <article className={`${styles.resumoCard} ${styles.resumoCardTotal}`}>
                 <span className={styles.resumoCorte}>Total geral</span>
                 <div className={styles.resumoMetrics}>
                   <div className={styles.resumoMetric}>
@@ -483,6 +503,7 @@ export function Processamento() {
         {form.itens.map((item, index) => (
           <Card key={index} title={`Peça ${index + 1}`}>
             <div className={styles.itemForm}>
+
               <div className={styles.selectWrap}>
                 <label className={styles.label}>Corte</label>
                 <select
@@ -501,7 +522,7 @@ export function Processamento() {
 
               {!isBanda(item.corte) && (
                 <Input
-                  label="Peso líquido (kg)"
+                  label="Peso líquido"
                   type="number"
                   value={item.peso_liquido_kg}
                   onChange={(e) =>
@@ -513,10 +534,11 @@ export function Processamento() {
               {isBanda(item.corte) && (
                 <>
                   <p className={styles.regraBD}>{REGRA_BD}</p>
+
                   {item.composicoes.map((c, i) => (
                     <Input
                       key={i}
-                      label={`${c.tipo_corte} (kg)`}
+                      label={c.tipo_corte}
                       type="number"
                       value={c.peso_kg}
                       onChange={(e) =>
@@ -524,9 +546,9 @@ export function Processamento() {
                       }
                     />
                   ))}
+
                   <Input
-                    label="Peso líquido total (kg)"
-                    type="number"
+                    label="Total banda"
                     value={item.peso_liquido_kg}
                     disabled
                   />
@@ -538,16 +560,15 @@ export function Processamento() {
                   variant="danger"
                   onClick={() => removeItem(index)}
                 >
-                  Remover peça
+                  Remover
                 </Button>
               )}
             </div>
           </Card>
         ))}
-
-        <Button variant="outline" onClick={addItem}>
-          + Peça
-        </Button>
+        <div className={styles.form}>
+          <Button variant='outline' onClick={addItem}>+ Peça</Button>
+        </div>
 
         <Input
           label="Observações"
@@ -595,58 +616,13 @@ export function Processamento() {
       >
         {editar && (
           <div className={styles.modalContent}>
+
             <div className={styles.form}>
               <Input
                 label="Lote"
                 value={editar.lote}
                 onChange={(e) =>
                   setEditar({ ...editar, lote: e.target.value })
-                }
-              />
-
-              <div className={styles.selectWrap}>
-                <label className={styles.label}>Corte</label>
-                <select
-                  className={styles.select}
-                  value={editar.corte}
-                  onChange={(e) =>
-                    setEditar({ ...editar, corte: e.target.value })
-                  }
-                >
-                  {TIPOS_CORTE.map((c) => (
-                    <option key={c} value={c}>
-                      {c}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.selectWrap}>
-                <label className={styles.label}>Tipo movimentação</label>
-                <select
-                  className={styles.select}
-                  value={editar.tipo_movimentacao}
-                  onChange={(e) =>
-                    setEditar({
-                      ...editar,
-                      tipo_movimentacao: Number(e.target.value),
-                    })
-                  }
-                >
-                  <option value={1}>Entrada</option>
-                  <option value={0}>Saída</option>
-                </select>
-              </div>
-
-              <Input
-                label="Peso líquido (kg)"
-                type="number"
-                value={editar.peso_liquido_kg}
-                onChange={(e) =>
-                  setEditar({
-                    ...editar,
-                    peso_liquido_kg: Number(e.target.value),
-                  })
                 }
               />
 
@@ -674,14 +650,58 @@ export function Processamento() {
               />
             </div>
 
+            <div className={styles.modalItems}>
+              {agruparItens(editar.itens || []).map((grupo, index) => (
+                <div key={index} className={styles.groupCard}>
+
+                  <div className={styles.groupCard}>
+                    <div className={styles.groupTitle}>
+                      {grupo.tipo === 'banda'
+                        ? `BANDA`
+                        : ``}
+                    </div>
+
+                    {grupo.itens.map((i: any) => (
+                      <div key={i.id} className={styles.itemRow}>
+                        <span>{i.corte}</span>
+
+                        <Input
+                          type="number"
+                          value={i.peso_liquido_kg}
+                          onChange={(e) =>
+                            updateEditarItem(i.id, e.target.value)
+                          }
+                        />
+
+                        <span>{formatKg(i.peso_liquido_kg)}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <Button
+                    variant="danger"
+                    onClick={() => removeEditarItem(grupo, index)}
+                  >
+                    {grupo.tipo === 'banda'
+                      ? 'Remover banda'
+                      : 'Remover'}
+                  </Button>
+
+                </div>
+              ))}
+            </div>
             <div className={styles.modalActions}>
               <Button variant="danger" onClick={() => setEditar(null)}>
                 Cancelar
               </Button>
-              <Button disabled={loadingSave} onClick={handleSaveEdit}>
+
+              <Button
+                disabled={loadingSave}
+                onClick={handleSaveEdit}
+              >
                 {loadingSave ? 'Salvando...' : 'Salvar'}
               </Button>
             </div>
+
           </div>
         )}
       </Modal>

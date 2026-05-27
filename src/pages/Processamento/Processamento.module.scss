@@ -268,3 +268,23 @@
     font-size: 1.2rem;
   }
 }
+
+.groupCard {
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 12px;
+  background: #fff;
+}
+
+.groupTitle {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.itemRow {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}

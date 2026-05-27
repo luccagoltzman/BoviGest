@@ -3,20 +3,16 @@ import { supabase } from './supabase'
 
 function getUser() {
   const user = AuthService.getCachedUser()
-
-  if (!user) {
-    throw new Error('Usuário não encontrado no cache')
-  }
-
+  if (!user) throw new Error('Usuário não encontrado no cache')
   return user
 }
 
 export const estoqueService = {
   /*
-   |--------------------------------------------------------------------------
-   | MOVIMENTAÇÕES
-   |--------------------------------------------------------------------------
-   */
+  |--------------------------------------------------------------------------
+  | LISTAGEM MOVIMENTAÇÕES (COM ITENS)
+  |--------------------------------------------------------------------------
+  */
 
   async getMovimentacoes(
     page = 1,
@@ -26,110 +22,137 @@ export const estoqueService = {
     endDate = '',
     lote = '',
     corte = '',
-    tipoMovimentacao: number | null = null
+    tipoMovimentacao: number | null = null,
   ) {
     const from = (page - 1) * limit
     const to = from + limit - 1
+    const user = getUser()
 
-    try {
-      const user = getUser()
+    let query = supabase
+      .from('estoque_movimentacoes')
+      .select(
+        `
+        *,
+        itens:estoque_movimentacao_itens(*)
+      `,
+        { count: 'exact' },
+      )
+      .eq('empresa_id', user.empresa_id)
+      .order('data_movimentacao', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to)
 
-      let query = supabase
-        .from('estoque_movimentacoes')
-        .select('*', { count: 'exact' })
-        .eq('empresa_id', user.empresa_id)
-        .order('data_movimentacao', {
-          ascending: false,
-        })
-        .range(from, to)
+    if (search) {
+      query = query.or(
+        `lote.ilike.%${search}%,observacoes.ilike.%${search}%`,
+      )
+    }
 
-      if (search) {
-        query = query.or(
-          `lote.ilike.%${search}%,corte.ilike.%${search}%,observacoes.ilike.%${search}%`
-        )
-      }
+    if (startDate) query = query.gte('data_movimentacao', startDate)
+    if (endDate) query = query.lte('data_movimentacao', endDate)
+    if (lote) query = query.ilike('lote', `%${lote}%`)
+    if (tipoMovimentacao !== null)
+      query = query.eq('tipo_movimentacao', tipoMovimentacao)
 
-      if (startDate) {
-        query = query.gte('data_movimentacao', startDate)
-      }
+    const { data, count, error } = await query
 
-      if (endDate) {
-        query = query.lte('data_movimentacao', endDate)
-      }
+    if (error) throw error
 
-      if (lote) {
-        query = query.ilike('lote', `%${lote}%`)
-      }
-
-      if (corte) {
-        query = query.ilike('corte', `%${corte}%`)
-      }
-
-      if (tipoMovimentacao !== null) {
-        query = query.eq('tipo_movimentacao', tipoMovimentacao)
-      }
-
-      const { data, count, error } = await query
-
-      if (error) {
-        throw error
-      }
-
-      return {
-        data,
-        total: count || 0,
-        page,
-        limit,
-        totalPages: Math.ceil((count || 0) / limit),
-      }
-    } catch {
-      return {
-        data: [],
-        total: 0,
-        page,
-        limit,
-        totalPages: 0,
-      }
+    return {
+      data,
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit),
     }
   },
+
+  /*
+  |--------------------------------------------------------------------------
+  | GET BY ID (DETALHADO)
+  |--------------------------------------------------------------------------
+  */
 
   async getMovimentacaoById(id: number) {
     const user = getUser()
 
     const { data, error } = await supabase
       .from('estoque_movimentacoes')
-      .select('*')
+      .select(
+        `
+        *,
+        itens:estoque_movimentacao_itens(*)
+      `,
+      )
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
       .single()
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
 
     return data
   },
+
+  /*
+  |--------------------------------------------------------------------------
+  | CREATE MOVIMENTAÇÃO
+  |--------------------------------------------------------------------------
+  */
 
   async createMovimentacao(payload: any) {
     const user = getUser()
 
     const { data, error } = await supabase
       .from('estoque_movimentacoes')
-      .insert([
-        {
-          ...payload,
-          empresa_id: user.empresa_id,
-        },
-      ])
+      .insert({
+        empresa_id: user.empresa_id,
+        lote: payload.lote,
+        tipo_movimentacao: payload.tipo_movimentacao,
+        peso_bruto_kg: payload.peso_bruto_kg,
+        peso_liquido_kg: payload.peso_liquido_kg,
+        data_movimentacao: payload.data_movimentacao,
+        observacoes: payload.observacoes,
+      })
       .select()
       .single()
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
 
     return data
   },
+
+  /*
+  |--------------------------------------------------------------------------
+  | ITENS (PADRÃO ESTOQUE REAL)
+  |--------------------------------------------------------------------------
+  */
+
+  async createMovimentacaoItem(itens: any[]) {
+    const user = getUser()
+
+    const payload = itens.map(i => ({
+      empresa_id: user.empresa_id,
+      movimentacao_id: i.movimentacao_id,
+      corte: i.corte,
+      peso_bruto_kg: i.peso_bruto_kg,
+      peso_liquido_kg: i.peso_liquido_kg,
+      agrupamento_id: i.agrupamento_id,
+    }))
+    const { data, error } = await supabase
+      .from('estoque_movimentacao_itens')
+      .insert(payload)
+      .select()
+
+    if (error) throw error
+
+    return data
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | UPDATE MOVIMENTAÇÃO (SEM QUEBRAR ITENS)
+  |--------------------------------------------------------------------------
+  */
 
   async updateMovimentacao(id: number, payload: any) {
     const user = getUser()
@@ -145,12 +168,82 @@ export const estoqueService = {
       .select()
       .single()
 
-    if (error) {
-      throw error
-    }
+    if (error) throw error
 
     return data
   },
+
+  /*
+  |--------------------------------------------------------------------------
+  | REPLACE ITENS (EDIÇÃO SEGURA)
+  |--------------------------------------------------------------------------
+  */
+
+  async replaceMovimentacaoItens(movimentacaoId: number, itens: any[]) {
+    const user = getUser()
+
+    await supabase
+      .from('estoque_movimentacao_itens')
+      .delete()
+      .eq('movimentacao_id', movimentacaoId)
+      .eq('empresa_id', user.empresa_id)
+
+    if (!itens.length) return []
+
+    const payload = itens.map(i => ({
+      empresa_id: user.empresa_id,
+      movimentacao_id: movimentacaoId,
+      corte: i.corte,
+      peso_bruto_kg: i.peso_bruto_kg,
+      peso_liquido_kg: i.peso_liquido_kg,
+      agrupamento_id: i.agrupamento_id,
+    }))
+
+    const { data, error } = await supabase
+      .from('estoque_movimentacao_itens')
+      .insert(payload)
+      .select()
+
+    if (error) throw error
+
+    return data
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | ESTOQUE ATUAL (VIEW)
+  |--------------------------------------------------------------------------
+  */
+
+  async getEstoqueAtual(search = '', lote = '', corte = '') {
+    const user = getUser()
+
+    let query = supabase
+      .from('vw_estoque_atual')
+      .select('*')
+      .eq('empresa_id', user.empresa_id)
+
+    if (search) {
+      query = query.or(
+        `corte.ilike.%${search}%`,
+      )
+    }
+
+    if (lote) query = query.ilike('lote', `%${lote}%`)
+    if (corte) query = query.ilike('corte', `%${corte}%`)
+
+    const { data, error } = await query
+
+    if (error) return []
+
+    return data || []
+  },
+
+  /*
+  |--------------------------------------------------------------------------
+  | DELETE MOVIMENTAÇÃO
+  |--------------------------------------------------------------------------
+  */
 
   async deleteMovimentacao(id: number) {
     const user = getUser()
@@ -161,63 +254,6 @@ export const estoqueService = {
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
 
-    if (error) {
-      throw error
-    }
-  },
-
-  /*
-   |--------------------------------------------------------------------------
-   | ESTOQUE ATUAL (VIEW)
-   |--------------------------------------------------------------------------
-   */
-
-  async getEstoqueAtual(search = '', lote = '', corte = '') {
-    try {
-      const user = getUser()
-
-      let query = supabase
-        .from('vw_estoque_atual')
-        .select('*')
-        .eq('empresa_id', user.empresa_id)
-
-      if (search) {
-        query = query.or(`
-          lote.ilike.%${search}%,
-          corte.ilike.%${search}%
-        `)
-      }
-
-      if (lote) {
-        query = query.ilike('lote', `%${lote}%`)
-      }
-
-      if (corte) {
-        query = query.ilike('corte', `%${corte}%`)
-      }
-
-      const { data, error } = await query
-
-      if (error) {
-        throw error
-      }
-
-      return data || []
-    } catch {
-      return []
-    }
-  },
-  async getByLote(lote: string) {
-    const { data, error } = await supabase
-      .from('estoque_movimentacoes')
-      .select('*')
-      .eq('lote', lote)
-      .single()
-
-    if (error) {
-      return null
-    }
-
-    return data
+    if (error) throw error
   },
 }

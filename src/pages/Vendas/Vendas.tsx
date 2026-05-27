@@ -74,7 +74,7 @@ export function Vendas() {
     try {
       setLoading(true)
 
-      const data = await movimentacoesClientesService.getAll(currentPage, 2)
+      const data = await movimentacoesClientesService.getAll(currentPage, 10)
 
       setHistorico(data.data || [])
       setTotal(data.total || 0)
@@ -362,7 +362,7 @@ export function Vendas() {
       header: 'Ação',
       render: (r: any) => (
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button onClick={() => setEditando(r)}>Editar</Button>
+          <Button variant='outline' onClick={() => setEditando(r)}>Editar</Button>
           <Button variant="destructive" onClick={() => handleDelete(r)}>
             Excluir
           </Button>
@@ -470,8 +470,9 @@ export function Vendas() {
           </Card>
         ))}
 
-        <Button onClick={addItem}>+ Peça</Button>
-
+  <div className={styles.form}>
+        <Button variant='outline' onClick={addItem}>+ Peça</Button>
+</div>
         <Input
           label="Observação"
           value={form.observacao}
@@ -681,7 +682,7 @@ export function Vendas() {
               ))}
             </div>
 
-            <Button onClick={addEditItem}>+ Item</Button>
+            <Button variant='outline' onClick={addEditItem}>+ Item</Button>
 
             {/* Total geral do edit */}
             <div className={styles.form}>
@@ -693,7 +694,7 @@ export function Vendas() {
             </div>
 
             <div className={styles.modalActions}>
-              <Button variant="danger" onClick={() => setEditando(null)}>
+              <Button variant="ghost" onClick={() => setEditando(null)}>
                 Cancelar
               </Button>
               <div style={{ flex: 1 }} />

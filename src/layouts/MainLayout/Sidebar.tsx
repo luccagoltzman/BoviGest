@@ -29,7 +29,7 @@ const menu: MenuItem[] = [
   {
     label: 'Custos',
     children: [
-      { to: '/custos/veiculos', label: 'Veículos' },
+      // { to: '/custos/veiculos', label: 'Veículos' },
       { to: '/custos/viagens', label: 'Viagens (Ok)' },
       { to: '/custos/abate', label: 'Abate' },
       { to: '/custos/operacionais', label: 'Operacionais (Ok)' },
