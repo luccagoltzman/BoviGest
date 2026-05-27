@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-
+import { Trash2 } from "lucide-react";
 import {
   Autocomplete,
   Button,
@@ -294,105 +294,105 @@ export function Vendas() {
 
   const [movimentacaoOriginal, setMovimentacaoOriginal] = useState<any>(null)
 
-async function handleEdit() {
-  try {
-    setLoadingSave(true)
+  async function handleEdit() {
+    try {
+      setLoadingSave(true)
 
-    const payload = {
-      cliente_id: editando.cliente_id,
-      observacao: editando.observacao,
-      data_movimentacao: editando.data_movimentacao,
-      movimentacao_status: editando.movimentacao_status,
-      itens: editando.itens.map((i: any) => ({
-        tipo_corte: i.tipo_corte,
-        peso_total_kg: Number(i.peso_total_kg || 0),
-        valor_kg: Number(i.valor_kg || 0),
-        valor_total: Number(i.valor_total || 0),
-        composicoes: i.composicoes || [],
-      })),
-      valor_total: calcularTotalEdit(editando.itens),
-    }
+      const payload = {
+        cliente_id: editando.cliente_id,
+        observacao: editando.observacao,
+        data_movimentacao: editando.data_movimentacao,
+        movimentacao_status: editando.movimentacao_status,
+        itens: editando.itens.map((i: any) => ({
+          tipo_corte: i.tipo_corte,
+          peso_total_kg: Number(i.peso_total_kg || 0),
+          valor_kg: Number(i.valor_kg || 0),
+          valor_total: Number(i.valor_total || 0),
+          composicoes: i.composicoes || [],
+        })),
+        valor_total: calcularTotalEdit(editando.itens),
+      }
 
-    await movimentacoesClientesService.update(
-      editando.id,
-      payload
-    )
-
-    const houveMudancaItens =
-      JSON.stringify(editando.itens) !==
-      JSON.stringify(movimentacaoOriginal.itens)
-
-    if (houveMudancaItens) {
-      await estoqueService.deleteByReferencia(
-        editando.id
+      await movimentacoesClientesService.update(
+        editando.id,
+        payload
       )
 
-      const agrupamentoId = crypto.randomUUID()
+      const houveMudancaItens =
+        JSON.stringify(editando.itens) !==
+        JSON.stringify(movimentacaoOriginal.itens)
 
-      const itensSaida = editando.itens.flatMap(
-        (item: any) => {
-          const banda = isBanda(item.tipo_corte)
+      if (houveMudancaItens) {
+        await estoqueService.deleteByReferencia(
+          editando.id
+        )
 
-          if (banda) {
-            return (item.composicoes || []).map(
-              (c: any) => ({
-                corte: c.tipo_corte,
-                peso_bruto_kg: Number(c.peso_kg || 0),
-                peso_liquido_kg: Number(c.peso_kg || 0),
-                agrupamento_id: agrupamentoId,
-              })
-            )
+        const agrupamentoId = crypto.randomUUID()
+
+        const itensSaida = editando.itens.flatMap(
+          (item: any) => {
+            const banda = isBanda(item.tipo_corte)
+
+            if (banda) {
+              return (item.composicoes || []).map(
+                (c: any) => ({
+                  corte: c.tipo_corte,
+                  peso_bruto_kg: Number(c.peso_kg || 0),
+                  peso_liquido_kg: Number(c.peso_kg || 0),
+                  agrupamento_id: agrupamentoId,
+                })
+              )
+            }
+
+            return [
+              {
+                corte: item.tipo_corte,
+                peso_bruto_kg: Number(
+                  item.peso_total_kg || 0
+                ),
+                peso_liquido_kg: Number(
+                  item.peso_total_kg || 0
+                ),
+                agrupamento_id: null,
+              },
+            ]
           }
+        )
 
-          return [
-            {
-              corte: item.tipo_corte,
-              peso_bruto_kg: Number(
-                item.peso_total_kg || 0
-              ),
-              peso_liquido_kg: Number(
-                item.peso_total_kg || 0
-              ),
-              agrupamento_id: null,
-            },
-          ]
-        }
-      )
+        const mov =
+          await estoqueService.createMovimentacao({
+            lote: `venda-${editando.id}`,
+            tipo_movimentacao: 0,
+            data_movimentacao:
+              editando.data_movimentacao,
+            observacoes: `Atualização venda ${editando.id}`,
+            peso_bruto_kg:
+              calcularTotalEdit(editando.itens),
+            peso_liquido_kg:
+              calcularTotalEdit(editando.itens),
+            venda_id: editando.id,
+          })
 
-      const mov =
-        await estoqueService.createMovimentacao({
-          lote: `venda-${editando.id}`,
-          tipo_movimentacao: 0,
-          data_movimentacao:
-            editando.data_movimentacao,
-          observacoes: `Atualização venda ${editando.id}`,
-          peso_bruto_kg:
-            calcularTotalEdit(editando.itens),
-          peso_liquido_kg:
-            calcularTotalEdit(editando.itens),
-          venda_id: editando.id,
-        })
+        await estoqueService.createMovimentacaoItem(
+          itensSaida.map((i: any) => ({
+            ...i,
+            movimentacao_id: mov.id,
+          }))
+        )
+      }
 
-      await estoqueService.createMovimentacaoItem(
-        itensSaida.map((i: any) => ({
-          ...i,
-          movimentacao_id: mov.id,
-        }))
-      )
+      toast.success('Movimentação atualizada')
+
+      setEditando(null)
+      setMovimentacaoOriginal(null)
+
+      carregarMovimentacoes()
+    } catch {
+      toast.error('Erro ao editar')
+    } finally {
+      setLoadingSave(false)
     }
-
-    toast.success('Movimentação atualizada')
-
-    setEditando(null)
-    setMovimentacaoOriginal(null)
-
-    carregarMovimentacoes()
-  } catch {
-    toast.error('Erro ao editar')
-  } finally {
-    setLoadingSave(false)
   }
-}
 
   async function handleDelete(id: number) {
     if (!confirm('Excluir esta movimentação?')) return
@@ -597,8 +597,12 @@ async function handleEdit() {
 
             <Input label="Total" value={item.valor_total ?? ''} disabled />
 
-            <Button variant="destructive" onClick={() => removeItem(index)}>
-              Remover
+            <Button
+              size={48}
+              variant="destructive"
+              onClick={() => removeItem(index)}
+            >
+              <Trash2 className="w-4 h-4" />
             </Button>
           </Card>
         ))}
@@ -805,11 +809,14 @@ async function handleEdit() {
                     disabled
                   />
 
+
                   <Button
+                    size={48}
+
                     variant="destructive"
                     onClick={() => removeEditItem(index)}
                   >
-                    Remover item
+                    <Trash2 className="w-4 h-4" />
                   </Button>
                 </Card>
               ))}

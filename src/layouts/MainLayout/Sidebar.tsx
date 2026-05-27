@@ -24,14 +24,14 @@ const menu: MenuItem[] = [
   { to: '/processamento', label: 'Processamento / Estoque' },
   { to: '/visceras', label: 'Vísceras' },
   { to: '/clientes', label: 'Clientes (Ok)' },
-  { to: '/vendas', label: 'Vendas' },
+  { to: '/vendas', label: 'Vendas (Ok)' },
   { to: '/financeiro', label: 'Financeiro' },
   {
     label: 'Custos',
     children: [
       // { to: '/custos/veiculos', label: 'Veículos' },
       { to: '/custos/viagens', label: 'Viagens (Ok)' },
-      { to: '/custos/abate', label: 'Abate' },
+      { to: '/custos/abate', label: 'Abate (Ok)' },
       { to: '/custos/operacionais', label: 'Operacionais (Ok)' },
     ],
   },

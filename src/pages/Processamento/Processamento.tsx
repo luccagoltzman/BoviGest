@@ -6,6 +6,7 @@ import { TIPOS_CORTE, REGRA_BD } from '@/constants/cortes'
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
 import { useDebounce } from '@/hook/useDebounce'
+import { Trash2 } from 'lucide-react'
 
 interface Composicao {
   id?: number
@@ -419,7 +420,7 @@ export function Processamento() {
             {r.itens?.map((item) => (
               <div key={item.id} className={styles.tooltipItem}>
                 <strong>
-                  {item.agrupamento_id ? 'BANDA -' : ''}  {item.corte } - {item.peso_bruto_kg} Kg
+                  {item.agrupamento_id ? 'BANDA -' : ''}  {item.corte} - {item.peso_bruto_kg} Kg
                 </strong>
               </div>
             ))}
@@ -579,9 +580,10 @@ export function Processamento() {
               {form.itens.length > 1 && (
                 <Button
                   variant="danger"
+                  size={48}
                   onClick={() => removeItem(index)}
                 >
-                  Remover
+                  <Trash2 className="w-4 h-4" />
                 </Button>
               )}
             </div>
@@ -700,11 +702,10 @@ export function Processamento() {
                   </div>
                   <Button
                     variant="danger"
+                    size={48}
                     onClick={() => removeEditarItem(grupo, index)}
                   >
-                    {grupo.tipo === 'banda'
-                      ? 'Remover banda'
-                      : 'Remover'}
+                    <Trash2 className="w-4 h-4" />
                   </Button>
 
                 </div>

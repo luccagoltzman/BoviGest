@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes } from 'react'
+import type { ButtonHTMLAttributes, CSSProperties } from 'react'
 import styles from './Button.module.scss'
 
 type Variant =
@@ -9,10 +9,12 @@ type Variant =
   | 'danger'
   | 'destructive'
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+interface ButtonProps
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: Variant
   fullWidth?: boolean
   loading?: boolean
+  size?: number
 }
 
 export function Button({
@@ -22,12 +24,25 @@ export function Button({
   className = '',
   children,
   disabled,
+  size,
   ...props
 }: ButtonProps) {
+  const customSize: CSSProperties = size
+    ? {
+        width: `${size}px`,
+        height: `${size}px`,
+        minWidth: `${size}px`,
+        minHeight: `${size}px`,
+        borderRadius:8,
+        padding: 0,
+      }
+    : {}
+
   return (
     <button
       type="button"
       disabled={disabled || loading}
+      style={customSize}
       className={[
         styles.btn,
         styles[variant],
@@ -39,13 +54,11 @@ export function Button({
         .join(' ')}
       {...props}
     >
-
       <span className={loading ? styles.loadingText : ''}>
         {children}
       </span>
 
       {loading && <span className={styles.spinner} />}
-
     </button>
   )
 }

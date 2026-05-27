@@ -221,9 +221,9 @@ export function Abate() {
       key: 'acoes',
       header: 'Ações',
       render: (r: AbateRow) => (
-        <div className={styles.tableActions}>
+        <div style={{ display: 'flex', gap: 8 }}>
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => setDetalhe(r)}
           >
             Ver
@@ -295,7 +295,7 @@ export function Abate() {
         ).toLocaleString('pt-BR')}`,
       },
       {
-        label: 'Couro deixado',
+        label: 'Couro deixado (Un)',
         value: r.couro_deixado,
       },
       {
@@ -417,7 +417,7 @@ export function Abate() {
 
           <div>
             <Input
-              label="Couro deixado"
+              label="Couro deixado (Un)"
               type="number"
               value={couroDeixado}
               onChange={(e) =>
@@ -648,7 +648,7 @@ export function Abate() {
             />
 
             <Input
-              label="Couro deixado"
+              label="Couro deixado (Un)"
               type="number"
               value={editar.couro_deixado}
               onChange={(e) =>
