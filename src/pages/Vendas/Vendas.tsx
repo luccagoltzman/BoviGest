@@ -16,6 +16,7 @@ import { TIPOS_CORTE } from '@/constants/cortes'
 import { ClienteExtratoModal } from '../Clientes/ClienteExtratoModal'
 import { clientesService } from '@/services/cliente.service'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
+import { estoqueService } from '@/services/estoque.service'
 
 const emptyItem = {
   tipo_corte: '',
@@ -143,6 +144,30 @@ export function Vendas() {
     )
   }
 
+  const agrupamentoId = crypto.randomUUID()
+
+  const itensSaida = form.itens.flatMap((item: any) => {
+    const banda = isBanda(item.tipo_corte)
+
+    if (banda) {
+      return (item.composicoes || []).map((c: any) => ({
+        corte: c.tipo_corte,
+        peso_bruto_kg: Number(c.peso_kg || 0),
+        peso_liquido_kg: Number(c.peso_kg || 0),
+        agrupamento_id: agrupamentoId,
+      }))
+    }
+
+    return [
+      {
+        corte: item.tipo_corte,
+        peso_bruto_kg: Number(item.peso_total_kg || 0),
+        peso_liquido_kg: Number(item.peso_total_kg || 0),
+        agrupamento_id: null,
+      },
+    ]
+  })
+
   async function handleCreate() {
     try {
       setLoadingSave(true)
@@ -166,8 +191,25 @@ export function Vendas() {
         valor_total: totalGeral,
       }
 
-      await movimentacoesClientesService.create(payload)
       toast.success('Movimentação criada')
+      const venda = await movimentacoesClientesService.create(payload)
+
+      const mov = await estoqueService.createMovimentacao({
+        lote: `venda-${venda.id}`,
+        tipo_movimentacao: 0, // SAÍDA
+        data_movimentacao: form.data_movimentacao,
+        observacoes: `Saída automática venda cliente ${form.cliente_id}`,
+        peso_bruto_kg: totalGeral,
+        peso_liquido_kg: totalGeral,
+        venda_id: venda.id
+      })
+
+      await estoqueService.createMovimentacaoItem(
+        itensSaida.map((i: any) => ({
+          ...i,
+          movimentacao_id: mov.id
+        })),
+      )
 
       setForm({
         cliente_id: '',
@@ -252,6 +294,7 @@ export function Vendas() {
 
   async function handleEdit() {
     try {
+      setLoadingSave(true)
       const payload = {
         cliente_id: editando.cliente_id,
         observacao: editando.observacao,
@@ -268,10 +311,61 @@ export function Vendas() {
       }
 
       await movimentacoesClientesService.update(editando.id, payload)
+
+      await estoqueService.deleteByReferencia(editando.id)
+
+      const agrupamentoId = crypto.randomUUID()
+
+      const itensSaida = editando.itens.flatMap((item: any) => {
+        const banda = isBanda(item.tipo_corte)
+
+        if (banda) {
+          return (item.composicoes || []).map((c: any) => ({
+            corte: c.tipo_corte,
+            peso_bruto_kg: Number(c.peso_kg || 0),
+            peso_liquido_kg: Number(c.peso_kg || 0),
+            agrupamento_id: agrupamentoId
+          }))
+        }
+
+        return [
+          {
+            corte: item.tipo_corte,
+            peso_bruto_kg: Number(item.peso_total_kg || 0),
+            peso_liquido_kg: Number(item.peso_total_kg || 0),
+            agrupamento_id: null,
+          },
+        ]
+      })
+
+      const mov = await estoqueService.createMovimentacao({
+        lote: `venda-${editando.id}`,
+        tipo_movimentacao: 0,
+        data_movimentacao: editando.data_movimentacao,
+        observacoes: `Atualização venda ${editando.id}`,
+        peso_bruto_kg: calcularTotalEdit(editando.itens),
+        peso_liquido_kg: calcularTotalEdit(editando.itens),
+        venda_id: editando.id
+
+      })
+
+      await estoqueService.createMovimentacaoItem(
+        itensSaida.map((i: any) => ({
+          ...i,
+          movimentacao_id: mov.id
+        }))
+      )
       toast.success('Movimentação atualizada')
+
       setEditando(null)
+      setLoadingSave(false)
+
       carregarMovimentacoes()
+
+
     } catch {
+      setLoadingSave(false)
+
       toast.error('Erro ao editar')
     }
   }
@@ -280,6 +374,7 @@ export function Vendas() {
     if (!confirm('Excluir esta movimentação?')) return
     try {
       await movimentacoesClientesService.delete(id)
+      await estoqueService.deleteByReferencia(id)
       toast.success('Movimentação excluída')
       setEditando(null)
       carregarMovimentacoes()
@@ -363,7 +458,7 @@ export function Vendas() {
       render: (r: any) => (
         <div style={{ display: 'flex', gap: 8 }}>
           <Button variant='outline' onClick={() => setEditando(r)}>Editar</Button>
-          <Button variant="destructive" onClick={() => handleDelete(r)}>
+          <Button variant="destructive" onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
           <Button onClick={() => setClienteExtrato(r)}>Extrato</Button>
@@ -470,9 +565,9 @@ export function Vendas() {
           </Card>
         ))}
 
-  <div className={styles.form}>
-        <Button variant='outline' onClick={addItem}>+ Peça</Button>
-</div>
+        <div className={styles.form}>
+          <Button variant='outline' onClick={addItem}>+ Peça</Button>
+        </div>
         <Input
           label="Observação"
           value={form.observacao}

@@ -27,6 +27,7 @@ interface EstoqueRow {
   tipo_movimentacao: number
   data_movimentacao: string
   observacoes?: string
+  referencia_venda_id?: number
   itens: EstoqueItem[]
 }
 
@@ -411,8 +412,8 @@ export function Processamento() {
       header: 'Ações',
       render: (r: EstoqueRow) => (
         <div>
-          <Button variant="outline" onClick={() => setEditar(r)}>Editar</Button>
-          <Button variant="danger" onClick={() => handleDelete(r.id)}>
+          <Button variant="outline"  onClick={() => setEditar(r)}>Editar</Button>
+          <Button variant="danger"   disabled={!!r.referencia_venda_id} onClick={() => handleDelete(r.id)}>
             Excluir
           </Button>
         </div>
@@ -695,7 +696,7 @@ export function Processamento() {
               </Button>
 
               <Button
-                disabled={loadingSave}
+                disabled={loadingSave || !!editar.referencia_venda_id}
                 onClick={handleSaveEdit}
               >
                 {loadingSave ? 'Salvando...' : 'Salvar'}

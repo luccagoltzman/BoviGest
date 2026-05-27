@@ -112,6 +112,7 @@ export const estoqueService = {
         peso_liquido_kg: payload.peso_liquido_kg,
         data_movimentacao: payload.data_movimentacao,
         observacoes: payload.observacoes,
+        referencia_venda_id: payload.venda_id
       })
       .select()
       .single()
@@ -256,4 +257,17 @@ export const estoqueService = {
 
     if (error) throw error
   },
+
+    async deleteByReferencia(referencia: number) {
+    const user = getUser()
+
+    const { error } = await supabase
+      .from('estoque_movimentacoes')
+      .delete()
+    .eq('referencia_venda_id', referencia)
+      .eq('empresa_id', user.empresa_id)
+
+    if (error) throw error
+  },
+
 }
