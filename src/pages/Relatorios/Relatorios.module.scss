@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use 'styles/variables' as *;
 
 .page {
@@ -213,7 +214,7 @@
 
 .kpiIconCustos {
   background: rgba($color-secondary, 0.15);
-  color: darken($color-secondary, 8%);
+  color: color.adjust($color-secondary, $lightness: -8%);
 }
 
 .kpiIconEstoque {
