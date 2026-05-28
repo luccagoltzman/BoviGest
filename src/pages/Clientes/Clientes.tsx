@@ -175,7 +175,7 @@ export function Clientes() {
           onClick={() => setClienteExtrato(r)}
           style={{ cursor: 'pointer', textDecoration: 'underline' }}
         >
-          {r?.name}
+          {r?.nome}
         </a>
       ),
     },    { key: 'doc', header: 'CPF/CNPJ' },
