@@ -8,12 +8,6 @@ import toast from 'react-hot-toast'
 import { useDebounce } from '@/hook/useDebounce'
 import { Trash2 } from 'lucide-react'
 
-interface Composicao {
-  id?: number
-  tipo_corte: string
-  peso_kg: number | string
-}
-
 interface EstoqueItem {
   id?: number
   corte: string
@@ -371,7 +365,7 @@ export function Processamento() {
     return grupos
   }
 
-  function removeEditarItem(item: any, indexGrupo: number) {
+  function removeEditarItem(item: any, _indexGrupo: number) {
     if (!editar) return
 
     let itens = [...editar.itens]
@@ -445,6 +439,39 @@ export function Processamento() {
   return (
     <div className={styles.page}>
       <h1 className="page-title">Processamento / Estoque</h1>
+
+      <Card title="Filtros">
+        <div className={styles.filters}>
+          <Input
+            label="Buscar"
+            placeholder="Lote, observações..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+          <Input
+            label="Lote"
+            value={lote}
+            onChange={(e) => setLote(e.target.value)}
+          />
+          <Input
+            label="Corte"
+            value={corteFiltro}
+            onChange={(e) => setCorteFiltro(e.target.value)}
+          />
+          <Input
+            label="Data inicial"
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+          />
+          <Input
+            label="Data final"
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+          />
+        </div>
+      </Card>
 
       <Card title="Resumo do estoque">
         {loading && estoqueAtual.length === 0 ? (

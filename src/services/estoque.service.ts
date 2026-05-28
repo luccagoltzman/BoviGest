@@ -21,7 +21,7 @@ export const estoqueService = {
     startDate = '',
     endDate = '',
     lote = '',
-    corte = '',
+    _corte = '',
     tipoMovimentacao: number | null = null,
   ) {
     const from = (page - 1) * limit
