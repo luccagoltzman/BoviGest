@@ -29,6 +29,8 @@ create table clientes (
   updated_at timestamp default now()
 );
 
+alter table clientes add column nome_cliente text,
+
 alter table clientes ENABLE row LEVEL SECURITY;
 
 create policy clientes_por_empresa on clientes for all using (
@@ -682,7 +684,23 @@ for all using (
     where user_id = auth.uid()
   )
 );
+alter table estoque_movimentacao_itens add column quantidade_pecas numeric(12, 2);
 
+create index idx_estoque_agrupamento_empresa
+on estoque_agrupamentos(empresa_id);
+
+alter table estoque_agrupamentos
+enable row level security;
+
+create policy "estoque_agrupamentos_por_empresa"
+on estoque_agrupamentos
+for all using (
+  empresa_id in (
+    select empresa_id
+    from usuarios_empresas
+    where user_id = auth.uid()
+  )
+);
 
 -- =========================
 -- VIEW ESTOQUE ATUAL
@@ -692,24 +710,40 @@ drop view if exists vw_estoque_atual;
 
 create or replace view vw_estoque_atual as
 select
-  i.empresa_id,
-  i.corte,
-  sum(
-    case
-      when m.tipo_movimentacao = 1 then i.peso_bruto_kg
-      else -i.peso_bruto_kg
-    end
-  ) as saldo_bruto_kg,
+    i.empresa_id,
+    i.corte,
 
-  sum(
-    case
-      when m.tipo_movimentacao = 1 then i.peso_liquido_kg
-      else -i.peso_liquido_kg
-    end
-  ) as saldo_liquido_kg
+    sum(
+        case
+            when m.tipo_movimentacao = 1
+            then i.peso_bruto_kg
+            else -i.peso_bruto_kg
+        end
+    ) as saldo_bruto_kg,
+
+    sum(
+        case
+            when m.tipo_movimentacao = 1
+            then i.peso_liquido_kg
+            else -i.peso_liquido_kg
+        end
+    ) as saldo_liquido_kg,
+
+    sum(
+        case
+            when m.tipo_movimentacao = 1
+            then coalesce(i.quantidade_pecas,1)
+            else -coalesce(i.quantidade_pecas,1)
+        end
+    ) as quantidade_pecas
+
 from estoque_movimentacao_itens i
-join estoque_movimentacoes m on m.id = i.movimentacao_id
-group by i.empresa_id, i.corte;
+join estoque_movimentacoes m
+on m.id = i.movimentacao_id
+
+group by
+    i.empresa_id,
+    i.corte;
 
 
 -- =========================
@@ -811,3 +845,61 @@ values
 (1, '2026-05-28', 'LT-028', 'Caprino', 1, 22, 860, 450, 190, 4200, false, 0, 0, 0, 20),
 (1, '2026-05-29', 'LT-029', 'Bovino', 0, 15, 4300, 2200, 5.90, 12880, true, 11, 49, 539, 439),
 (1, '2026-05-30', 'LT-030', 'Suíno', 0, 18, 1750, 900, 4.20, 3850, true, 3, 20, 60, 130);
+
+create table movimentacoes_visceras (
+  id bigserial primary key,
+
+  empresa_id int not null
+  references empresas(id),
+
+  tipo smallint not null
+  check (tipo in (0,1)),
+
+  quantidade integer not null default 0,
+
+  observacao text,
+
+  created_at timestamp with time zone default now(),
+  updated_at timestamp with time zone default now()
+);
+
+create index idx_movimentacoes_visceras_empresa
+on movimentacoes_visceras(empresa_id);
+
+create index idx_movimentacoes_visceras_tipo
+on movimentacoes_visceras(tipo);
+
+alter table movimentacoes_visceras
+enable row level security;
+
+alter table movimentacoes_visceras
+add column referencia_venda_id bigint null;
+
+create policy "movimentacoes_visceras_por_empresa"
+on movimentacoes_visceras
+for all
+using (
+  empresa_id in (
+    select empresa_id
+    from usuarios_empresas
+    where user_id = auth.uid()
+  )
+);
+
+create view estoque_visceras as
+select
+    empresa_id,
+
+    coalesce(
+        sum(
+            case
+                when tipo = 1
+                    then quantidade
+                else -quantidade
+            end
+        ),
+        0
+    ) as quantidade_atual
+
+from movimentacoes_visceras
+group by empresa_id;

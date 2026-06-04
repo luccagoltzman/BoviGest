@@ -45,7 +45,7 @@ export const movimentacoesClientesService = {
           }
         )
         .eq('empresa_id', user.empresa_id)
-        .order('data_movimentacao', {
+        .order('created_at', {
           ascending: false,
         })
         .range(from, to)

@@ -17,6 +17,7 @@ import { ClienteExtratoModal } from '../Clientes/ClienteExtratoModal'
 import { clientesService } from '@/services/cliente.service'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { estoqueService } from '@/services/estoque.service'
+import { viscerasService } from '@/services/visceras.service';
 
 const emptyItem = {
   tipo_corte: '',
@@ -169,6 +170,14 @@ export function Vendas() {
   })
 
   async function handleCreate() {
+    const temViscera = hasViscera(form.itens)
+    const temNormal = hasNormal(form.itens)
+
+    if (temViscera && temNormal) {
+      toast.error('Não é permitido misturar vísceras com outros cortes')
+      setLoadingSave(false)
+      return
+    }
     try {
       setLoadingSave(true)
       if (!form.cliente_id) {
@@ -194,22 +203,21 @@ export function Vendas() {
       toast.success('Movimentação criada')
       const venda = await movimentacoesClientesService.create(payload)
 
-      const mov = await estoqueService.createMovimentacao({
-        lote: `venda-${venda.id}`,
-        tipo_movimentacao: 0, // SAÍDA
-        data_movimentacao: form.data_movimentacao,
-        observacoes: `Saída automática venda cliente ${form.cliente_id}`,
-        peso_bruto_kg: totalGeral,
-        peso_liquido_kg: totalGeral,
-        venda_id: venda.id
-      })
-
-      await estoqueService.createMovimentacaoItem(
-        itensSaida.map((i: any) => ({
-          ...i,
-          movimentacao_id: mov.id
-        })),
+      const itensVisceras = form.itens.filter(
+        (item: any) => isViscera(item.tipo_corte)
       )
+
+      if (hasViscera(form.itens)) {
+        for (const item of itensVisceras) {
+          await viscerasService.create({
+            tipo: '0',
+            quantidade: Number(item.peso_total_kg || 0),
+            referencia_venda_id: venda.id
+          })
+        }
+      } else {
+        await gerarMovimentacaoEstoqueAutomatica(venda, form)
+      }
 
       setForm({
         cliente_id: '',
@@ -229,8 +237,95 @@ export function Vendas() {
     }
   }
 
-  // ─── editar ─────────────────────────────────────────────────
+  function agruparItens(itens: any[]) {
+    const mapa: Record<string, any> = {}
 
+    for (const item of itens) {
+      const key = (item.corte || '').trim().toLowerCase()
+
+      if (!key) continue
+
+      if (!mapa[key]) {
+        mapa[key] = {
+          corte: item.corte,
+          peso_bruto_kg: 0,
+          peso_liquido_kg: 0,
+          quantidade_pecas: 0,
+          agrupamento_id: item.agrupamento_id || null,
+        }
+      }
+
+      mapa[key].peso_bruto_kg += Number(item.peso_bruto_kg || 0)
+      mapa[key].peso_liquido_kg += Number(item.peso_liquido_kg || 0)
+      mapa[key].quantidade_pecas += 1
+    }
+
+    return Object.values(mapa)
+  }
+
+  async function gerarMovimentacaoEstoqueAutomatica(venda: any, form: any) {
+    const itensNormais = form.itens.filter(
+      (item: any) => !isViscera(item.tipo_corte)
+    )
+
+    let totalPeso = 0
+
+    const itensSaida = itensNormais.flatMap((item: any) => {
+      const banda = isBanda(item.tipo_corte)
+
+      if (banda) {
+          const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+
+        return (item.composicoes || []).map((c: any) => {
+          const peso = Number(c.peso_kg || 0)
+
+          totalPeso += peso
+
+          return {
+            corte: c.tipo_corte,
+            peso_bruto_kg: peso,
+            peso_liquido_kg: peso,
+            agrupamento_id: agrupamentoId,
+          }
+        })
+      }
+
+      const peso = Number(item.peso_total_kg || 0)
+
+      totalPeso += peso
+
+      return [
+        {
+          corte: item.tipo_corte,
+          peso_bruto_kg: peso,
+          peso_liquido_kg: peso,
+          agrupamento_id: null,
+        },
+      ]
+    })
+
+    if (!itensSaida.length) return
+
+    const itensAgrupados = agruparItens(itensSaida)
+    const mov = await estoqueService.createMovimentacao({
+      lote: `venda-${venda.id}`,
+      tipo_movimentacao: 0,
+      data_movimentacao: form.data_movimentacao,
+      observacoes: `Saída automática venda ${venda.id}`,
+      peso_bruto_kg: totalPeso,
+      peso_liquido_kg: totalPeso,
+      venda_id: venda.id,
+    })
+
+    await estoqueService.createMovimentacaoItem(
+      itensAgrupados.map((i: any) => ({
+        ...i,
+        movimentacao_id: mov.id,
+      }))
+    )
+          setLoadingSave(false)
+
+  }
   function calcularTotalEdit(itens: any[]) {
     return itens.reduce(
       (acc: number, i: any) => acc + Number(i.valor_total || 0),
@@ -293,8 +388,23 @@ export function Vendas() {
   }
 
   const [movimentacaoOriginal, setMovimentacaoOriginal] = useState<any>(null)
+  function hasViscera(itens: any[]) {
+    console.log(itens)
+    return itens.some((i: any) => isViscera(i.corte || i.tipo_corte))
+  }
 
+  function hasNormal(itens: any[]) {
+    return itens.some((i: any) => !isViscera(i.corte || i.tipo_corte))
+  }
   async function handleEdit() {
+    const temViscera = hasViscera(editando.itens)
+    const temNormal = hasNormal(editando.itens)
+
+    if (temViscera && temNormal) {
+      toast.error('Não é permitido misturar vísceras com outros cortes')
+      setLoadingSave(false)
+      return
+    }
     try {
       setLoadingSave(true)
 
@@ -323,62 +433,32 @@ export function Vendas() {
         JSON.stringify(movimentacaoOriginal.itens)
 
       if (houveMudancaItens) {
-        await estoqueService.deleteByReferencia(
-          editando.id
+        const itensVisceras = editando.itens.filter(
+          (item: any) => isViscera(item.tipo_corte)
         )
 
-        const agrupamentoId = crypto.randomUUID()
+        if (hasViscera(editando.itens)) {
+          console.log('deletando estoque de visceras')
+          await viscerasService.deleteByReferencia(editando.id)
+        }
+        else {
+          console.log('deletando estoque normal')
+          await estoqueService.deleteByReferencia(editando.id)
+        }
 
-        const itensSaida = editando.itens.flatMap(
-          (item: any) => {
-            const banda = isBanda(item.tipo_corte)
 
-            if (banda) {
-              return (item.composicoes || []).map(
-                (c: any) => ({
-                  corte: c.tipo_corte,
-                  peso_bruto_kg: Number(c.peso_kg || 0),
-                  peso_liquido_kg: Number(c.peso_kg || 0),
-                  agrupamento_id: agrupamentoId,
-                })
-              )
-            }
-
-            return [
-              {
-                corte: item.tipo_corte,
-                peso_bruto_kg: Number(
-                  item.peso_total_kg || 0
-                ),
-                peso_liquido_kg: Number(
-                  item.peso_total_kg || 0
-                ),
-                agrupamento_id: null,
-              },
-            ]
+        if (hasViscera(editando.itens)) {
+          for (const item of itensVisceras) {
+            await viscerasService.create({
+              tipo: '0',
+              quantidade: Number(item.peso_total_kg || 0),
+              referencia_venda_id: `${editando.id}`
+            })
           }
-        )
+        } else {
+          await gerarMovimentacaoEstoqueAutomatica(editando, editando)
+        }
 
-        const mov =
-          await estoqueService.createMovimentacao({
-            lote: `venda-${editando.id}`,
-            tipo_movimentacao: 0,
-            data_movimentacao:
-              editando.data_movimentacao,
-            observacoes: `Atualização venda ${editando.id}`,
-            peso_bruto_kg:
-              calcularTotalEdit(editando.itens),
-            peso_liquido_kg:
-              calcularTotalEdit(editando.itens),
-            venda_id: editando.id,
-          })
-
-        await estoqueService.createMovimentacaoItem(
-          itensSaida.map((i: any) => ({
-            ...i,
-            movimentacao_id: mov.id,
-          }))
-        )
       }
 
       toast.success('Movimentação atualizada')
@@ -407,6 +487,9 @@ export function Vendas() {
     }
   }
 
+  function isViscera(tipo: string) {
+    return (tipo || '').toLowerCase() === 'visceras'
+  }
   // ─── tabela ──────────────────────────────────────────────────
 
   const columns = [
@@ -442,9 +525,12 @@ export function Vendas() {
                 <strong>{item.tipo_corte}</strong>
 
                 <span>
-                  {Number(item.peso_total_kg).toFixed(2)}kg × R${' '}
-                  {Number(item.valor_kg).toFixed(2)}
+                  {isViscera(item.tipo_corte)
+                    ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                    : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                  }
                 </span>
+
 
                 <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
 
@@ -567,7 +653,7 @@ export function Vendas() {
             </div>
 
             <Input
-              label="Valor por KG"
+              label={isViscera(item.tipo_corte) ? 'Valor por unidade' : 'Valor por KG'}
               type="number"
               value={item.valor_kg ?? ''}
               onChange={(e) => updateItem(index, 'valor_kg', e.target.value)}
@@ -575,7 +661,7 @@ export function Vendas() {
 
             {!isBanda(item.tipo_corte) && (
               <Input
-                label="Peso total KG"
+                label={isViscera(item.tipo_corte) ? 'Total de unidades' : 'Peso total KG'}
                 type="number"
                 value={item.peso_total_kg ?? ''}
                 onChange={(e) =>
@@ -626,6 +712,7 @@ export function Vendas() {
         </div>
 
         <Button
+        loading={loadingSave}
           disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
           onClick={handleCreate}
         >
@@ -771,7 +858,7 @@ export function Vendas() {
                   </div>
 
                   <Input
-                    label="Valor por KG"
+                    label={isViscera(item.tipo_corte) ? 'Valor por unidade' : 'Valor por KG'}
                     type="number"
                     value={item.valor_kg ?? ''}
                     onChange={(e) =>
@@ -781,7 +868,7 @@ export function Vendas() {
 
                   {!isBanda(item.tipo_corte) && (
                     <Input
-                      label="Peso total KG"
+                      label={isViscera(item.tipo_corte) ? 'Total de unidades' : 'Peso total KG'}
                       type="number"
                       value={item.peso_total_kg ?? ''}
                       onChange={(e) =>
@@ -830,7 +917,7 @@ export function Vendas() {
                 label="Total geral"
                 value={calcularTotalEdit(editando.itens).toFixed(2)}
                 disabled
-              />
+            />
             </div>
 
             <div className={styles.modalActions}>

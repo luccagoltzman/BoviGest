@@ -35,10 +35,7 @@ export function calcularAbate(input: AbateCalcInput): AbateCalcResult {
 
   const desconto_total = couroDeixado * descontoPorCouro
 
-  const valor_base =
-    input.tipo_cobranca === 0
-      ? pesoCarcaca * valorUnitario
-      : qtdAnimais * valorUnitario
+  const valor_base =  qtdAnimais * valorUnitario
 
   const valor_total = valor_base + taxas - desconto_total
 

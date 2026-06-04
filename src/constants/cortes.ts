@@ -7,7 +7,7 @@ export const TIPOS_CORTE = [
   'Traseiro',
   'Costela',
   'BD (banda)', // Dianteiro + Traseiro juntos
-  'Outro',
+  'Visceras'
 ] as const
 
 export type TipoCorte = (typeof TIPOS_CORTE)[number]

@@ -38,7 +38,7 @@ export const estoqueService = {
         { count: 'exact' },
       )
       .eq('empresa_id', user.empresa_id)
-      .order('data_movimentacao', { ascending: false })
+      .order('created_at', { ascending: false })
       .order('id', { ascending: false })
       .range(from, to)
 
@@ -138,6 +138,7 @@ export const estoqueService = {
       peso_bruto_kg: i.peso_bruto_kg,
       peso_liquido_kg: i.peso_liquido_kg,
       agrupamento_id: i.agrupamento_id,
+      quantidade_pecas: i.quantidade_pecas
     }))
     const { data, error } = await supabase
       .from('estoque_movimentacao_itens')
@@ -198,6 +199,8 @@ export const estoqueService = {
       peso_bruto_kg: i.peso_bruto_kg,
       peso_liquido_kg: i.peso_liquido_kg,
       agrupamento_id: i.agrupamento_id,
+      quantidade_pecas: i.quantidade_pecas
+
     }))
 
     const { data, error } = await supabase

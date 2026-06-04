@@ -26,3 +26,27 @@
     grid-template-columns: 1fr;
   }
 }
+
+.topCards{
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: $radius;
+  box-shadow: $shadow;
+  border: 1px solid rgba($color-border, 0.78);
+  padding: 1.25rem;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 20px 48px rgba(17, 53, 31, 0.1);
+  }
+
+  & + & {
+    margin-top: 1rem;
+  }
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}

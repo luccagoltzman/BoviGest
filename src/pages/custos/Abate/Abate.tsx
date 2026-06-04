@@ -101,7 +101,7 @@ function ResumoCalculo({
   const parsed = parseForm(form)
   const calc = calcularAbate(parsed)
 
-  const formula = `${formatKg(parsed.peso_liquido_kg)} × ${formatCurrency(parsed.valor_unitario)}`
+  const formula = `${(parsed.qtd_animais)} Animais × ${formatCurrency(parsed.valor_unitario)}`
 
   const rendimentoClass =
     calc.rendimento >= 48 && calc.rendimento <= 58
@@ -223,7 +223,7 @@ function AbateFormFields({
         <h3 className={styles.sectionTitle}>Cobrança</h3>
         <div className={styles.formGrid}>
           <Input
-            label="Valor por kg de carcaça (R$)"
+            label="Valor por QTD de animal (R$)"
             type="number"
             min="0"
             step="0.01"
@@ -251,7 +251,7 @@ function AbateFormFields({
         </p>
         <div className={styles.formGrid}>
           <Input
-            label="Couros deixados (un)"
+            label="Couros deixados (Kg)"
             type="number"
             min="0"
             value={form.couro_deixado}
@@ -260,7 +260,7 @@ function AbateFormFields({
             }
           />
           <Input
-            label="Desconto por couro (R$)"
+            label="Desconto por (Kg) de couro"
             type="number"
             min="0"
             step="0.01"
@@ -298,11 +298,9 @@ export function Abate() {
     parsedForm.data_abate &&
     parsedForm.qtd_animais > 0 &&
     parsedForm.peso_bruto_kg > 0 &&
-    parsedForm.peso_liquido_kg > 0 &&
-    parsedForm.valor_unitario > 0 &&
-    parsedForm.peso_liquido_kg <= parsedForm.peso_bruto_kg
+    parsedForm.valor_unitario > 0
 
-  async function loadAbates() {
+    async function loadAbates() {
     try {
       setLoading(true)
       const response = await abatesService.getAll(page, 10)
@@ -454,15 +452,7 @@ export function Abate() {
       { label: 'Peso vivo', value: formatKg(Number(r.peso_bruto_kg)) },
       { label: 'Peso carcaça', value: formatKg(Number(r.peso_liquido_kg)) },
       { label: 'Rendimento', value: formatPercent(calc.rendimento) },
-      {
-        label: 'Valor por kg de carcaça',
-        value: formatCurrency(Number(r.valor_unitario)),
-      },
-      { label: 'Couros deixados', value: r.couro_deixado },
-      {
-        label: 'Desconto por couro',
-        value: formatCurrency(Number(r.desconto_por_couro)),
-      },
+      { label: 'Couros deixados em (Kg)', value: r.couro_deixado },
       {
         label: 'Desconto total (couro)',
         value: formatCurrency(Number(r.desconto_total)),
