@@ -38,6 +38,7 @@ interface CompraRow {
   tipo_gado?: string
   observacoes?: string
   status: string
+  detalhes_custo?: any
 }
 
 export function Compras() {
@@ -115,6 +116,8 @@ export function Compras() {
         endDate,
         condicaoGadoFiltro
       )
+
+      console.log(response)
 
       setCompras(response.data || [])
       setTotal(response.total || 0)
@@ -241,9 +244,9 @@ export function Compras() {
         viagem
           ? viagem
           : {
-              referenciaTipo: 'compra',
-              referenciaId: compra.id,
-            }
+            referenciaTipo: 'compra',
+            referenciaId: compra.id,
+          }
       )
 
       setViagemOpen(true)
@@ -274,7 +277,7 @@ export function Compras() {
     {
       key: 'condicao_gado',
       header: 'Condição',
-      render: (r: CompraRow) => (r.condicao_gado === 1 ? 'Vivo' : 'Morto'),
+      render: (r: CompraRow) => (r.condicao_gado === 1 ? 'Vivo' : 'Abatido'),
     },
     {
       key: 'quantidade_animais',
@@ -291,14 +294,23 @@ export function Compras() {
       render: (r: CompraRow) => `R$ ${Number(r.valor_kg).toFixed(2)}`,
     },
     {
-      key: 'subtotal',
-      header: 'Subtotal',
-      render: (r: CompraRow) => `R$ ${Number(r.subtotal).toFixed(2)}`,
-    },
-    {
       key: 'valor_total',
       header: 'Total',
-      render: (r: CompraRow) => `R$ ${Number(r.valor_total).toFixed(2)}`,
+      render: (r: CompraRow) => {
+        const d = r.detalhes_custo
+
+        return (
+          <div>
+            <div>R$ {d.total.toFixed(2)}</div>
+            <small>
+              Gado: {d.subtotal.toFixed(2)} |
+              Imp: {d.imposto.toFixed(2)} |
+              GTA: {d.gta.toFixed(2)} |
+              Viagem: {d.viagem.toFixed(2)}
+            </small>
+          </div>
+        )
+      }
     },
     {
       key: 'acoes',
@@ -357,8 +369,8 @@ export function Compras() {
 
           <Select
             label="Condição"
-            options={['Vivo', 'Morto']}
-            value={form.condicao_gado === '1' ? 'Vivo' : 'Morto'}
+            options={['Vivo', 'Abatido']}
+            value={form.condicao_gado === '1' ? 'Vivo' : 'Abatido'}
             onChange={(e) =>
               setForm({
                 ...form,
@@ -403,45 +415,49 @@ export function Compras() {
             }
           />
 
-          <Select
-            label="Tipo imposto"
-            options={['fixo', 'percentual']}
-            value={form.tipo_imposto}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                tipo_imposto: e.target.value,
-              })
-            }
-          />
+          {form.condicao_gado == '1' && (
+            <>
+              <Select
+                label="Tipo imposto"
+                options={['fixo', 'percentual']}
+                value={form.tipo_imposto}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    tipo_imposto: e.target.value,
+                  })
+                }
+              />
 
-          <Input
-            label={
-              form.tipo_imposto === 'percentual'
-                ? 'Imposto (%)'
-                : 'Imposto (R$)'
-            }
-            type="number"
-            value={form.valor_imposto}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                valor_imposto: e.target.value,
-              })
-            }
-          />
+              <Input
+                label={
+                  form.tipo_imposto === 'percentual'
+                    ? 'Imposto (%)'
+                    : 'Imposto (R$)'
+                }
+                type="number"
+                value={form.valor_imposto}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    valor_imposto: e.target.value,
+                  })
+                }
+              />
 
-          <Input
-            label="GTA / Transporte"
-            type="number"
-            value={form.gta_valor}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                gta_valor: e.target.value,
-              })
-            }
-          />
+              <Input
+                label="GTA / Transporte"
+                type="number"
+                value={form.gta_valor}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    gta_valor: e.target.value,
+                  })
+                }
+              />
+            </>
+          )}
 
           <Input
             label="Subtotal"
@@ -467,7 +483,9 @@ export function Compras() {
           />
 
           <Input
-            label="Observações"
+            label="Complemento"
+            multiline
+            rows={4}
             value={form.observacoes}
             onChange={(e) =>
               setForm({
@@ -539,8 +557,8 @@ export function Compras() {
 
             <Select
               label="Condição"
-              options={['Vivo', 'Morto']}
-              value={editar.condicao_gado === 1 ? 'Vivo' : 'Morto'}
+              options={['Vivo', 'Abatido']}
+              value={editar.condicao_gado === 1 ? 'Vivo' : 'Abatido'}
               onChange={(e) =>
                 setEditar({
                   ...editar,
@@ -585,45 +603,49 @@ export function Compras() {
               }
             />
 
-            <Select
-              label="Tipo imposto"
-              options={['fixo', 'percentual']}
-              value={editar.tipo_imposto}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  tipo_imposto: e.target.value as any,
-                })
-              }
-            />
+            {editar.condicao_gado == 1 && (
+              <>
+                <Select
+                  label="Tipo imposto"
+                  options={['fixo', 'percentual']}
+                  value={form.tipo_imposto}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      tipo_imposto: e.target.value as any,
+                    })
+                  }
+                />
 
-            <Input
-              label={
-                editar.tipo_imposto === 'percentual'
-                  ? 'Imposto (%)'
-                  : 'Imposto (R$)'
-              }
-              type="number"
-              value={editar.valor_imposto}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  valor_imposto: Number(e.target.value),
-                })
-              }
-            />
+                <Input
+                  label={
+                    form.tipo_imposto === 'percentual'
+                      ? 'Imposto (%)'
+                      : 'Imposto (R$)'
+                  }
+                  type="number"
+                  value={form.valor_imposto}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      valor_imposto: e.target.value,
+                    })
+                  }
+                />
 
-            <Input
-              label="GTA / Transporte"
-              type="number"
-              value={editar.gta_valor}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  gta_valor: Number(e.target.value),
-                })
-              }
-            />
+                <Input
+                  label="GTA / Transporte"
+                  type="number"
+                  value={form.gta_valor}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      gta_valor: e.target.value,
+                    })
+                  }
+                />
+              </>
+            )}
 
             <Input
               label="Subtotal"

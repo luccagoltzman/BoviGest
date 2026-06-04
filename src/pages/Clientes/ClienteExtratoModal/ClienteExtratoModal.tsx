@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
+import { Download } from 'lucide-react'
 import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
@@ -80,7 +81,6 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   const seteDiasAtras = new Date(hoje)
   seteDiasAtras.setDate(hoje.getDate() - 7)
 
-  console.log(cliente)
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
@@ -104,6 +104,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   const [editForma, setEditForma] = useState('')
   const [editObs, setEditObs] = useState('')
   const [editData, setEditData] = useState('')
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
 
   useEffect(() => {
     if (open && cliente?.id) carregarDados()
@@ -273,6 +274,29 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     )
   }, [movimentacoes, recebimentos])
 
+  async function handleDownloadPdf() {
+    try {
+      setDownloadingPdf(true)
+      const { gerarExtratoClientePdf } = await import('@/utils/clienteExtratoPdf')
+      gerarExtratoClientePdf({
+        clienteNome: cliente.nome,
+        startDate,
+        endDate,
+        totalVendas,
+        totalRecebido,
+        saldo,
+        movimentacoes,
+        recebimentos,
+        resumoCortes,
+      })
+      toast.success('PDF baixado com sucesso')
+    } catch {
+      toast.error('Erro ao gerar PDF')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
+
   // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -284,19 +308,31 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     >
       <div className={styles.container}>
         {/* Filtro de período */}
-        <div className={styles.filters}>
-          <Input
-            label="De"
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-          />
-          <Input
-            label="Até"
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-          />
+        <div className={styles.filtersRow}>
+          <div className={styles.filters}>
+            <Input
+              label="De"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+            />
+            <Input
+              label="Até"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+            />
+          </div>
+          <Button
+            variant="outline"
+            loading={downloadingPdf}
+            disabled={loading || downloadingPdf}
+            onClick={handleDownloadPdf}
+            className={styles.btnPdf}
+          >
+            <Download size={16} aria-hidden />
+            Baixar PDF
+          </Button>
         </div>
 
         {/* Cards de resumo */}

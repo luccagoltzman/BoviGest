@@ -67,12 +67,56 @@ export const comprasService = {
         throw error
       }
 
+      const ids = (data || []).map(item => item.id)
+
+      let viagensMap: Record<number, any> = {}
+
+      if (ids.length) {
+        const { data: viagens } = await supabase
+          .from('viagens')
+          .select('referencia_id, custo_total')
+          .eq('empresa_id', user.empresa_id)
+          .eq('referencia_tipo', 'compra')
+          .in('referencia_id', ids)
+
+        viagensMap = Object.fromEntries(
+          (viagens || []).map(item => [
+            item.referencia_id,
+            item
+          ])
+        )
+      }
+
+      const comprasComViagem = (data || []).map(compra => {
+        const viagem = viagensMap[compra.id]
+
+        const subtotal = Number(compra.subtotal || 0)
+        const imposto = Number(compra.valor_imposto || 0)
+        const gta = Number(compra.gta_valor || 0)
+        const viagemValor = Number(viagem?.custo_total || 0)
+
+        return {
+          ...compra,
+          detalhes_custo: {
+            subtotal,
+            imposto,
+            gta,
+            viagem: viagemValor,
+            total:
+              subtotal +
+              imposto +
+              gta +
+              viagemValor
+          }
+        }
+      })
+
       return {
-        data,
+        data: comprasComViagem,
         total: count || 0,
         page,
         limit,
-        totalPages: Math.ceil((count || 0) / limit),
+        totalPages: Math.ceil((count || 0) / limit)
       }
     } catch {
       return {
@@ -80,7 +124,7 @@ export const comprasService = {
         total: 0,
         page,
         limit,
-        totalPages: 0,
+        totalPages: 0
       }
     }
   },

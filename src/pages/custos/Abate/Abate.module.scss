@@ -1,52 +1,173 @@
 @use 'styles/variables' as *;
 
 .page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
   padding: 0;
 }
 
-.form {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
   gap: 1rem;
 }
 
-.actions {
-  grid-column: 1 / -1;
-  margin-top: 0.5rem;
-}
-
-.infoDesconto {
+.subtitle {
+  margin: 0.35rem 0 0;
   font-size: 0.9rem;
   color: $color-text-muted;
-  margin-bottom: 1rem;
-  padding: 0.5rem 0.75rem;
-  background: rgba($color-primary, 0.06);
-  border-radius: $radius;
+  font-weight: 500;
+  max-width: 720px;
+  line-height: 1.45;
 }
 
-.calcDesconto,
-.valorFinal {
-  grid-column: 1 / -1;
+.formCard {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.6rem 0.75rem;
-  border-radius: $radius;
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-.calcDesconto {
-  background: rgba($color-primary, 0.08);
-  font-size: 0.9rem;
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba($color-border, 0.85);
+  border-radius: $radius-sm;
+  background: $color-surface-soft;
+}
+
+.sectionTitle {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+.sectionHint {
+  margin: -0.35rem 0 0;
+  font-size: 0.82rem;
+  color: $color-text-muted;
+  line-height: 1.4;
+}
+
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.formGridWide {
+  grid-column: 1 / -1;
+}
+
+.summaryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.summaryItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: $radius-sm;
+  background: rgba($color-primary, 0.06);
+  border: 1px solid rgba($color-border, 0.7);
+}
+
+.summaryLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+.summaryValue {
+  font-size: 1rem;
+  font-weight: 800;
+  color: $color-primary-dark;
+  letter-spacing: -0.02em;
+}
+
+.summaryValueHighlight {
+  color: var(--theme-primary);
 }
 
 .valorFinal {
-  background: $color-primary;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem 1.05rem;
+  border-radius: $radius-sm;
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary),
+    var(--theme-button-gradient-end)
+  );
   color: #fff;
-  font-size: 1rem;
+  box-shadow: 0 12px 28px rgba(37, 111, 62, 0.22);
+}
+
+.valorFinalLabel {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.valorFinalFormula {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  opacity: 0.92;
+}
+
+.valorFinalTotal {
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  justify-content: flex-end;
+}
+
+.tableActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rendimentoOk {
+  color: $color-success;
+}
+
+.rendimentoAlerta {
+  color: $color-warning;
 }
 
 @media (max-width: 768px) {
-  .form {
+  .formGrid,
+  .summaryGrid {
     grid-template-columns: 1fr;
+  }
+
+  .actions {
+    width: 100%;
+
+    button {
+      flex: 1;
+    }
   }
 }

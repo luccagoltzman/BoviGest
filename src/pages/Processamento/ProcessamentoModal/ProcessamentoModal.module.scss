@@ -1,0 +1,53 @@
+@use 'styles/variables' as *;
+
+.page {
+  padding: 0;
+}
+
+.cardMain {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.formSimples {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+.itemForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
+}
+
+
+.modalActions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+}
+.valorFinal {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1rem 1.05rem;
+  border-radius: $radius-sm;
+  background: linear-gradient(
+    90deg,
+    var(--theme-primary),
+    var(--theme-button-gradient-end)
+  );
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(37, 111, 62, 0.22);
+}

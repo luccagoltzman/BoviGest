@@ -1,103 +1,212 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Button,
   Card,
-  Input,
   Table,
   Modal,
   ModalDetails,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import { viscerasService } from '@/services/visceras.service'
+import { ViscerasModal } from './ViscerasModal'
 import styles from './Visceras.module.scss'
 
-interface VisceraRow {
-  id: string
-  nome: string
-  unidade: string
-  precoRef: number
-  ativo: string
+interface VisceraMovimentacao {
+  id: number
+  tipo: number
+  quantidade: number
+  observacao: string
+  created_at: string
+  referencia_venda_id: number
 }
 
-const mock: VisceraRow[] = [
-  { id: '1', nome: 'Fígado', unidade: 'kg', precoRef: 12.5, ativo: 'Sim' },
-  { id: '2', nome: 'Coração', unidade: 'un.', precoRef: 18, ativo: 'Sim' },
-  { id: '3', nome: 'Língua', unidade: 'kg', precoRef: 22, ativo: 'Sim' },
-  { id: '4', nome: 'Miolo', unidade: 'kg', precoRef: 35, ativo: 'Sim' },
-  { id: '5', nome: 'Tripa (limpa)', unidade: 'kg', precoRef: 28, ativo: 'Sim' },
-  { id: '6', nome: 'Rins', unidade: 'kg', precoRef: 15, ativo: 'Sim' },
-  { id: '7', nome: 'Bucho', unidade: 'un.', precoRef: 25, ativo: 'Sim' },
-  {
-    id: '8',
-    nome: 'Pâncreas (sweetbread)',
-    unidade: 'kg',
-    precoRef: 45,
-    ativo: 'Sim',
-  },
-  { id: '9', nome: 'Orelha', unidade: 'kg', precoRef: 14, ativo: 'Sim' },
-]
-
 export function Visceras() {
-  const [detalhe, setDetalhe] = useState<VisceraRow | null>(null)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [movimentacoes, setMovimentacoes] = useState<
+    VisceraMovimentacao[]
+  >([])
+  const [estoque, setEstoque] = useState(0)
+  const [detalhe, setDetalhe] =
+    useState<VisceraMovimentacao | null>(null)
+
+  const [loading, setLoading] = useState(false)
+  const [page, setPage] = useState(1)
+  const [total, setTotal] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [defaultValues, setDefaultValues] = useState<any>(null)
+  const [editing, setEditing] =
+    useState<VisceraMovimentacao | null>(null)
+
+  async function loadData() {
+    try {
+      setLoading(true)
+
+      const [result, estoqueData] = await Promise.all([
+        viscerasService.getAll(page, 10),
+        viscerasService.getEstoque(),
+      ])
+
+      setMovimentacoes(result.data)
+      setTotal(result.total)
+      setTotalPages(result.totalPages)
+
+      setEstoque(estoqueData.quantidade_atual)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [page])
 
   const columns = [
-    { key: 'nome', header: 'Víscera' },
-    { key: 'unidade', header: 'Unidade' },
     {
-      key: 'precoRef',
-      header: 'Preço ref. (R$)',
-      render: (r: VisceraRow) => `R$ ${r.precoRef.toLocaleString('pt-BR')}`,
+      key: 'tipo',
+      header: 'Tipo',
+      render: (r: VisceraMovimentacao) =>
+        r.tipo === 1 ? 'Entrada' : 'Saída',
     },
-    { key: 'ativo', header: 'Ativo' },
+    {
+      key: 'quantidade',
+      header: 'Quantidade',
+    },
+    {
+      key: 'created_at',
+      header: 'Data',
+      render: (r: VisceraMovimentacao) =>
+        new Date(r.created_at).toLocaleDateString(
+          'pt-BR'
+        ),
+    },
     {
       key: 'acoes',
       header: 'Ações',
-      render: (r: VisceraRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+      render: (r: VisceraMovimentacao) => (
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+          }}
+        >
+          <Button
+            variant="outline"
+            onClick={() => setDetalhe(r)}
+          >
+            Ver detalhes
+          </Button>
+
+          <Button
+            variant="ghost"
+            disabled={r.referencia_venda_id > 0 ? true : false}    
+            onClick={() => {
+              setDefaultValues(null)
+              setEditing(r)
+              setModalOpen(true)
+            }}
+          >
+            Editar
+          </Button>
+        </div>
       ),
-    },
+    }
   ]
 
-  const detalheItems = (r: VisceraRow): DetailItem[] => [
-    { label: 'Víscera', value: r.nome },
-    { label: 'Unidade de venda', value: r.unidade },
-    {
-      label: 'Preço de referência',
-      value: `R$ ${r.precoRef.toLocaleString('pt-BR')}`,
-    },
-    { label: 'Ativo', value: r.ativo },
-  ]
+  const detalheItems = (
+    r: VisceraMovimentacao
+  ): DetailItem[] => [
+      {
+        label: 'Tipo',
+        value: r.tipo === 1 ? 'Entrada' : 'Saída',
+      },
+      {
+        label: 'Quantidade',
+        value: r.quantidade,
+      },
+      {
+        label: 'Observação',
+        value: r.observacao || '-',
+      },
+      {
+        label: 'Data',
+        value: new Date(
+          r.created_at
+        ).toLocaleString('pt-BR'),
+      },
+    ]
 
   return (
     <div className={styles.page}>
-      <h1 className="page-title">Cadastro de vísceras</h1>
-      <p className={styles.intro}>
-        O marchante também comercializa vísceras. Cadastre os tipos e preços de
-        referência para venda.
-      </p>
-      <Card title="Nova víscera">
-        <div className={styles.form}>
-          <Input
-            label="Nome da víscera"
-            placeholder="Ex: Fígado, Coração, Língua"
-          />
-          <Input label="Unidade" placeholder="kg ou un." />
-          <Input label="Preço de referência (R$)" type="number" step="0.01" />
-          <div className={styles.actions}>
-            <Button>Cadastrar</Button>
-          </div>
+      <h1 className="page-title">
+        Controle de vísceras
+      </h1>
+
+      <div className={styles.topCards}>
+        <div>
+          <h1>{estoque}</h1>
+          <small>Vísceras disponíveis</small>
         </div>
+
+
+        <Button
+          onClick={() => {
+            setDefaultValues({
+              tipo: 1,
+              quantidade: 1,
+              observacao: '',
+            })
+
+            setModalOpen(true)
+          }}
+        >
+          + Movimentação vísceras
+        </Button>
+
+      </div>
+
+      <Card
+        title="Movimentações"
+      >
+        <Table
+          columns={columns}
+          data={movimentacoes}
+          keyExtractor={(r) =>
+            String(r.id)
+          }
+          loading={loading}
+          page={page}
+          total={total}
+          totalPages={totalPages}
+          onPageChange={setPage}
+          emptyMessage="Nenhuma movimentação encontrada."
+        />
       </Card>
-      <Card title="Vísceras cadastradas">
-        <Table columns={columns} data={mock} keyExtractor={(r) => r.id} />
-      </Card>
+
+      <ViscerasModal
+        open={modalOpen}
+        initialData={editing}
+        defaultValues={defaultValues}
+        onClose={() => {
+          setModalOpen(false)
+          setEditing(null)
+          setDefaultValues(null)
+        }}
+        onSaved={() => {
+          setPage(1)
+          loadData()
+        }}
+      />
+
       <Modal
         open={!!detalhe}
         onClose={() => setDetalhe(null)}
-        title="Detalhes da víscera"
+        title="Detalhes"
       >
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+        {detalhe && (
+          <ModalDetails
+            items={detalheItems(detalhe)}
+          />
+        )}
       </Modal>
     </div>
   )

@@ -35,7 +35,8 @@ export const abatesService = {
       if (search) {
         query = query.or(`
           lote.ilike.%${search}%,
-          tipo_animal.ilike.%${search}%
+          tipo_animal.ilike.%${search}%,
+          abatedouro.ilike.%${search}%
         `)
       }
 

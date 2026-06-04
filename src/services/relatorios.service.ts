@@ -1,0 +1,410 @@
+import { AuthService } from './auth.service'
+import { supabase } from './supabase'
+
+// ─── Tipos públicos ───────────────────────────────────────────
+
+export type RelatorioFiltros = {
+  startDate: string
+  endDate: string
+}
+
+export type RelatorioKpis = {
+  totalCompras: number
+  qtdCompras: number
+  totalVendas: number
+  qtdVendas: number
+  vendasFinalizadas: number
+  vendasPendentes: number
+  totalCustos: number
+  estoqueLiquidoKg: number
+  entradasKg: number
+  saidasKg: number
+  resultadoEstimado: number
+}
+
+export type RankingItem = {
+  nome: string
+  total: number
+  qtd: number
+}
+
+export type RankingCorte = {
+  corte: string
+  peso: number
+  total: number
+}
+
+export type EstoqueSaldo = {
+  corte: string
+  saldoKg: number
+}
+
+export type CompraResumo = {
+  id: number
+  data: string
+  valor_total: number
+  status: string
+  fornecedor?: { nome?: string } | null
+}
+
+export type VendaResumo = {
+  id: number
+  data_movimentacao: string
+  valor_total: number
+  movimentacao_status: string
+  cliente?: { nome?: string } | null
+}
+
+export type RelatorioDados = {
+  filtros: RelatorioFiltros
+  kpis: RelatorioKpis
+  comprasPorFornecedor: RankingItem[]
+  vendasPorCliente: RankingItem[]
+  vendasPorCorte: RankingCorte[]
+  custosPorCategoria: RankingItem[]
+  estoquePorCorte: EstoqueSaldo[]
+  comprasRecentes: CompraResumo[]
+  vendasRecentes: VendaResumo[]
+}
+
+// ─── Tipos internos (raw do banco) ────────────────────────────
+
+type RawCompra = CompraResumo
+type RawVenda = VendaResumo & {
+  itens?: {
+    tipo_corte?: string
+    peso_total_kg?: number
+    valor_total?: number
+  }[]
+}
+type RawCusto = {
+  categoria?: string
+  valor?: number
+}
+type RawEstoque = {
+  corte?: string
+  saldo_liquido_kg?: number
+}
+type RawMovimentacaoEstoque = {
+  tipo_movimentacao: number
+  peso_liquido_kg?: number
+  itens?: { peso_liquido_kg?: number }[]
+}
+
+type RawRelatorio = {
+  compras: RawCompra[]
+  vendas: RawVenda[]
+  custos: RawCusto[]
+  estoque: RawEstoque[]
+  movimentacoesEstoque: RawMovimentacaoEstoque[]
+}
+
+// ─── Helpers ──────────────────────────────────────────────────
+
+function getEmpresaId() {
+  const user = AuthService.getCachedUser()
+
+  if (!user?.empresa_id) {
+    throw new Error('Usuário não encontrado no cache')
+  }
+
+  return user.empresa_id
+}
+
+function somarPorCampo<T>(
+  lista: T[],
+  chave: (item: T) => string,
+  valor: (item: T) => number,
+): RankingItem[] {
+  const mapa = lista.reduce<Record<string, RankingItem>>((acc, item) => {
+    const nome = chave(item) || 'Outros'
+
+    if (!acc[nome]) {
+      acc[nome] = { nome, total: 0, qtd: 0 }
+    }
+
+    acc[nome].total += valor(item)
+    acc[nome].qtd += 1
+
+    return acc
+  }, {})
+
+  return Object.values(mapa).sort((a, b) => b.total - a.total)
+}
+
+function pesoMovimentacaoEstoque(mov: RawMovimentacaoEstoque) {
+  const pesoItens = (mov.itens || []).reduce(
+    (acc, item) => acc + Number(item.peso_liquido_kg || 0),
+    0,
+  )
+
+  return pesoItens > 0 ? pesoItens : Number(mov.peso_liquido_kg || 0)
+}
+
+// ─── Requisições unificadas ao Supabase ────────────────────────
+
+async function buscarDadosBrutos(
+  empresaId: number,
+  filtros: RelatorioFiltros,
+): Promise<RawRelatorio> {
+  const [compras, vendas, custos, estoque, movimentacoesEstoque] =
+    await Promise.all([
+      buscarCompras(empresaId, filtros),
+      buscarVendas(empresaId, filtros),
+      buscarCustos(empresaId, filtros),
+      buscarEstoqueAtual(empresaId),
+      buscarMovimentacoesEstoque(empresaId, filtros),
+    ])
+
+  return { compras, vendas, custos, estoque, movimentacoesEstoque }
+}
+
+async function buscarCompras(empresaId: number, filtros: RelatorioFiltros) {
+  let query = supabase
+    .from('compras')
+    .select(
+      `
+      id,
+      data,
+      valor_total,
+      status,
+      fornecedor:fornecedores ( id, nome )
+    `,
+    )
+    .eq('empresa_id', empresaId)
+    .order('data', { ascending: false })
+
+  if (filtros.startDate) query = query.gte('data', filtros.startDate)
+  if (filtros.endDate) query = query.lte('data', filtros.endDate)
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  return (data || []) as RawCompra[]
+}
+
+async function buscarVendas(empresaId: number, filtros: RelatorioFiltros) {
+  let query = supabase
+    .from('movimentacoes_clientes')
+    .select(
+      `
+      id,
+      data_movimentacao,
+      valor_total,
+      movimentacao_status,
+      cliente:clientes ( id, nome ),
+      itens:movimentacao_itens (
+        tipo_corte,
+        peso_total_kg,
+        valor_total
+      )
+    `,
+    )
+    .eq('empresa_id', empresaId)
+    .order('data_movimentacao', { ascending: false })
+
+  if (filtros.startDate) {
+    query = query.gte('data_movimentacao', filtros.startDate)
+  }
+  if (filtros.endDate) {
+    query = query.lte('data_movimentacao', filtros.endDate)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  return (data || []) as RawVenda[]
+}
+
+async function buscarCustos(empresaId: number, filtros: RelatorioFiltros) {
+  let query = supabase
+    .from('custos_operacionais')
+    .select('id, data, categoria, valor')
+    .eq('empresa_id', empresaId)
+    .order('data', { ascending: false })
+
+  if (filtros.startDate) query = query.gte('data', filtros.startDate)
+  if (filtros.endDate) query = query.lte('data', filtros.endDate)
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  return (data || []) as RawCusto[]
+}
+
+async function buscarEstoqueAtual(empresaId: number) {
+  const { data, error } = await supabase
+    .from('vw_estoque_atual')
+    .select('corte, saldo_liquido_kg')
+    .eq('empresa_id', empresaId)
+    .order('corte')
+
+  if (error) throw error
+
+  return (data || []) as RawEstoque[]
+}
+
+async function buscarMovimentacoesEstoque(
+  empresaId: number,
+  filtros: RelatorioFiltros,
+) {
+  let query = supabase
+    .from('estoque_movimentacoes')
+    .select(
+      `
+      tipo_movimentacao,
+      peso_liquido_kg,
+      itens:estoque_movimentacao_itens ( peso_liquido_kg )
+    `,
+    )
+    .eq('empresa_id', empresaId)
+    .order('data_movimentacao', { ascending: false })
+
+  if (filtros.startDate) {
+    query = query.gte('data_movimentacao', filtros.startDate)
+  }
+  if (filtros.endDate) {
+    query = query.lte('data_movimentacao', filtros.endDate)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  return (data || []) as RawMovimentacaoEstoque[]
+}
+
+// ─── Montagem do relatório ────────────────────────────────────
+
+function montarRelatorio(
+  filtros: RelatorioFiltros,
+  raw: RawRelatorio,
+): RelatorioDados {
+  const { compras, vendas, custos, estoque, movimentacoesEstoque } = raw
+
+  const totalCompras = compras.reduce(
+    (acc, row) => acc + Number(row.valor_total || 0),
+    0,
+  )
+
+  const totalVendas = vendas.reduce(
+    (acc, row) => acc + Number(row.valor_total || 0),
+    0,
+  )
+
+  const totalCustos = custos.reduce(
+    (acc, row) => acc + Number(row.valor || 0),
+    0,
+  )
+
+  const vendasFinalizadas = vendas.filter(
+    (v) => v.movimentacao_status === 'finalizado',
+  ).length
+
+  let entradasKg = 0
+  let saidasKg = 0
+
+  for (const mov of movimentacoesEstoque) {
+    const peso = pesoMovimentacaoEstoque(mov)
+
+    if (mov.tipo_movimentacao === 1) {
+      entradasKg += peso
+    } else {
+      saidasKg += peso
+    }
+  }
+
+  const vendasPorCorte = Object.values(
+    vendas.reduce<Record<string, RankingCorte>>((acc, row) => {
+      for (const item of row.itens || []) {
+        const corte = item.tipo_corte || 'Sem corte'
+
+        if (!acc[corte]) {
+          acc[corte] = { corte, peso: 0, total: 0 }
+        }
+
+        acc[corte].peso += Number(item.peso_total_kg || 0)
+        acc[corte].total += Number(item.valor_total || 0)
+      }
+
+      return acc
+    }, {}),
+  ).sort((a, b) => b.total - a.total)
+
+  return {
+    filtros,
+    kpis: {
+      totalCompras,
+      qtdCompras: compras.length,
+      totalVendas,
+      qtdVendas: vendas.length,
+      vendasFinalizadas,
+      vendasPendentes: vendas.length - vendasFinalizadas,
+      totalCustos,
+      estoqueLiquidoKg: estoque.reduce(
+        (acc, row) => acc + Number(row.saldo_liquido_kg || 0),
+        0,
+      ),
+      entradasKg,
+      saidasKg,
+      resultadoEstimado: totalVendas - totalCompras - totalCustos,
+    },
+    comprasPorFornecedor: somarPorCampo(
+      compras,
+      (r) => r.fornecedor?.nome || 'Sem fornecedor',
+      (r) => Number(r.valor_total || 0),
+    ),
+    vendasPorCliente: somarPorCampo(
+      vendas,
+      (r) => r.cliente?.nome || 'Sem cliente',
+      (r) => Number(r.valor_total || 0),
+    ),
+    vendasPorCorte,
+    custosPorCategoria: somarPorCampo(
+      custos,
+      (r) => r.categoria || 'Outros',
+      (r) => Number(r.valor || 0),
+    ),
+    estoquePorCorte: estoque
+      .map((row) => ({
+        corte: row.corte || 'Sem corte',
+        saldoKg: Number(row.saldo_liquido_kg || 0),
+      }))
+      .sort((a, b) => b.saldoKg - a.saldoKg),
+    comprasRecentes: compras.slice(0, 10),
+    vendasRecentes: vendas.slice(0, 10),
+  }
+}
+
+// ─── API pública ──────────────────────────────────────────────
+
+export function getDefaultPeriod(): RelatorioFiltros {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+
+  return {
+    startDate: start.toISOString().split('T')[0],
+    endDate: now.toISOString().split('T')[0],
+  }
+}
+
+export const relatoriosService = {
+  /**
+   * Único ponto de entrada: busca tudo no banco em paralelo
+   * e devolve o relatório já consolidado.
+   */
+  async buscar(filtros: RelatorioFiltros): Promise<RelatorioDados> {
+    const empresaId = getEmpresaId()
+    const raw = await buscarDadosBrutos(empresaId, filtros)
+
+    return montarRelatorio(filtros, raw)
+  },
+
+  /** @deprecated Use buscar() */
+  async getResumoCompleto(filtros: RelatorioFiltros) {
+    return this.buscar(filtros)
+  },
+}

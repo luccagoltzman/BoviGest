@@ -12,7 +12,9 @@ interface ClienteRow {
   telefone: string
   endereco?: string
   limite_credito?: string
-  status: string
+  status: string,
+  nome_empresa?: string,
+  complemento?: string,
 }
 
 export function Clientes() {
@@ -38,6 +40,8 @@ export function Clientes() {
     telefone: '',
     endereco: '',
     limite_credito: '',
+    complemento:'',
+    nome_empresa:''
   })
 
   const loadClientes = async (
@@ -96,6 +100,8 @@ export function Clientes() {
         doc: createForm.doc,
         telefone: createForm.telefone,
         endereco: createForm.endereco,
+        nome_empresa:createForm.nome_empresa,
+        complemento:createForm.complemento,
         limite_credito: createForm.limite_credito
           ? Number(createForm.limite_credito)
           : null,
@@ -108,6 +114,8 @@ export function Clientes() {
         telefone: '',
         endereco: '',
         limite_credito: '',
+        complemento:'',
+        nome_empresa:''
       })
 
       loadClientes(1, limit, search, startDate, endDate)
@@ -128,6 +136,8 @@ export function Clientes() {
         doc: editar.doc,
         telefone: editar.telefone,
         endereco: editar.endereco,
+        nome_empresa:editar.nome_empresa,
+        complemento:editar.complemento,
         limite_credito: editar.limite_credito
           ? Number(editar.limite_credito)
           : null,
@@ -175,7 +185,7 @@ export function Clientes() {
           onClick={() => setClienteExtrato(r)}
           style={{ cursor: 'pointer', textDecoration: 'underline' }}
         >
-          {r?.name}
+          {r?.nome}
         </a>
       ),
     },    { key: 'doc', header: 'CPF/CNPJ' },
@@ -202,10 +212,17 @@ export function Clientes() {
       <Card title="Novo cliente">
         <div className={styles.form}>
           <Input
-            label="Nome / Empresa"
+            label="Nome "
             value={createForm.nome}
             onChange={(e) =>
               setCreateForm({ ...createForm, nome: e.target.value })
+            }
+          />
+                 <Input
+            label="Nome da empresa"
+            value={createForm.nome_empresa}
+            onChange={(e) =>
+              setCreateForm({ ...createForm, nome_empresa: e.target.value })
             }
           />
           <Input
@@ -222,6 +239,9 @@ export function Clientes() {
               setCreateForm({ ...createForm, telefone: e.target.value })
             }
           />
+          </div>
+          <div className={styles.form}>
+
           <Input
             label="Endereço"
             value={createForm.endereco}
@@ -235,6 +255,19 @@ export function Clientes() {
             value={createForm.limite_credito}
             onChange={(e) =>
               setCreateForm({ ...createForm, limite_credito: e.target.value })
+            }
+          />
+
+          <Input
+            label="Complemento"
+            multiline
+            rows={4}
+            value={createForm.complemento}
+            onChange={(e) =>
+              setCreateForm({
+                ...createForm,
+                complemento: e.target.value,
+              })
             }
           />
           <div className={styles.actions}>
@@ -290,9 +323,14 @@ export function Clientes() {
         {editar && (
           <div className={styles.form}>
             <Input
-              label="Nome / Empresa"
+              label="Nome"
               value={editar.nome}
               onChange={(e) => setEditar({ ...editar, nome: e.target.value })}
+            />
+            <Input
+              label="Nome empresa"
+              value={editar.nome_empresa}
+              onChange={(e) => setEditar({ ...editar, nome_empresa: e.target.value })}
             />
             <Input
               label="CPF / CNPJ"
@@ -320,6 +358,12 @@ export function Clientes() {
               onChange={(e) =>
                 setEditar({ ...editar, limite_credito: e.target.value })
               }
+            />
+             <Input
+              label="Complemento"
+              multiline
+              value={editar.complemento}
+              onChange={(e) => setEditar({ ...editar, complemento: e.target.value })}
             />
             <div className={styles.actions}>
               <Button onClick={handleSaveEdit}>Salvar alterações</Button>

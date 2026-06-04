@@ -1,6 +1,9 @@
 @use 'styles/variables' as *;
 
 .card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
   background: rgba(255, 255, 255, 0.9);
   border-radius: $radius;
   box-shadow: $shadow;
@@ -15,7 +18,7 @@
     box-shadow: 0 20px 48px rgba(17, 53, 31, 0.1);
   }
 
-  & + & {
+  &+& {
     margin-top: 1rem;
   }
 }
