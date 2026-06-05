@@ -7,9 +7,11 @@ import { viscerasService } from '@/services/visceras.service'
 interface ModalVisceraProps {
   open: boolean
   onClose: () => void
-  onSaved?: () => void
+  onSaved?: () => void | Promise<void>
   initialData?: any
   defaultValues?: any
+  title?: string
+  successMessage?: string
 }
 
 export function ViscerasModal({
@@ -18,6 +20,8 @@ export function ViscerasModal({
   onSaved,
   initialData,
   defaultValues,
+  title,
+  successMessage = 'Movimentação cadastrada',
 }: ModalVisceraProps) {
   const [loading, setLoading] = useState(false)
 
@@ -29,7 +33,6 @@ export function ViscerasModal({
 
   useEffect(() => {
     if (initialData) {
-      console.log(initialData)
       setForm({
         tipo: String(initialData.tipo),
         quantidade: String(initialData.quantidade),
@@ -67,10 +70,10 @@ export function ViscerasModal({
         toast.success('Movimentação atualizada')
       } else {
         await viscerasService.create(payload)
-        toast.success('Movimentação cadastrada')
+        toast.success(successMessage)
       }
 
-      onSaved?.()
+      await onSaved?.()
       onClose()
     } catch (e: any) {
       toast.error(e?.message || 'Erro ao salvar')
@@ -85,9 +88,8 @@ export function ViscerasModal({
       onClose={onClose}
       width="500px"
       title={
-        initialData
-          ? 'Editar movimentação'
-          : 'Nova movimentação'
+        title ??
+        (initialData ? 'Editar movimentação' : 'Nova movimentação')
       }
     >
       <div className={styles.form}>
@@ -98,7 +100,7 @@ export function ViscerasModal({
           onChange={(e) =>
             setForm({
               ...form,
-              tipo: e.target.value,
+              tipo: e.target.value === 'Saida' ? '0' : '1',
             })
           }
         />

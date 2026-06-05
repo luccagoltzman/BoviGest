@@ -10,6 +10,9 @@ import {
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { abatesService } from '@/services/abates.service'
+import { estoqueService } from '@/services/estoque.service'
+import { ProcessamentoModal } from '@/pages/Processamento/ProcessamentoModal'
+import { ViscerasModal } from '@/pages/Visceras/ViscerasModal'
 import {
   calcularAbate,
   formatCurrency,
@@ -17,6 +20,11 @@ import {
   formatPercent,
   type TipoCobrancaAbate,
 } from '@/utils/abateCalc'
+import {
+  gerarPecasBandaPorAbate,
+  pecasParaModalProcessamento,
+  viscerasDefaultValuesPorAbate,
+} from '@/utils/abateEstoque'
 import styles from './Abate.module.scss'
 
 interface AbateRow {
@@ -291,6 +299,10 @@ export function Abate() {
 
   const [form, setForm] = useState(emptyForm)
   const [editForm, setEditForm] = useState(emptyForm)
+  const [showEstoqueModal, setShowEstoqueModal] = useState(false)
+  const [estoqueInitialData, setEstoqueInitialData] = useState<any>(null)
+  const [showViscerasModal, setShowViscerasModal] = useState(false)
+  const [viscerasDefaultValues, setViscerasDefaultValues] = useState<any>(null)
 
   const parsedForm = useMemo(() => parseForm(form), [form])
 
@@ -300,7 +312,7 @@ export function Abate() {
     parsedForm.peso_bruto_kg > 0 &&
     parsedForm.valor_unitario > 0
 
-    async function loadAbates() {
+  async function loadAbates() {
     try {
       setLoading(true)
       const response = await abatesService.getAll(page, 10)
@@ -318,23 +330,61 @@ export function Abate() {
     loadAbates()
   }, [page])
 
-  async function handleCreate() {
+  function abrirConfirmacaoEstoque() {
     if (!isFormValid) {
       toast.error('Preencha os campos obrigatórios corretamente')
       return
     }
 
+    const parsed = parseForm(form)
+    const pecas = gerarPecasBandaPorAbate(
+      parsed.qtd_animais,
+      parsed.peso_liquido_kg,
+    )
+
+    if (pecas.length === 0) {
+      toast.error('Informe a quantidade de animais para gerar as peças')
+      return
+    }
+
+    setEstoqueInitialData({
+      lote: parsed.lote.trim() || `abate-${parsed.data_abate}`,
+      tipo_movimentacao: 1,
+      data_movimentacao: parsed.data_abate,
+      observacoes: 'Entrada automática — abate',
+      itens: pecasParaModalProcessamento(pecas),
+    })
+    setShowEstoqueModal(true)
+  }
+
+  async function handleEstoqueConfirmado() {
+    const parsed = parseForm(form)
+    const lote = parsed.lote.trim() || `abate-${parsed.data_abate}`
+
+    setShowEstoqueModal(false)
+    setEstoqueInitialData(null)
+    setViscerasDefaultValues(
+      viscerasDefaultValuesPorAbate(parsed.qtd_animais, lote),
+    )
+    setShowViscerasModal(true)
+  }
+
+  async function handleViscerasConfirmado() {
     try {
       setSaving(true)
       await abatesService.create(buildPayload(form))
-      toast.success('Abate registrado')
       setForm(emptyForm())
+      setViscerasDefaultValues(null)
       await loadAbates()
     } catch {
-      toast.error('Erro ao registrar abate')
+      toast.error('Vísceras salvas, mas falhou ao registrar o abate')
     } finally {
       setSaving(false)
     }
+  }
+
+  function handleCreate() {
+    abrirConfirmacaoEstoque()
   }
 
   async function handleSaveEdit() {
@@ -371,6 +421,7 @@ export function Abate() {
 
     try {
       setSaving(true)
+      await estoqueService.deleteByReferenciaAbate(id).catch(() => undefined)
       await abatesService.delete(id)
       toast.success('Abate excluído')
       setEditarId(null)
@@ -470,7 +521,8 @@ export function Abate() {
           <h1 className="page-title">Custos de abate</h1>
           <p className={styles.subtitle}>
             Registre o abate com peso vivo, peso de carcaça e desconto por couro.
-            A cobrança é calculada pelo peso de carcaça (kg).
+            Ao registrar, as peças entram automaticamente em estoque (animais × 2
+            bandas) e as vísceras (1 por animal).
           </p>
         </div>
       </header>
@@ -502,6 +554,30 @@ export function Abate() {
           onPageChange={setPage}
         />
       </Card>
+
+      <ProcessamentoModal
+        open={showEstoqueModal}
+        initialData={estoqueInitialData}
+        title="Confirmar entrada em estoque"
+        successMessage="Peças entraram em estoque"
+        onClose={() => {
+          setShowEstoqueModal(false)
+          setEstoqueInitialData(null)
+        }}
+        onSuccess={handleEstoqueConfirmado}
+      />
+
+      <ViscerasModal
+        open={showViscerasModal}
+        defaultValues={viscerasDefaultValues}
+        title="Confirmar entrada de vísceras"
+        successMessage="Abate registrado — peças e vísceras entraram em estoque"
+        onClose={() => {
+          setShowViscerasModal(false)
+          setViscerasDefaultValues(null)
+        }}
+        onSaved={handleViscerasConfirmado}
+      />
 
       <Modal
         open={!!detalhe}

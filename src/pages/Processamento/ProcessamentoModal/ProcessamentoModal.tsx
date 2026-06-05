@@ -10,8 +10,10 @@ interface Props {
   open: boolean
   data?: any
   initialData?: any
+  title?: string
+  successMessage?: string
   onClose: () => void
-  onSuccess?: () => void
+  onSuccess?: () => void | Promise<void>
 }
 interface ItemForm {
   corte: string
@@ -44,6 +46,8 @@ export function ProcessamentoModal({
   open,
   data,
   initialData,
+  title,
+  successMessage = 'Salvo',
   onClose,
   onSuccess,
 }: Props) {
@@ -122,7 +126,7 @@ export function ProcessamentoModal({
       observacoes: initialData?.observacoes || '',
       itens: initialData?.itens || [emptyItem()],
     })
-  }, [open, data])
+  }, [open, data, initialData])
 
   function addItem() {
     setForm((p) => ({
@@ -318,9 +322,9 @@ export function ProcessamentoModal({
         )
       }
 
-      toast.success('Salvo')
+      toast.success(successMessage)
 
-      onSuccess?.()
+      await onSuccess?.()
       onClose()
 
     } catch {
@@ -335,7 +339,7 @@ export function ProcessamentoModal({
       open={open}
       width='900px'
       onClose={onClose}
-      title={data ? 'Editar movimentação' : 'Nova movimentação'}
+      title={title ?? (data ? 'Editar movimentação' : 'Nova movimentação')}
     >
 
       <div className={styles.formSimples}>
