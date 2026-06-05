@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Trash2 } from "lucide-react";
+import { Copy, Trash2 } from 'lucide-react'
 import {
   Autocomplete,
   Button,
@@ -31,6 +31,7 @@ export function Vendas() {
   const [historico, setHistorico] = useState<any[]>([])
   const [clienteBusca, setClienteBusca] = useState('')
   const [totalGeral, setTotalGeral] = useState(0)
+  const [pesoTotalGeral, setPesoTotalGeral] = useState(0)
   const [editando, setEditando] = useState<any>(null)
   const [detalhe, setDetalhe] = useState<any>(null)
   const [clienteExtrato, setClienteExtrato] = useState<any>(null)
@@ -56,11 +57,8 @@ export function Vendas() {
   }, [page])
 
   useEffect(() => {
-    setTotalGeral(calcularTotal())
-  }, [form.itens])
-
-  useEffect(() => {
-    setTotalGeral(calcularTotal())
+    setTotalGeral(calcularTotal(form.itens))
+    setPesoTotalGeral(calcularPesoTotal(form.itens))
   }, [form.itens])
 
   const isBanda = (tipo: string) =>
@@ -102,13 +100,42 @@ export function Vendas() {
     }))
   }
 
+  function cloneItem(item: any) {
+    return {
+      tipo_corte: item.tipo_corte || '',
+      peso_total_kg: item.peso_total_kg ?? '',
+      valor_kg: item.valor_kg ?? '',
+      valor_total: item.valor_total ?? '',
+      composicoes: (item.composicoes || []).map((c: any) => ({
+        tipo_corte: c.tipo_corte,
+        peso_kg: c.peso_kg ?? '',
+      })),
+    }
+  }
+
   function updateItem(index: number, field: string, value: any) {
     const itens = [...form.itens]
     itens[index][field] = value
-    const peso = Number(itens[index].peso_total_kg || 0)
-    const valorKg = Number(itens[index].valor_kg || 0)
-    itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+
+    if (field !== 'valor_total') {
+      const peso = Number(itens[index].peso_total_kg || 0)
+      const valorKg = Number(itens[index].valor_kg || 0)
+      itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+    } else {
+      itens[index].valor_total = Number(value) || 0
+    }
+
     setForm({ ...form, itens })
+  }
+
+  function copyItem(index: number) {
+    setForm((prev: any) => {
+      const copia = cloneItem(prev.itens[index])
+      const itens = [...prev.itens]
+      itens.splice(index + 1, 0, copia)
+      return { ...prev, itens }
+    })
+    toast.success('Peça copiada — ajuste o valor total se necessário')
   }
 
   function changeTipo(index: number, tipo: string) {
@@ -138,36 +165,31 @@ export function Vendas() {
     setForm({ ...form, itens })
   }
 
-  function calcularTotal() {
-    return form.itens.reduce(
+  function calcularTotal(itens: any[]) {
+    return itens.reduce(
       (acc: number, i: any) => acc + Number(i.valor_total || 0),
       0
     )
   }
 
-  const agrupamentoId = crypto.randomUUID()
+  function calcularPesoTotal(itens: any[]) {
+    return itens.reduce((acc: number, item: any) => {
+      if (isBanda(item.tipo_corte)) {
+        const pesoBanda = (item.composicoes || []).reduce(
+          (soma: number, c: any) => soma + Number(c.peso_kg || 0),
+          0
+        )
+        return acc + pesoBanda
+      }
+      return acc + Number(item.peso_total_kg || 0)
+    }, 0)
+  }
 
-  const itensSaida = form.itens.flatMap((item: any) => {
-    const banda = isBanda(item.tipo_corte)
-
-    if (banda) {
-      return (item.composicoes || []).map((c: any) => ({
-        corte: c.tipo_corte,
-        peso_bruto_kg: Number(c.peso_kg || 0),
-        peso_liquido_kg: Number(c.peso_kg || 0),
-        agrupamento_id: agrupamentoId,
-      }))
-    }
-
-    return [
-      {
-        corte: item.tipo_corte,
-        peso_bruto_kg: Number(item.peso_total_kg || 0),
-        peso_liquido_kg: Number(item.peso_total_kg || 0),
-        agrupamento_id: null,
-      },
-    ]
-  })
+  const formatKg = (value: number) =>
+    `${Number(value || 0).toLocaleString('pt-BR', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} kg`
 
   async function handleCreate() {
     const temViscera = hasViscera(form.itens)
@@ -228,6 +250,7 @@ export function Vendas() {
       })
       setClienteBusca('')
       setTotalGeral(0)
+      setPesoTotalGeral(0)
       carregarMovimentacoes()
       setLoadingSave(false)
     } catch {
@@ -350,10 +373,26 @@ export function Vendas() {
   function updateEditItem(index: number, field: string, value: any) {
     const itens = [...editando.itens]
     itens[index][field] = value
-    const peso = Number(itens[index].peso_total_kg || 0)
-    const valorKg = Number(itens[index].valor_kg || 0)
-    itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+
+    if (field !== 'valor_total') {
+      const peso = Number(itens[index].peso_total_kg || 0)
+      const valorKg = Number(itens[index].valor_kg || 0)
+      itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
+    } else {
+      itens[index].valor_total = Number(value) || 0
+    }
+
     setEditando({ ...editando, itens })
+  }
+
+  function copyEditItem(index: number) {
+    setEditando((prev: any) => {
+      const copia = cloneItem(prev.itens[index])
+      const itens = [...prev.itens]
+      itens.splice(index + 1, 0, copia)
+      return { ...prev, itens }
+    })
+    toast.success('Peça copiada — ajuste o valor total se necessário')
   }
 
   function changeEditTipo(index: number, tipo: string) {
@@ -681,15 +720,33 @@ export function Vendas() {
                 />
               ))}
 
-            <Input label="Total" value={item.valor_total ?? ''} disabled />
+            <Input
+              label="Valor total da peça (R$)"
+              type="number"
+              min="0"
+              step="0.01"
+              value={item.valor_total ?? ''}
+              onChange={(e) => updateItem(index, 'valor_total', e.target.value)}
+            />
 
-            <Button
-              size={48}
-              variant="destructive"
-              onClick={() => removeItem(index)}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            <div className={styles.itemActions}>
+              <Button
+                size={48}
+                variant="outline"
+                onClick={() => copyItem(index)}
+                title="Copiar peça"
+              >
+                <Copy className="w-4 h-4" />
+              </Button>
+              <Button
+                size={48}
+                variant="destructive"
+                onClick={() => removeItem(index)}
+                title="Remover peça"
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
           </Card>
         ))}
 
@@ -702,13 +759,19 @@ export function Vendas() {
           onChange={(e) => setForm({ ...form, observacao: e.target.value })}
         />
 
-        <div className={styles.form}>
-          <Input
-            label="Total geral"
-            type="number"
-            value={totalGeral}
-            disabled
-          />
+        <div className={styles.resumoSalvar}>
+          <div className={styles.resumoItem}>
+            <span className={styles.resumoLabel}>Peso total</span>
+            <strong className={styles.resumoValor}>
+              {formatKg(pesoTotalGeral)}
+            </strong>
+          </div>
+          <div className={styles.resumoItem}>
+            <span className={styles.resumoLabel}>Total geral</span>
+            <strong className={styles.resumoValorHighlight}>
+              R$ {totalGeral.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+            </strong>
+          </div>
         </div>
 
         <Button
@@ -891,33 +954,56 @@ export function Vendas() {
                     ))}
 
                   <Input
-                    label="Total"
+                    label="Valor total da peça (R$)"
+                    type="number"
+                    min="0"
+                    step="0.01"
                     value={item.valor_total ?? ''}
-                    disabled
+                    onChange={(e) =>
+                      updateEditItem(index, 'valor_total', e.target.value)
+                    }
                   />
 
-
-                  <Button
-                    size={48}
-
-                    variant="destructive"
-                    onClick={() => removeEditItem(index)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className={styles.itemActions}>
+                    <Button
+                      size={48}
+                      variant="outline"
+                      onClick={() => copyEditItem(index)}
+                      title="Copiar peça"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      size={48}
+                      variant="destructive"
+                      onClick={() => removeEditItem(index)}
+                      title="Remover peça"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
                 </Card>
               ))}
             </div>
 
             <Button variant='outline' onClick={addEditItem}>+ Item</Button>
 
-            {/* Total geral do edit */}
-            <div className={styles.form}>
-              <Input
-                label="Total geral"
-                value={calcularTotalEdit(editando.itens).toFixed(2)}
-                disabled
-            />
+            <div className={styles.resumoSalvar}>
+              <div className={styles.resumoItem}>
+                <span className={styles.resumoLabel}>Peso total</span>
+                <strong className={styles.resumoValor}>
+                  {formatKg(calcularPesoTotal(editando.itens))}
+                </strong>
+              </div>
+              <div className={styles.resumoItem}>
+                <span className={styles.resumoLabel}>Total geral</span>
+                <strong className={styles.resumoValorHighlight}>
+                  R${' '}
+                  {calcularTotalEdit(editando.itens).toLocaleString('pt-BR', {
+                    minimumFractionDigits: 2,
+                  })}
+                </strong>
+              </div>
             </div>
 
             <div className={styles.modalActions}>

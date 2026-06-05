@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Card, Input, Modal, Table } from '@/components/ui'
+import { Button, Card, Input, Table } from '@/components/ui'
 import { estoqueService } from '@/services/estoque.service'
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
@@ -32,29 +32,10 @@ interface EstoqueResumoRow {
   quantidade_pecas: number
 }
 
-interface ItemForm {
-  corte: string
-  peso_liquido_kg: string
-  composicoes: { tipo_corte: string; peso_kg: string }[]
-  agrupamento_id?: string
-}
-
-const emptyItem = (): ItemForm => ({
-  corte: '',
-  peso_liquido_kg: '',
-  composicoes: [],
-})
-
-const isBanda = (tipo: string) => {
-  const t = (tipo || '').toLowerCase()
-  return t.includes('banda') || t.includes('bd')
-}
-
 export function Processamento() {
   const [historico, setHistorico] = useState<EstoqueRow[]>([])
   const [estoqueAtual, setEstoqueAtual] = useState<EstoqueResumoRow[]>([])
   const [loading, setLoading] = useState(false)
-  const [loadingSave, setLoadingSave] = useState(false)
 
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
@@ -75,34 +56,11 @@ export function Processamento() {
   const [openModal, setOpenModal] = useState(false)
   const [editar, setEditar] = useState<any>(null)
 
-  const [form, setForm] = useState({
-    lote: '',
-    tipo_movimentacao: 1,
-    data_movimentacao: new Date().toISOString().split('T')[0],
-    observacoes: '',
-    itens: [emptyItem()],
-  })
-
-  const [totalPesoForm, setTotalPesoForm] = useState(0)
-
   const formatKg = (value: number) =>
     `${Number(value || 0).toLocaleString('pt-BR', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })} kg`
-
-  const calcularPesoItem = (item: ItemForm) => {
-    if (isBanda(item.corte)) {
-      return item.composicoes.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
-    }
-    return Number(item.peso_liquido_kg || 0)
-  }
-
-  useEffect(() => {
-    setTotalPesoForm(
-      form.itens.reduce((acc, i) => acc + calcularPesoItem(i), 0),
-    )
-  }, [form.itens])
 
   async function carregarResumo() {
     const resumo = await estoqueService.getEstoqueAtual(
@@ -146,10 +104,6 @@ export function Processamento() {
   useEffect(() => {
     carregarHistorico(page)
   }, [page, searchDebounced, startDateDebounced, endDateDebounced, loteDebounced, corteDebounced])
-
-  function addItem() {
-    setForm((p) => ({ ...p, itens: [...p.itens, emptyItem()] }))
-  }
 
   async function handleDelete(id: number) {
     if (!confirm('Excluir?')) return

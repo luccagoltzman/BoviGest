@@ -185,22 +185,6 @@ export function ProcessamentoModal({
     })
   }
 
-  const groupedItens = Object.values(
-    form.itens.reduce((acc: any, item: any) => {
-      const key = item.agrupamento_id ?? `single-${item.id}`
-
-      if (!acc[key]) {
-        acc[key] = {
-          agrupamento_id: item.agrupamento_id,
-          itens: [],
-        }
-      }
-
-      acc[key].itens.push(item)
-
-      return acc
-    }, {})
-  )
   function updateComposicao(
     itemIndex: number,
     compIndex: number,

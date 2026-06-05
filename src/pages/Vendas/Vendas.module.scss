@@ -29,6 +29,50 @@
   margin-top: 0.5rem;
 }
 
+.itemActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.resumoSalvar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.75rem;
+  padding: 1rem 1.1rem;
+  background: rgba($color-primary, 0.06);
+  border: 1px solid rgba($color-border, 0.85);
+  border-radius: $radius;
+}
+
+.resumoItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.resumoLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+.resumoValor {
+  font-size: 1.15rem;
+  font-weight: 800;
+  color: $color-primary-dark;
+  letter-spacing: -0.02em;
+}
+
+.resumoValorHighlight {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--theme-primary);
+  letter-spacing: -0.02em;
+}
+
 .fontenfo {
   font-size: 13px;
 }
