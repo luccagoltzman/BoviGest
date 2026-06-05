@@ -9,6 +9,8 @@ interface Composicao {
 interface MovimentacaoItem {
   tipo_corte: string
   peso_total_kg: number
+  valor_kg?: number
+  valor_total?: number
   composicoes?: Composicao[]
 }
 
@@ -77,40 +79,94 @@ function getBandaComposicao(item: MovimentacaoItem) {
   return { dianteiro, traseiro }
 }
 
-function formatItemDetalhe(item: MovimentacaoItem) {
-  const comp = getBandaComposicao(item)
-  let texto = `${item.tipo_corte} · ${Number(item.peso_total_kg).toFixed(2)} kg`
-  if (comp) {
-    const partes: string[] = []
-    if (comp.dianteiro > 0) partes.push(`D ${comp.dianteiro.toFixed(1)} kg`)
-    if (comp.traseiro > 0) partes.push(`T ${comp.traseiro.toFixed(1)} kg`)
-    if (partes.length) texto += ` (${partes.join(', ')})`
-  }
-  return texto
+function isViscera(tipo: string) {
+  return (tipo || '').toLowerCase() === 'visceras'
 }
 
-function buildHistoricoRows(
+function formatCorteItem(item: MovimentacaoItem) {
+  const comp = getBandaComposicao(item)
+  let corte = item.tipo_corte || '—'
+
+  if (comp) {
+    const partes: string[] = []
+    if (comp.dianteiro > 0) {
+      partes.push(`Diant.: ${comp.dianteiro.toFixed(2)} kg`)
+    }
+    if (comp.traseiro > 0) {
+      partes.push(`Tras.: ${comp.traseiro.toFixed(2)} kg`)
+    }
+    if (partes.length) corte += `\n${partes.join(' · ')}`
+  }
+
+  return corte
+}
+
+function formatPesoItem(item: MovimentacaoItem) {
+  if (isViscera(item.tipo_corte)) {
+    return `${Number(item.peso_total_kg || 0)} un`
+  }
+  return `${Number(item.peso_total_kg || 0).toFixed(2)} kg`
+}
+
+function formatValorUnitarioItem(item: MovimentacaoItem) {
+  const valor = Number(item.valor_kg || 0)
+  if (isViscera(item.tipo_corte)) {
+    return `${formatCurrency(valor)}/un`
+  }
+  return `${formatCurrency(valor)}/kg`
+}
+
+interface HistoricoDetalhadoRow {
+  data: string
+  tipo: string
+  corte: string
+  peso: string
+  valorUnitario: string
+  valor: string
+  sortTs: number
+}
+
+function buildHistoricoDetalhadoRows(
   movimentacoes: Movimentacao[],
   recebimentos: Recebimento[],
-) {
-  const vendas = movimentacoes.map((m) => ({
-    data: m.data_movimentacao,
-    tipo: 'Venda',
-    detalhes:
-      m.itens?.map(formatItemDetalhe).join(' | ') || 'Sem itens',
-    valor: formatCurrency(Number(m.valor_total)),
-  }))
+): HistoricoDetalhadoRow[] {
+  const rows: HistoricoDetalhadoRow[] = []
 
-  const recs = recebimentos.map((r) => ({
-    data: r.data_recebimento,
-    tipo: 'Recebimento',
-    detalhes: [r.forma_pagamento, r.observacao].filter(Boolean).join(' · ') || '—',
-    valor: `− ${formatCurrency(Number(r.valor))}`,
-  }))
+  movimentacoes.forEach((m) => {
+    const itens = m.itens?.length ? m.itens : [null]
 
-  return [...vendas, ...recs].sort(
-    (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime(),
-  )
+    itens.forEach((item) => {
+      rows.push({
+        data: formatDate(m.data_movimentacao),
+        tipo: 'Venda',
+        corte: item ? formatCorteItem(item) : 'Sem itens',
+        peso: item ? formatPesoItem(item) : '—',
+        valorUnitario: item ? formatValorUnitarioItem(item) : '—',
+        valor: formatCurrency(
+          Number(item?.valor_total ?? m.valor_total ?? 0),
+        ),
+        sortTs: new Date(m.data_movimentacao).getTime(),
+      })
+    })
+  })
+
+  recebimentos.forEach((r) => {
+    const detalhe = [r.forma_pagamento, r.observacao]
+      .filter(Boolean)
+      .join(' · ')
+
+    rows.push({
+      data: formatDate(r.data_recebimento),
+      tipo: 'Recebimento',
+      corte: detalhe || '—',
+      peso: '—',
+      valorUnitario: '—',
+      valor: `− ${formatCurrency(Number(r.valor))}`,
+      sortTs: new Date(r.data_recebimento).getTime(),
+    })
+  })
+
+  return rows.sort((a, b) => b.sortTs - a.sortTs)
 }
 
 export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
@@ -211,34 +267,49 @@ export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(11)
-  doc.text('Histórico', margin, y)
+  doc.text('Histórico detalhado', margin, y)
   y += 4
 
-  const historicoRows = buildHistoricoRows(
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.5)
+  doc.setTextColor(80, 80, 80)
+  doc.text(
+    'Cada peça da venda é listada em uma linha com peso, valor unitário e total.',
+    margin,
+    y,
+  )
+  doc.setTextColor(0, 0, 0)
+  y += 5
+
+  const historicoRows = buildHistoricoDetalhadoRows(
     input.movimentacoes,
     input.recebimentos,
   )
 
   autoTable(doc, {
     startY: y,
-    head: [['Data', 'Tipo', 'Detalhes', 'Valor']],
+    head: [['Data', 'Tipo', 'Corte', 'Peso', 'Valor unit.', 'Total']],
     body:
       historicoRows.length > 0
         ? historicoRows.map((row) => [
-            formatDate(row.data),
+            row.data,
             row.tipo,
-            row.detalhes,
+            row.corte,
+            row.peso,
+            row.valorUnitario,
             row.valor,
           ])
-        : [['—', '—', 'Nenhum registro no período.', '—']],
+        : [['—', '—', 'Nenhum registro no período.', '—', '—', '—']],
     theme: 'striped',
     headStyles: { fillColor: [37, 111, 62], textColor: 255, fontStyle: 'bold' },
     styles: { fontSize: 8.5, cellPadding: 2.5, overflow: 'linebreak' },
     columnStyles: {
-      0: { cellWidth: 22 },
-      1: { cellWidth: 24 },
-      2: { cellWidth: 'auto' },
-      3: { halign: 'right', cellWidth: 30 },
+      0: { cellWidth: 20 },
+      1: { cellWidth: 22 },
+      2: { cellWidth: 52 },
+      3: { halign: 'right', cellWidth: 22 },
+      4: { halign: 'right', cellWidth: 28 },
+      5: { halign: 'right', cellWidth: 28 },
     },
     margin: { left: margin, right: margin },
   })
