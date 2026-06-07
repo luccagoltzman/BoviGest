@@ -32,6 +32,9 @@
   padding: 1.5rem;
   background: transparent;
   min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
+  box-sizing: border-box;
 }
 
 @include tablet-down {

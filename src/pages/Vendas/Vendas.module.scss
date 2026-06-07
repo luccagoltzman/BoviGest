@@ -110,8 +110,22 @@
 }
 
 @media (max-width: 768px) {
-  .form {
+  .form,
+  .formSimples {
     grid-template-columns: 1fr;
+    grid-auto-flow: row;
+  }
+
+  .actions,
+  .itemActions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+
+    :global(button) {
+      flex: 1;
+      min-width: 0;
+    }
   }
 }
 

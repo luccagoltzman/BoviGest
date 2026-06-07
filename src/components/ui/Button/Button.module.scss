@@ -1,4 +1,5 @@
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .btn {
   display: inline-flex;
@@ -17,8 +18,10 @@
     box-shadow 0.2s,
     transform 0.2s;
 
-  &:hover:not(:disabled) {
-    transform: translateY(-1px);
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
   }
 
   &:disabled {
@@ -28,6 +31,7 @@
 
   &.fullWidth {
     width: 100%;
+    max-width: none;
   }
 }
 
@@ -41,8 +45,11 @@
   box-shadow: 0 10px 22px rgba($color-primary, 0.24);
   max-height: 42px;
   max-width: 200px;
-  &:hover:not(:disabled) {
-    box-shadow: 0 14px 28px rgba($color-primary, 0.28);
+
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      box-shadow: 0 14px 28px rgba($color-primary, 0.28);
+    }
   }
 }
 
@@ -51,8 +58,11 @@
   color: #fff;
   max-height: 42px;
   max-width: 200px;
-  &:hover:not(:disabled) {
-    opacity: 0.9;
+
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
   }
 }
 
@@ -61,8 +71,11 @@
   color: #fff;
   max-height: 42px;
   max-width: 200px;
-  &:hover:not(:disabled) {
-    opacity: 0.9;
+
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
   }
 }
 
@@ -71,8 +84,10 @@
   color: $color-primary;
   border: 1px solid rgba($color-primary, 0.32);
 
-  &:hover:not(:disabled) {
-    background: rgba($color-primary, 0.08);
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      background: rgba($color-primary, 0.08);
+    }
   }
 }
 
@@ -80,8 +95,10 @@
   background: rgba($color-primary, 0.08);
   color: $color-primary-dark;
 
-  &:hover:not(:disabled) {
-    background: rgba($color-primary, 0.14);
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      background: rgba($color-primary, 0.14);
+    }
   }
 }
 
@@ -89,8 +106,10 @@
   background: $color-danger;
   color: #fff;
 
-  &:hover:not(:disabled) {
-    opacity: 0.9;
+  @include hover-capable {
+    &:hover:not(:disabled) {
+      opacity: 0.9;
+    }
   }
 }
 
@@ -106,5 +125,17 @@
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+@include mobile-down {
+  .btn {
+    min-height: 2.75rem;
+  }
+
+  .primary,
+  .secondary,
+  .destructive {
+    max-width: none;
   }
 }

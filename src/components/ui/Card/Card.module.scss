@@ -1,9 +1,13 @@
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .card {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
   background: rgba(255, 255, 255, 0.9);
   border-radius: $radius;
   box-shadow: $shadow;
@@ -13,12 +17,14 @@
     transform 0.2s ease,
     box-shadow 0.2s ease;
 
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 20px 48px rgba(17, 53, 31, 0.1);
+  @include hover-capable {
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 48px rgba(17, 53, 31, 0.1);
+    }
   }
 
-  &+& {
+  & + & {
     margin-top: 1rem;
   }
 }
@@ -29,4 +35,23 @@
   color: $color-primary-dark;
   margin-bottom: 1.1rem;
   letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+@include mobile-down {
+  .card {
+    padding: 1rem;
+    border-radius: $radius-sm;
+  }
+
+  .title {
+    font-size: 0.95rem;
+    margin-bottom: 0.85rem;
+  }
+}
+
+@include small-down {
+  .card {
+    padding: 0.85rem;
+  }
 }

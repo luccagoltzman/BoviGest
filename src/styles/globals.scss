@@ -63,6 +63,7 @@ body {
 
 body.menu-open {
   overflow: hidden;
+  touch-action: none;
 }
 
 .page-title {
@@ -77,5 +78,14 @@ body.menu-open {
 @include mobile-down {
   .page-title {
     margin-bottom: 1rem;
+  }
+
+  button,
+  [role='button'],
+  a,
+  input,
+  select,
+  textarea {
+    font-size: max(16px, 1em);
   }
 }

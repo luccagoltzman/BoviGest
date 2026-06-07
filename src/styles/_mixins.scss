@@ -19,3 +19,14 @@ $breakpoint-small: 640px;
     @content;
   }
 }
+
+@mixin hover-capable {
+  @media (hover: hover) and (pointer: fine) {
+    @content;
+  }
+}
+
+@mixin touch-target {
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+}

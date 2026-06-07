@@ -107,11 +107,26 @@
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
     animation: slideUp 0.22s ease;
+    padding-bottom: env(safe-area-inset-bottom);
   }
 
   .header,
   .body {
     padding-inline: 1rem;
+  }
+
+  .detailRow {
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+
+  .detailLabel {
+    min-width: 0;
+  }
+
+  .close {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
   }
 }
 

@@ -1,3 +1,4 @@
+export { TouchTooltip, touchTooltipStyles } from './TouchTooltip'
 export { Button } from './Button'
 export { Input } from './Input'
 export { Card } from './Card'

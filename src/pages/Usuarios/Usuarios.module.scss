@@ -1,4 +1,5 @@
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .page {
   padding: 0;
@@ -13,4 +14,21 @@
 .actions {
   grid-column: 1 / -1;
   margin-top: 0.5rem;
+}
+
+@include mobile-down {
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.65rem;
+
+    :global(button) {
+      flex: 1;
+      min-width: 0;
+    }
+  }
 }

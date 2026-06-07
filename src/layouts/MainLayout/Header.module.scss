@@ -27,8 +27,8 @@
 
 .menuButton {
   display: none;
-  width: 2.5rem;
-  height: 2.5rem;
+  width: 2.75rem;
+  height: 2.75rem;
   border: 1px solid $color-border;
   border-radius: 12px;
   background: $color-surface;
@@ -183,7 +183,7 @@
   }
 
   .logoutButton {
-    min-height: 2.35rem;
-    padding: 0.5rem 0.75rem;
+    min-height: 2.75rem;
+    padding: 0.5rem 0.85rem;
   }
 }

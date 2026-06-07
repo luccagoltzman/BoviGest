@@ -19,6 +19,11 @@ interface TableProps<T> {
   onPageChange?: (page: number) => void
 }
 
+function renderCell<T>(row: T, col: Column<T>) {
+  if (col.render) return col.render(row)
+  return String((row as Record<string, unknown>)[col.key as string] ?? '')
+}
+
 export function Table<T>({
   columns,
   data,
@@ -69,16 +74,25 @@ export function Table<T>({
             {data.map((row) => (
               <tr key={keyExtractor(row)}>
                 {columns.map((col) => (
-                  <td key={String(col.key)}>
-                    {col.render
-                      ? col.render(row)
-                      : String((row as any)[col.key] ?? '')}
-                  </td>
+                  <td key={String(col.key)}>{renderCell(row, col)}</td>
                 ))}
               </tr>
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className={styles.mobileList}>
+        {data.map((row) => (
+          <article key={keyExtractor(row)} className={styles.mobileCard}>
+            {columns.map((col) => (
+              <div key={String(col.key)} className={styles.mobileRow}>
+                <span className={styles.mobileLabel}>{col.header}</span>
+                <div className={styles.mobileValue}>{renderCell(row, col)}</div>
+              </div>
+            ))}
+          </article>
+        ))}
       </div>
 
       {hasPagination && (

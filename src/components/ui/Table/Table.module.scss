@@ -1,4 +1,5 @@
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .tableShell {
   overflow: hidden;
@@ -9,6 +10,11 @@
 
 .wrap {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mobileList {
+  display: none;
 }
 
 .table {
@@ -38,8 +44,10 @@
     color: $color-text;
   }
 
-  tbody tr:hover {
-    background: rgba($color-primary, 0.04);
+  @include hover-capable {
+    tbody tr:hover {
+      background: rgba($color-primary, 0.04);
+    }
   }
 
   tbody tr:last-child td {
@@ -47,8 +55,48 @@
   }
 }
 
+.mobileCard {
+  padding: 0.85rem 0.95rem;
+  border-bottom: 1px solid rgba($color-border, 0.85);
+  background: $color-surface;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+.mobileRow {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.45rem 0;
+
+  & + & {
+    border-top: 1px dashed rgba($color-border, 0.75);
+  }
+}
+
+.mobileLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+.mobileValue {
+  font-size: 0.88rem;
+  color: $color-text;
+  word-break: break-word;
+
+  :global(button),
+  :global(a) {
+    min-height: 2.75rem;
+  }
+}
+
 .empty {
-  padding: 2.5rem;
+  padding: 2.5rem 1rem;
   text-align: center;
   color: $color-text-muted;
   background: $color-surface;
@@ -79,8 +127,8 @@
   color: $color-text-muted;
 
   button {
-    min-height: 2.1rem;
-    padding: 0.4rem 0.75rem;
+    @include touch-target;
+    padding: 0.45rem 0.9rem;
     border: 1px solid $color-border;
     border-radius: 999px;
     background: $color-surface;
@@ -92,9 +140,11 @@
       border-color 0.2s,
       color 0.2s;
 
-    &:hover:not(:disabled) {
-      background: rgba($color-primary, 0.08);
-      border-color: rgba($color-primary, 0.3);
+    @include hover-capable {
+      &:hover:not(:disabled) {
+        background: rgba($color-primary, 0.08);
+        border-color: rgba($color-primary, 0.3);
+      }
     }
 
     &:disabled {
@@ -104,18 +154,22 @@
   }
 }
 
-@media (max-width: 768px) {
-  .table {
-    font-size: 0.82rem;
+@include mobile-down {
+  .wrap {
+    display: none;
+  }
 
-    th,
-    td {
-      padding: 0.65rem 0.75rem;
-    }
+  .mobileList {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .tableShell {
+    border-radius: $radius-sm;
   }
 }
 
-@media (max-width: 640px) {
+@include small-down {
   .pagination {
     align-items: stretch;
     flex-direction: column;
@@ -124,6 +178,10 @@
   .pageActions {
     justify-content: space-between;
     flex-wrap: wrap;
+
+    button {
+      flex: 1;
+    }
   }
 
   .pageInfo {

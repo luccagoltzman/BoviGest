@@ -1,11 +1,15 @@
 @use 'sass:color';
 @use 'styles/variables' as *;
+@use 'styles/mixins' as *;
 
 .page {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
   padding: 0;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 // —— Cabeçalho ——
@@ -295,6 +299,11 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+  min-width: 0;
+
+  > * {
+    min-width: 0;
+  }
 }
 
 .sectionFull {
@@ -313,18 +322,24 @@
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rankingItem {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rankingRow {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .rankingRank {
@@ -373,15 +388,23 @@
 }
 
 .rankingValue {
-  flex-shrink: 0;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 42%;
   font-weight: 800;
   font-size: 0.9rem;
   color: $color-primary-dark;
   letter-spacing: -0.02em;
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .rankingBar {
   height: 6px;
+  width: 100%;
+  max-width: 100%;
   border-radius: 999px;
   background: rgba($color-primary, 0.08);
   overflow: hidden;
@@ -404,6 +427,7 @@
   margin: -0.25rem 0;
   border-radius: $radius-sm;
   border: 1px solid rgba($color-border, 0.7);
+  -webkit-overflow-scrolling: touch;
 }
 
 .table {
@@ -486,12 +510,16 @@
   margin-top: 1rem;
   padding-top: 0.85rem;
   border-top: 1px solid rgba($color-border, 0.65);
+  min-width: 0;
 }
 
 .cardTotal {
+  flex: 1 1 auto;
+  min-width: 0;
   font-size: 0.88rem;
   font-weight: 600;
   color: $color-text-muted;
+  word-break: break-word;
 
   strong {
     color: $color-primary-dark;
@@ -502,7 +530,9 @@
 .moduleLink {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
+  flex-shrink: 0;
   padding: 0.45rem 0.85rem;
   border-radius: $radius-sm;
   font-size: 0.84rem;
@@ -511,6 +541,7 @@
   background: rgba($color-primary, 0.08);
   text-decoration: none;
   transition: background 0.2s, color 0.2s;
+  white-space: nowrap;
 
   svg {
     width: 0.95rem;
@@ -671,6 +702,60 @@
   }
 
   .kpiGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .quickActionsGrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .kpiGrid {
+    min-width: 0;
+  }
+
+  .cardFooter {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .cardTotal {
+    text-align: center;
+  }
+
+  .moduleLink {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .rankingRow {
+    flex-wrap: wrap;
+    row-gap: 0.35rem;
+  }
+
+  .rankingMeta {
+    flex: 1 1 calc(100% - 2.4rem);
+  }
+
+  .rankingValue {
+    flex: 1 1 100%;
+    max-width: none;
+    padding-left: 2.35rem;
+    text-align: left;
+    font-size: 0.84rem;
+  }
+
+  .quickAction {
+    @include hover-capable {
+      &:hover {
+        transform: none;
+      }
+    }
+  }
+}
+
+@include small-down {
+  .quickActionsGrid {
     grid-template-columns: 1fr;
   }
 }

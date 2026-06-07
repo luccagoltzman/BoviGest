@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Card, Input, Table } from '@/components/ui'
+import { Button, Card, Input, Table, TouchTooltip, touchTooltipStyles } from '@/components/ui'
 import { estoqueService } from '@/services/estoque.service'
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
@@ -137,21 +137,16 @@ export function Processamento() {
       key: 'itens',
       header: 'Itens',
       render: (r: EstoqueRow) => (
-        <div className={styles.tooltipWrapper}>
-          <button className={styles.detalhesButton}>
-            Ver itens ({r.itens?.length || 0})
-          </button>
-
-          <div className={styles.tooltipContent}>
-            {r.itens?.map((item) => (
-              <div key={item.id} className={styles.tooltipItem}>
-                <strong>
-                  {item.agrupamento_id ? 'BANDA -' : ''}  {item.corte} - {item.peso_bruto_kg} Kg
-                </strong>
-              </div>
-            ))}
-          </div>
-        </div>
+        <TouchTooltip label={`Ver itens (${r.itens?.length || 0})`}>
+          {r.itens?.map((item) => (
+            <div key={item.id} className={touchTooltipStyles.item}>
+              <strong>
+                {item.agrupamento_id ? 'BANDA - ' : ''}
+                {item.corte} - {item.peso_bruto_kg} Kg
+              </strong>
+            </div>
+          ))}
+        </TouchTooltip>
       ),
     },
     {

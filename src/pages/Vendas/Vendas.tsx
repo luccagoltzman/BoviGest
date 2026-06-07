@@ -8,6 +8,8 @@ import {
   Modal,
   ModalDetails,
   Table,
+  TouchTooltip,
+  touchTooltipStyles,
 } from '@/components/ui'
 
 import toast from 'react-hot-toast'
@@ -553,39 +555,28 @@ export function Vendas() {
       key: 'detalhes',
       header: 'Itens',
       render: (r: any) => (
-        <div className={styles.tooltipWrapper}>
-          <button className={styles.detalhesButton}>
-            Ver itens ({r.itens?.length || 0})
-          </button>
-
-          <div className={styles.tooltipContent}>
-            {r.itens?.map((item: any, index: number) => (
-              <div key={index} className={styles.tooltipItem}>
-                <strong>{item.tipo_corte}</strong>
-
-                <span>
-                  {isViscera(item.tipo_corte)
-                    ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
-                    : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
-                  }
-                </span>
-
-
-                <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
-
-                {item.composicoes?.length > 0 && (
-                  <div className={styles.tooltipComposicoes}>
-                    {item.composicoes.map((c: any, i: number) => (
-                      <small key={i}>
-                        {c.tipo_corte}: {Number(c.peso_kg).toFixed(2)}kg
-                      </small>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+        <TouchTooltip label={`Ver itens (${r.itens?.length || 0})`}>
+          {r.itens?.map((item: any, index: number) => (
+            <div key={index} className={touchTooltipStyles.item}>
+              <strong>{item.tipo_corte}</strong>
+              <span>
+                {isViscera(item.tipo_corte)
+                  ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                  : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
+              </span>
+              <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
+              {item.composicoes?.length > 0 && (
+                <div className={touchTooltipStyles.subitems}>
+                  {item.composicoes.map((c: any, i: number) => (
+                    <small key={i}>
+                      {c.tipo_corte}: {Number(c.peso_kg).toFixed(2)}kg
+                    </small>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </TouchTooltip>
       ),
     },
     {
