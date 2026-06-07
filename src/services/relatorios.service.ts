@@ -155,6 +155,34 @@ function formatChartDayLabel(isoDate: string) {
   return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
 }
 
+function isoDateFromValue(value: string) {
+  return value.slice(0, 10)
+}
+
+function eachDayInRange(startDate: string, endDate: string) {
+  const start = isoDateFromValue(startDate)
+  const end = isoDateFromValue(endDate)
+  const [sy, sm, sd] = start.split('-').map(Number)
+  const [ey, em, ed] = end.split('-').map(Number)
+  const cursor = new Date(sy, sm - 1, sd, 12, 0, 0)
+  const limit = new Date(ey, em - 1, ed, 12, 0, 0)
+  const days: string[] = []
+
+  if (Number.isNaN(cursor.getTime()) || Number.isNaN(limit.getTime())) {
+    return days
+  }
+
+  while (cursor <= limit) {
+    const y = cursor.getFullYear()
+    const m = String(cursor.getMonth() + 1).padStart(2, '0')
+    const d = String(cursor.getDate()).padStart(2, '0')
+    days.push(`${y}-${m}-${d}`)
+    cursor.setDate(cursor.getDate() + 1)
+  }
+
+  return days
+}
+
 function montarSerieFinanceira(
   compras: RawCompra[],
   vendas: RawVenda[],
@@ -169,31 +197,22 @@ function montarSerieFinanceira(
   }
 
   for (const compra of compras) {
-    const dia = (compra.data || '').slice(0, 10)
+    const dia = isoDateFromValue(compra.data || '')
     if (!dia) continue
     ensureDay(dia)
     map.get(dia)!.compras += Number(compra.valor_total || 0)
   }
 
   for (const venda of vendas) {
-    const dia = (venda.data_movimentacao || '').slice(0, 10)
+    const dia = isoDateFromValue(venda.data_movimentacao || '')
     if (!dia) continue
     ensureDay(dia)
     map.get(dia)!.vendas += Number(venda.valor_total || 0)
   }
 
   if (filtros.startDate && filtros.endDate) {
-    const start = new Date(`${filtros.startDate.slice(0, 10)}T12:00:00`)
-    const end = new Date(`${filtros.endDate.slice(0, 10)}T12:00:00`)
-
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-      for (
-        let cursor = new Date(start);
-        cursor <= end;
-        cursor.setDate(cursor.getDate() + 1)
-      ) {
-        ensureDay(cursor.toISOString().slice(0, 10))
-      }
+    for (const dia of eachDayInRange(filtros.startDate, filtros.endDate)) {
+      ensureDay(dia)
     }
   }
 

@@ -20,6 +20,9 @@ import type {
 } from '@/services/relatorios.service'
 import styles from './DashboardCharts.module.scss'
 
+const CHART_HEIGHT = 280
+const CHART_HEIGHT_COMPACT = 260
+
 const CHART_COLORS = {
   compras: '#2f80ed',
   vendas: '#18864b',
@@ -45,7 +48,7 @@ function formatAxisKg(value: number) {
   return `${value.toLocaleString('pt-BR', { maximumFractionDigits: 0 })} kg`
 }
 
-function ChartTooltip({
+function CurrencyTooltip({
   active,
   payload,
   label,
@@ -62,7 +65,7 @@ function ChartTooltip({
       {payload.map((entry) => (
         <div key={entry.name} className={styles.tooltipRow}>
           <span>{entry.name}</span>
-          <strong>{formatKg(Number(entry.value || 0))}</strong>
+          <strong>{formatCurrency(Number(entry.value || 0))}</strong>
         </div>
       ))}
     </div>
@@ -170,7 +173,7 @@ export function DashboardCharts({
         ) : (
           <>
             <div className={styles.chartWrap}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height={CHART_HEIGHT} minWidth={0}>
                 <AreaChart
                   data={serieFinanceira}
                   margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -220,7 +223,7 @@ export function DashboardCharts({
                     axisLine={false}
                     width={72}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<CurrencyTooltip />} />
                   <Area
                     type="monotone"
                     dataKey="compras"
@@ -265,7 +268,11 @@ export function DashboardCharts({
             </div>
           ) : (
             <div className={styles.chartWrapCompact}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height={CHART_HEIGHT_COMPACT}
+                minWidth={0}
+              >
                 <BarChart
                   data={resumoFinanceiro}
                   margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -288,7 +295,7 @@ export function DashboardCharts({
                     axisLine={false}
                     width={72}
                   />
-                  <Tooltip content={<ChartTooltip />} />
+                  <Tooltip content={<CurrencyTooltip />} />
                   <Bar dataKey="valor" name="Valor" radius={[8, 8, 0, 0]}>
                     {resumoFinanceiro.map((entry) => (
                       <Cell key={entry.nome} fill={entry.fill} />
@@ -310,7 +317,11 @@ export function DashboardCharts({
             </div>
           ) : (
             <div className={styles.chartWrapCompact}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height={CHART_HEIGHT_COMPACT}
+                minWidth={0}
+              >
                 <BarChart
                   data={vendasCorte}
                   layout="vertical"
@@ -381,7 +392,11 @@ export function DashboardCharts({
             <div className={styles.chartEmpty}>Nenhum saldo em estoque.</div>
           ) : (
             <div className={styles.chartWrapCompact}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height={CHART_HEIGHT_COMPACT}
+                minWidth={0}
+              >
                 <BarChart
                   data={estoqueCorte}
                   margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -452,7 +467,11 @@ export function DashboardCharts({
             </div>
           ) : (
             <div className={styles.chartWrapCompact}>
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer
+                width="100%"
+                height={CHART_HEIGHT_COMPACT}
+                minWidth={0}
+              >
                 <BarChart
                   data={movimentacaoEstoque}
                   margin={{ top: 8, right: 8, left: 0, bottom: 0 }}

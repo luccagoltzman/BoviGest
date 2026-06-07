@@ -28,12 +28,12 @@
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  min-height: 280px;
+  height: 280px;
   overflow: hidden;
 }
 
 .chartWrapCompact {
-  min-height: 260px;
+  height: 260px;
 }
 
 .chartLegend {
@@ -103,8 +103,11 @@
 }
 
 @media (max-width: 768px) {
-  .chartWrap,
+  .chartWrap {
+    height: 220px;
+  }
+
   .chartWrapCompact {
-    min-height: 220px;
+    height: 220px;
   }
 }
