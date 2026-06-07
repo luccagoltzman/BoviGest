@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import { PageReveal } from '@/components/ui'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import styles from './MainLayout.module.scss'
@@ -46,7 +47,9 @@ export function MainLayout() {
           onMenuToggle={() => setMenuOpen((open) => !open)}
         />
         <main className={styles.content}>
-          <Outlet />
+          <PageReveal>
+            <Outlet />
+          </PageReveal>
         </main>
       </div>
     </div>

@@ -8,6 +8,7 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 export function Card({ title, children, className = '', ...props }: CardProps) {
   return (
     <div
+      data-reveal-target
       className={[styles.card, className].filter(Boolean).join(' ')}
       {...props}
     >

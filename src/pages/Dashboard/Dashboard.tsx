@@ -138,7 +138,7 @@ export function Dashboard() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.header}>
+      <header data-reveal-target className={styles.header}>
         <div className={styles.headerText}>
           <h1 className="page-title">Dashboard</h1>
           <p className={styles.subtitle}>
@@ -151,7 +151,7 @@ export function Dashboard() {
         </div>
       </header>
 
-      <div className={styles.toolbar}>
+      <div data-reveal-target className={styles.toolbar}>
         <div className={styles.toolbarFields}>
           <Input
             label="Data inicial"

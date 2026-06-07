@@ -23,6 +23,7 @@ export function KpiCard({
 }) {
   return (
     <article
+      data-reveal-target
       className={[
         styles.kpiCard,
         highlight && styles.kpiCardHighlight,
