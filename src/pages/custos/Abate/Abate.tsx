@@ -21,8 +21,7 @@ import {
   type TipoCobrancaAbate,
 } from '@/utils/abateCalc'
 import {
-  gerarPecasBandaPorAbate,
-  pecasParaModalProcessamento,
+  gerarItemBandaModalAbate,
   viscerasDefaultValuesPorAbate,
 } from '@/utils/abateEstoque'
 import styles from './Abate.module.scss'
@@ -337,12 +336,12 @@ export function Abate() {
     }
 
     const parsed = parseForm(form)
-    const pecas = gerarPecasBandaPorAbate(
+    const itens = gerarItemBandaModalAbate(
       parsed.qtd_animais,
       parsed.peso_liquido_kg,
     )
 
-    if (pecas.length === 0) {
+    if (itens.length === 0) {
       toast.error('Informe a quantidade de animais para gerar as peças')
       return
     }
@@ -352,7 +351,7 @@ export function Abate() {
       tipo_movimentacao: 1,
       data_movimentacao: parsed.data_abate,
       observacoes: 'Entrada automática — abate',
-      itens: pecasParaModalProcessamento(pecas),
+      itens,
     })
     setShowEstoqueModal(true)
   }
