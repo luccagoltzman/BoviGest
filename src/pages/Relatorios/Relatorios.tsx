@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import {
-  ArrowRight,
+  ArrowDownLeft,
+  ArrowUpRight,
   BarChart3,
   Package,
   RefreshCw,
@@ -10,16 +10,25 @@ import {
   TrendingUp,
   Wallet,
   Scale,
-  ArrowDownLeft,
-  ArrowUpRight,
 } from 'lucide-react'
 import { Button, Card, Input } from '@/components/ui'
+import {
+  CardFooter,
+  DataTable,
+  formatCurrency,
+  formatDateBr,
+  formatKg,
+  formatPeriodLabel,
+  KpiCard,
+  LoadingBox,
+  RankingList,
+  reportStyles as styles,
+} from '@/components/relatorios'
 import {
   getDefaultPeriod,
   relatoriosService,
   type RelatorioDados,
 } from '@/services/relatorios.service'
-import styles from './Relatorios.module.scss'
 
 type TabId = 'resumo' | 'compras' | 'vendas' | 'estoque' | 'custos'
 
@@ -30,25 +39,6 @@ const tabs: { id: TabId; label: string; icon: typeof BarChart3 }[] = [
   { id: 'estoque', label: 'Estoque', icon: Package },
   { id: 'custos', label: 'Custos', icon: Wallet },
 ]
-
-const formatCurrency = (value: number) =>
-  value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-
-const formatKg = (value: number) =>
-  `${Number(value || 0).toLocaleString('pt-BR', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })} kg`
-
-const formatDateBr = (value: string) => {
-  if (!value) return '—'
-  const date = new Date(`${value.slice(0, 10)}T12:00:00`)
-  if (Number.isNaN(date.getTime())) return value
-  return date.toLocaleDateString('pt-BR')
-}
-
-const formatPeriodLabel = (start: string, end: string) =>
-  `${formatDateBr(start)} — ${formatDateBr(end)}`
 
 export function Relatorios() {
   const defaultPeriod = getDefaultPeriod()
@@ -153,10 +143,7 @@ export function Relatorios() {
 
       <div className={styles.content}>
         {loading && !data && (
-          <div className={styles.loadingBox}>
-            <div className={styles.spinner} aria-hidden />
-            <span>Carregando relatórios...</span>
-          </div>
+          <LoadingBox message="Carregando relatórios..." />
         )}
 
         {data && tab === 'resumo' && (
@@ -402,208 +389,6 @@ export function Relatorios() {
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  icon,
-  iconClass,
-  highlight,
-  valueClass,
-}: {
-  label: string
-  value: string
-  sub: string
-  icon?: React.ReactNode
-  iconClass?: string
-  highlight?: boolean
-  valueClass?: string
-}) {
-  return (
-    <article
-      className={[
-        styles.kpiCard,
-        highlight && styles.kpiCardHighlight,
-      ]
-        .filter(Boolean)
-        .join(' ')}
-    >
-      {icon && (
-        <div className={[styles.kpiIcon, iconClass].filter(Boolean).join(' ')}>
-          {icon}
-        </div>
-      )}
-      <div className={styles.kpiBody}>
-        <span className={styles.kpiLabel}>{label}</span>
-        <strong className={[styles.kpiValue, valueClass].filter(Boolean).join(' ')}>
-          {value}
-        </strong>
-        <p className={styles.kpiSub}>{sub}</p>
-      </div>
-    </article>
-  )
-}
-
-function RankingList({
-  rows,
-  empty,
-}: {
-  rows: {
-    label: string
-    value: string
-    numeric: number
-    extra?: string
-  }[]
-  empty: string
-}) {
-  if (rows.length === 0) {
-    return <p className={styles.empty}>{empty}</p>
-  }
-
-  const max = Math.max(...rows.map((r) => r.numeric), 1)
-
-  return (
-    <div className={styles.rankingList}>
-      {rows.map((row, index) => {
-        const percent = Math.round((row.numeric / max) * 100)
-        return (
-          <div key={`${row.label}-${index}`} className={styles.rankingItem}>
-            <div className={styles.rankingRow}>
-              <span
-                className={[
-                  styles.rankingRank,
-                  index < 3 && styles.rankingRankTop,
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {index + 1}
-              </span>
-              <div className={styles.rankingMeta}>
-                <span className={styles.rankingLabel}>{row.label}</span>
-                {row.extra && (
-                  <span className={styles.rankingExtra}>{row.extra}</span>
-                )}
-              </div>
-              <span className={styles.rankingValue}>{row.value}</span>
-            </div>
-            <div className={styles.rankingBar}>
-              <div
-                className={styles.rankingBarFill}
-                style={{ width: `${percent}%` }}
-              />
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function DataTable({
-  columns,
-  rows,
-  emptyMessage,
-}: {
-  columns: string[]
-  rows: (string | number)[][] | null
-  emptyMessage: string
-}) {
-  if (!rows || rows.length === 0) {
-    return <p className={styles.empty}>{emptyMessage}</p>
-  }
-
-  return (
-    <div className={styles.tableWrap}>
-      <table className={styles.table}>
-        <thead>
-          <tr>
-            {columns.map((col) => (
-              <th key={col}>{col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row, i) => (
-            <tr key={i}>
-              {row.map((cell, j) => (
-                <td
-                  key={j}
-                  className={
-                    j === 0
-                      ? styles.cellMuted
-                      : j === columns.length - 2
-                        ? styles.cellValue
-                        : undefined
-                  }
-                >
-                  {j === columns.length - 1 ? (
-                    <StatusBadge status={String(cell)} />
-                  ) : (
-                    cell
-                  )}
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const normalized = status.toLowerCase()
-  let variant = styles.badgeNeutral
-
-  if (
-    normalized.includes('finaliz') ||
-    normalized.includes('pago') ||
-    normalized.includes('conclu') ||
-    normalized.includes('aprov')
-  ) {
-    variant = styles.badgeSuccess
-  } else if (
-    normalized.includes('pend') ||
-    normalized.includes('abert') ||
-    normalized.includes('aguard')
-  ) {
-    variant = styles.badgeWarning
-  }
-
-  return (
-    <span className={[styles.badge, variant].join(' ')}>{status}</span>
-  )
-}
-
-function CardFooter({
-  total,
-  totalLabel,
-  to,
-  linkLabel,
-}: {
-  total?: string
-  totalLabel?: string
-  to: string
-  linkLabel: string
-}) {
-  return (
-    <div className={styles.cardFooter}>
-      {total && totalLabel ? (
-        <span className={styles.cardTotal}>
-          {totalLabel}: <strong>{total}</strong>
-        </span>
-      ) : (
-        <span />
-      )}
-      <Link to={to} className={styles.moduleLink}>
-        {linkLabel}
-        <ArrowRight aria-hidden />
-      </Link>
     </div>
   )
 }

@@ -1,0 +1,380 @@
+@use 'styles/variables' as *;
+
+.calendarLayout {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.1fr) minmax(260px, 0.9fr);
+  gap: 1.25rem;
+  align-items: start;
+}
+
+.calendarPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.calendarTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 800;
+  color: $color-primary-dark;
+  text-transform: capitalize;
+}
+
+.calendarNav {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.navBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba($color-border, 0.9);
+  border-radius: $radius-sm;
+  background: $color-surface;
+  color: $color-text-muted;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+
+  &:hover {
+    background: rgba($color-primary, 0.08);
+    color: var(--theme-primary);
+    border-color: rgba($color-primary, 0.25);
+  }
+}
+
+.weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.weekday {
+  text-align: center;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+  padding: 0.15rem 0;
+}
+
+.daysGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 0.35rem;
+}
+
+.dayCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.3rem;
+  min-height: 3.35rem;
+  padding: 0.45rem 0.25rem 0.35rem;
+  border: 1px solid transparent;
+  border-radius: $radius-sm;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, box-shadow 0.2s;
+
+  &:hover:not(:disabled) {
+    background: rgba($color-primary, 0.06);
+    border-color: rgba($color-primary, 0.15);
+  }
+}
+
+.dayCellOutside {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.dayCellToday {
+  border-color: rgba($color-primary, 0.35);
+  background: rgba($color-primary, 0.05);
+}
+
+.dayCellSelected {
+  background: linear-gradient(
+    135deg,
+    var(--theme-primary),
+    var(--theme-button-gradient-end)
+  );
+  border-color: transparent;
+  box-shadow: 0 8px 18px rgba(37, 111, 62, 0.22);
+
+  .dayNumber,
+  .dayCount {
+    color: #fff;
+  }
+
+  .activityDot {
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+  }
+}
+
+.dayCellFiltered {
+  outline: 2px solid rgba($color-secondary, 0.55);
+  outline-offset: 1px;
+}
+
+.dayNumber {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: $color-text;
+  line-height: 1;
+}
+
+.dayCount {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: $color-text-muted;
+}
+
+.activityDots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.18rem;
+  min-height: 0.45rem;
+}
+
+.activityDot {
+  width: 0.38rem;
+  height: 0.38rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dotCompra {
+  background: #2f80ed;
+}
+
+.dotVenda {
+  background: #18864b;
+}
+
+.dotCusto {
+  background: #b7791f;
+}
+
+.dotAbate {
+  background: #7c3aed;
+}
+
+.dotEstoque {
+  background: #256f3e;
+}
+
+.dotViscera {
+  background: #c2413a;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 0.85rem;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: $color-text-muted;
+}
+
+.detailPanel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  min-height: 100%;
+  padding: 1rem 1.05rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-border, 0.85);
+  background: $color-surface-soft;
+}
+
+.detailHeader {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.detailTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: $color-primary-dark;
+}
+
+.detailSubtitle {
+  margin: 0;
+  font-size: 0.82rem;
+  color: $color-text-muted;
+}
+
+.filterBanner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.65rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: $radius-sm;
+  background: rgba($color-secondary, 0.12);
+  border: 1px solid rgba($color-secondary, 0.25);
+  font-size: 0.82rem;
+  color: $color-text;
+}
+
+.activityList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.activityItem {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.75rem 0.8rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-border, 0.75);
+  background: $color-surface;
+  text-decoration: none;
+  color: inherit;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: $shadow-sm;
+  }
+}
+
+.activityIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 2rem;
+  height: 2rem;
+  border-radius: $radius-sm;
+  color: #fff;
+
+  svg {
+    width: 1rem;
+    height: 1rem;
+  }
+}
+
+.iconCompra {
+  background: #2f80ed;
+}
+
+.iconVenda {
+  background: #18864b;
+}
+
+.iconCusto {
+  background: #b7791f;
+}
+
+.iconAbate {
+  background: #7c3aed;
+}
+
+.iconEstoque {
+  background: #256f3e;
+}
+
+.iconViscera {
+  background: #c2413a;
+}
+
+.activityBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.activityTitle {
+  display: block;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: $color-text;
+}
+
+.activityDesc {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.activityValue {
+  flex-shrink: 0;
+  font-size: 0.82rem;
+  font-weight: 800;
+  color: $color-primary-dark;
+  align-self: center;
+}
+
+.emptyDay {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: $color-text-muted;
+  font-size: 0.88rem;
+  border: 1px dashed $color-border;
+  border-radius: $radius-sm;
+  background: $color-surface;
+}
+
+.loadingCalendar {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  color: $color-text-muted;
+  font-size: 0.88rem;
+}
+
+@media (max-width: 992px) {
+  .calendarLayout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dayCell {
+    min-height: 2.85rem;
+    padding: 0.35rem 0.15rem 0.25rem;
+  }
+
+  .dayNumber {
+    font-size: 0.8rem;
+  }
+
+  .activityDots {
+    display: none;
+  }
+
+  .dayCount {
+    display: block;
+  }
+}

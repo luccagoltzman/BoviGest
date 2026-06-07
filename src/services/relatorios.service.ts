@@ -55,9 +55,17 @@ export type VendaResumo = {
   cliente?: { nome?: string } | null
 }
 
+export type PontoSerieDia = {
+  data: string
+  label: string
+  compras: number
+  vendas: number
+}
+
 export type RelatorioDados = {
   filtros: RelatorioFiltros
   kpis: RelatorioKpis
+  serieFinanceira: PontoSerieDia[]
   comprasPorFornecedor: RankingItem[]
   vendasPorCliente: RankingItem[]
   vendasPorCorte: RankingCorte[]
@@ -139,6 +147,64 @@ function pesoMovimentacaoEstoque(mov: RawMovimentacaoEstoque) {
   )
 
   return pesoItens > 0 ? pesoItens : Number(mov.peso_liquido_kg || 0)
+}
+
+function formatChartDayLabel(isoDate: string) {
+  const date = new Date(`${isoDate.slice(0, 10)}T12:00:00`)
+  if (Number.isNaN(date.getTime())) return isoDate
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
+}
+
+function montarSerieFinanceira(
+  compras: RawCompra[],
+  vendas: RawVenda[],
+  filtros: RelatorioFiltros,
+): PontoSerieDia[] {
+  const map = new Map<string, { compras: number; vendas: number }>()
+
+  const ensureDay = (dia: string) => {
+    if (!map.has(dia)) {
+      map.set(dia, { compras: 0, vendas: 0 })
+    }
+  }
+
+  for (const compra of compras) {
+    const dia = (compra.data || '').slice(0, 10)
+    if (!dia) continue
+    ensureDay(dia)
+    map.get(dia)!.compras += Number(compra.valor_total || 0)
+  }
+
+  for (const venda of vendas) {
+    const dia = (venda.data_movimentacao || '').slice(0, 10)
+    if (!dia) continue
+    ensureDay(dia)
+    map.get(dia)!.vendas += Number(venda.valor_total || 0)
+  }
+
+  if (filtros.startDate && filtros.endDate) {
+    const start = new Date(`${filtros.startDate.slice(0, 10)}T12:00:00`)
+    const end = new Date(`${filtros.endDate.slice(0, 10)}T12:00:00`)
+
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      for (
+        let cursor = new Date(start);
+        cursor <= end;
+        cursor.setDate(cursor.getDate() + 1)
+      ) {
+        ensureDay(cursor.toISOString().slice(0, 10))
+      }
+    }
+  }
+
+  return Array.from(map.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([data, valores]) => ({
+      data,
+      label: formatChartDayLabel(data),
+      compras: valores.compras,
+      vendas: valores.vendas,
+    }))
 }
 
 // ─── Requisições unificadas ao Supabase ────────────────────────
@@ -352,6 +418,7 @@ function montarRelatorio(
       saidasKg,
       resultadoEstimado: totalVendas - totalCompras - totalCustos,
     },
+    serieFinanceira: montarSerieFinanceira(compras, vendas, filtros),
     comprasPorFornecedor: somarPorCampo(
       compras,
       (r) => r.fornecedor?.nome || 'Sem fornecedor',
