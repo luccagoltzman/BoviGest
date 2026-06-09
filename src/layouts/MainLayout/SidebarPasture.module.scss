@@ -1,0 +1,89 @@
+@use 'styles/variables' as *;
+@use 'styles/mixins' as *;
+
+.pasture {
+  flex-shrink: 0;
+  width: 100%;
+  max-width: 7.5rem;
+  margin-top: 0.35rem;
+  color: rgba($color-primary-dark, 0.34);
+  pointer-events: none;
+  user-select: none;
+}
+
+.scene {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ground {
+  opacity: 0.45;
+}
+
+.grass {
+  opacity: 0.5;
+}
+
+.cowFront {
+  transform-origin: 38px 24px;
+  animation: pastureDrift 22s ease-in-out infinite;
+}
+
+.cowHead {
+  transform-origin: 48px 16px;
+  animation: grazeNibble 4.8s ease-in-out infinite;
+}
+
+.cowMid {
+  transform-origin: 66px 24px;
+  animation: pastureDrift 28s ease-in-out infinite reverse;
+}
+
+.cowBack {
+  transform-origin: 88px 24px;
+  animation: pastureDrift 32s ease-in-out infinite;
+  animation-delay: -6s;
+}
+
+@keyframes pastureDrift {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(5px);
+  }
+}
+
+@keyframes grazeNibble {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+
+  35% {
+    transform: rotate(-5deg);
+  }
+
+  55% {
+    transform: rotate(2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cowFront,
+  .cowMid,
+  .cowBack,
+  .cowHead {
+    animation: none;
+  }
+}
+
+@include tablet-down {
+  .pasture {
+    max-width: 6.5rem;
+    opacity: 0.9;
+  }
+}

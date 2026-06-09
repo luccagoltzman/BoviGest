@@ -266,6 +266,12 @@
   gap: 0.15rem;
 }
 
+.footerText {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
 .footerLabel {
   font-size: 0.82rem;
   font-weight: 800;

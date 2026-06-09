@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import { AppLogo } from '@/components/AppLogo'
 import { canAccessSettings, currentUserRole } from '@/config/access'
+import { SidebarPasture } from './SidebarPasture'
 import styles from './Sidebar.module.scss'
 
 type SidebarLink = {
@@ -306,8 +307,11 @@ export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
       </nav>
 
       <div className={styles.footer}>
-        <span className={styles.footerLabel}>BoviGest</span>
-        <span className={styles.footerHint}>Gestão de gado e carne</span>
+        <div className={styles.footerText}>
+          <span className={styles.footerLabel}>BoviGest</span>
+          <span className={styles.footerHint}>Gestão de gado e carne</span>
+        </div>
+        <SidebarPasture />
       </div>
     </aside>
   )
