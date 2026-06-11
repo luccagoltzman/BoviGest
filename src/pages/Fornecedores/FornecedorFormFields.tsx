@@ -6,6 +6,14 @@ import {
   cepSomenteDigitos,
   formatCepInput,
 } from '@/services/cep.service'
+import {
+  avisoSituacaoCadastral,
+  buscarDadosPorCnpj,
+  cnpjSomenteDigitos,
+  formatCpfCnpjInput,
+  isCnpj,
+  mapDadosCnpjParaFornecedor,
+} from '@/services/cnpj.service'
 import styles from './Fornecedores.module.scss'
 
 export type FornecedorFormData = {
@@ -80,7 +88,7 @@ export function fornecedorFormFromRow(
 ): FornecedorFormData {
   return {
     nome: row.nome || '',
-    doc: row.doc || '',
+    doc: row.doc ? formatCpfCnpjInput(row.doc) : '',
     telefone: row.telefone || '',
     data_nascimento: row.data_nascimento?.slice(0, 10) || '',
     cep: row.cep ? formatCepInput(row.cep) : '',
@@ -134,7 +142,9 @@ export function FornecedorFormFields({
   onChange,
 }: FornecedorFormFieldsProps) {
   const [loadingCep, setLoadingCep] = useState(false)
+  const [loadingCnpj, setLoadingCnpj] = useState(false)
   const lastCepRef = useRef('')
+  const lastCnpjRef = useRef('')
 
   async function handleBuscarCep(cepValue = value.cep) {
     const digits = cepSomenteDigitos(cepValue)
@@ -175,6 +185,46 @@ export function FornecedorFormFields({
     }
   }
 
+  async function handleBuscarCnpj(docValue = value.doc) {
+    const digits = cnpjSomenteDigitos(docValue)
+
+    if (!isCnpj(docValue)) {
+      toast.error('Informe um CNPJ válido com 14 dígitos')
+      return
+    }
+
+    if (lastCnpjRef.current === digits && value.nome.trim()) return
+
+    try {
+      setLoadingCnpj(true)
+      const dados = await buscarDadosPorCnpj(digits)
+      lastCnpjRef.current = digits
+
+      onChange(mapDadosCnpjParaFornecedor(dados))
+
+      const aviso = avisoSituacaoCadastral(dados.situacao_cadastral)
+      if (aviso) {
+        toast.error(aviso)
+      } else {
+        toast.success('Dados do CNPJ carregados da Receita Federal')
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Erro ao consultar CNPJ'
+      toast.error(message)
+    } finally {
+      setLoadingCnpj(false)
+    }
+  }
+
+  function handleDocBlur() {
+    if (isCnpj(value.doc)) {
+      handleBuscarCnpj(value.doc)
+    }
+  }
+
+  const docEhCnpj = isCnpj(value.doc)
+
   return (
     <>
       <p className={styles.formSectionTitle}>Dados do fornecedor</p>
@@ -184,11 +234,32 @@ export function FornecedorFormFields({
         value={value.nome}
         onChange={(e) => onChange({ nome: e.target.value })}
       />
-      <Input
-        label="CPF / CNPJ"
-        value={value.doc}
-        onChange={(e) => onChange({ doc: e.target.value })}
-      />
+      <div className={styles.cepRow}>
+        <Input
+          label="CPF / CNPJ"
+          placeholder="00.000.000/0000-00"
+          inputMode="numeric"
+          value={value.doc}
+          onChange={(e) =>
+            onChange({ doc: formatCpfCnpjInput(e.target.value) })
+          }
+          onBlur={handleDocBlur}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          loading={loadingCnpj}
+          disabled={loadingCnpj || !docEhCnpj}
+          onClick={() => handleBuscarCnpj()}
+        >
+          Consultar CNPJ
+        </Button>
+      </div>
+      {docEhCnpj && (
+        <p className={styles.formHint}>
+          Consulta pública na Receita Federal (BrasilAPI).
+        </p>
+      )}
       <Input
         label="Telefone"
         value={value.telefone}

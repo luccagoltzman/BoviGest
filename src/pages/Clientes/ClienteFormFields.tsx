@@ -6,6 +6,14 @@ import {
   cepSomenteDigitos,
   formatCepInput,
 } from '@/services/cep.service'
+import {
+  avisoSituacaoCadastral,
+  buscarDadosPorCnpj,
+  cnpjSomenteDigitos,
+  formatCpfCnpjInput,
+  isCnpj,
+  mapDadosCnpjParaCliente,
+} from '@/services/cnpj.service'
 import styles from './Clientes.module.scss'
 
 export type ClienteFormData = {
@@ -44,7 +52,7 @@ export function clienteFormFromRow(row: Partial<ClienteFormData>): ClienteFormDa
   return {
     nome: row.nome || '',
     nome_empresa: row.nome_empresa || '',
-    doc: row.doc || '',
+    doc: row.doc ? formatCpfCnpjInput(row.doc) : '',
     telefone: row.telefone || '',
     data_nascimento: row.data_nascimento?.slice(0, 10) || '',
     cep: row.cep ? formatCepInput(row.cep) : '',
@@ -86,7 +94,9 @@ type ClienteFormFieldsProps = {
 
 export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
   const [loadingCep, setLoadingCep] = useState(false)
+  const [loadingCnpj, setLoadingCnpj] = useState(false)
   const lastCepRef = useRef('')
+  const lastCnpjRef = useRef('')
 
   async function handleBuscarCep(cepValue = value.cep) {
     const digits = cepSomenteDigitos(cepValue)
@@ -127,6 +137,46 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
     }
   }
 
+  async function handleBuscarCnpj(docValue = value.doc) {
+    const digits = cnpjSomenteDigitos(docValue)
+
+    if (!isCnpj(docValue)) {
+      toast.error('Informe um CNPJ válido com 14 dígitos')
+      return
+    }
+
+    if (lastCnpjRef.current === digits && value.nome.trim()) return
+
+    try {
+      setLoadingCnpj(true)
+      const dados = await buscarDadosPorCnpj(digits)
+      lastCnpjRef.current = digits
+
+      onChange(mapDadosCnpjParaCliente(dados))
+
+      const aviso = avisoSituacaoCadastral(dados.situacao_cadastral)
+      if (aviso) {
+        toast.error(aviso)
+      } else {
+        toast.success('Dados do CNPJ carregados da Receita Federal')
+      }
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Erro ao consultar CNPJ'
+      toast.error(message)
+    } finally {
+      setLoadingCnpj(false)
+    }
+  }
+
+  function handleDocBlur() {
+    if (isCnpj(value.doc)) {
+      handleBuscarCnpj(value.doc)
+    }
+  }
+
+  const docEhCnpj = isCnpj(value.doc)
+
   return (
     <>
       <p className={styles.formSectionTitle}>Dados pessoais</p>
@@ -141,11 +191,32 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
         value={value.nome_empresa}
         onChange={(e) => onChange({ nome_empresa: e.target.value })}
       />
-      <Input
-        label="CPF / CNPJ"
-        value={value.doc}
-        onChange={(e) => onChange({ doc: e.target.value })}
-      />
+      <div className={styles.cepRow}>
+        <Input
+          label="CPF / CNPJ"
+          placeholder="00.000.000/0000-00"
+          inputMode="numeric"
+          value={value.doc}
+          onChange={(e) =>
+            onChange({ doc: formatCpfCnpjInput(e.target.value) })
+          }
+          onBlur={handleDocBlur}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          loading={loadingCnpj}
+          disabled={loadingCnpj || !docEhCnpj}
+          onClick={() => handleBuscarCnpj()}
+        >
+          Consultar CNPJ
+        </Button>
+      </div>
+      {docEhCnpj && (
+        <p className={styles.formHint}>
+          Consulta pública na Receita Federal (BrasilAPI).
+        </p>
+      )}
       <Input
         label="Telefone / WhatsApp"
         value={value.telefone}
