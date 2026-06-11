@@ -1,48 +1,34 @@
 import { useEffect, useState } from 'react'
-
 import { Button, Card, Input, Table, Modal } from '@/components/ui'
-
 import toast from 'react-hot-toast'
-
 import styles from './Fornecedores.module.scss'
-
 import { fornecedoresService } from '@/services/fornecedores.service'
+import {
+  FornecedorFormFields,
+  emptyFornecedorForm,
+  fornecedorFormFromRow,
+  fornecedorFormToPayload,
+  type FornecedorFormData,
+} from './FornecedorFormFields'
 
-interface FornecedorRow {
+interface FornecedorRow extends FornecedorFormData {
   id: string
-  nome: string
-  doc: string
-  telefone: string
-  cidade: string
-  endereco?: string
-  dados_bancarios?: string
+  dados_bancarios?: string | null
 }
 
 export function Fornecedores() {
   const [fornecedores, setFornecedores] = useState<FornecedorRow[]>([])
-
   const [loading, setLoading] = useState(false)
-
   const [page, setPage] = useState(1)
-
   const [total, setTotal] = useState(0)
-
   const [totalPages, setTotalPages] = useState(0)
-
   const [search, setSearch] = useState('')
 
-  const [createForm, setCreateForm] = useState({
-    nome: '',
-    doc: '',
-    telefone: '',
-    cidade: '',
-    endereco: '',
-    dados_bancarios: '',
-  })
-
-  const [detalhe, setDetalhe] = useState<FornecedorRow | null>(null)
-
-  const [editForm, setEditForm] = useState<FornecedorRow | null>(null)
+  const [createForm, setCreateForm] = useState<FornecedorFormData>(
+    emptyFornecedorForm(),
+  )
+  const [editForm, setEditForm] = useState<FornecedorFormData | null>(null)
+  const [editarId, setEditarId] = useState<string | null>(null)
 
   const createDisabled =
     !createForm.nome.trim() ||
@@ -63,11 +49,9 @@ export function Fornecedores() {
       const response = await fornecedoresService.getAll(page, 10, search)
 
       setFornecedores(response.data || [])
-
       setTotal(response.total || 0)
-
       setTotalPages(response.totalPages || 0)
-    } catch (e: any) {
+    } catch {
       toast.error('Erro ao carregar fornecedores')
     } finally {
       setLoading(false)
@@ -82,39 +66,27 @@ export function Fornecedores() {
     if (createDisabled) return
 
     try {
-      const data = await fornecedoresService.create(createForm)
-
-      setFornecedores((prev) => [data, ...prev])
+      await fornecedoresService.create(fornecedorFormToPayload(createForm))
 
       toast.success('Fornecedor criado com sucesso')
-
-      setCreateForm({
-        nome: '',
-        doc: '',
-        telefone: '',
-        cidade: '',
-        endereco: '',
-        dados_bancarios: '',
-      })
-
+      setCreateForm(emptyFornecedorForm())
       fetchFornecedores()
-    } catch (e: any) {
+    } catch {
       toast.error('Erro ao criar fornecedor')
     }
   }
 
   const handleUpdate = async () => {
-    if (!editForm || updateDisabled) return
+    if (!editForm || !editarId || updateDisabled) return
 
     try {
-      const data = await fornecedoresService.update(editForm.id, editForm)
-
-      setFornecedores((prev) => prev.map((f) => (f.id === data.id ? data : f)))
+      await fornecedoresService.update(editarId, fornecedorFormToPayload(editForm))
 
       toast.success('Fornecedor atualizado com sucesso')
-
-      setDetalhe(null)
-    } catch (e: any) {
+      setEditForm(null)
+      setEditarId(null)
+      fetchFornecedores()
+    } catch {
       toast.error('Erro ao atualizar fornecedor')
     }
   }
@@ -123,12 +95,11 @@ export function Fornecedores() {
     try {
       await fornecedoresService.delete(id)
 
-      setFornecedores((prev) => prev.filter((f) => f.id !== id))
-
       toast.success('Fornecedor excluído com sucesso')
-
-      setDetalhe(null)
-    } catch (e: any) {
+      setEditForm(null)
+      setEditarId(null)
+      fetchFornecedores()
+    } catch {
       toast.error('Erro ao excluir fornecedor')
     }
   }
@@ -149,6 +120,13 @@ export function Fornecedores() {
     {
       key: 'cidade',
       header: 'Cidade',
+      render: (r: FornecedorRow) => r.cidade || '—',
+    },
+    {
+      key: 'pix_chave',
+      header: 'PIX',
+      render: (r: FornecedorRow) =>
+        r.pix_chave ? `${r.pix_tipo || 'PIX'}: ${r.pix_chave}` : '—',
     },
     {
       key: 'acoes',
@@ -157,9 +135,8 @@ export function Fornecedores() {
         <Button
           variant="ghost"
           onClick={() => {
-            setDetalhe(r)
-
-            setEditForm({ ...r })
+            setEditarId(r.id)
+            setEditForm(fornecedorFormFromRow(r))
           }}
         >
           Ver detalhes
@@ -174,73 +151,12 @@ export function Fornecedores() {
 
       <Card title="Novo fornecedor">
         <div className={styles.form}>
-          <Input
-            label="Nome / Razão social"
-            value={createForm.nome}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                nome: e.target.value,
-              })
+          <FornecedorFormFields
+            value={createForm}
+            onChange={(patch) =>
+              setCreateForm((current) => ({ ...current, ...patch }))
             }
           />
-
-          <Input
-            label="CPF / CNPJ"
-            value={createForm.doc}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                doc: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Telefone"
-            value={createForm.telefone}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                telefone: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Cidade"
-            value={createForm.cidade}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                cidade: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Endereço"
-            value={createForm.endereco}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                endereco: e.target.value,
-              })
-            }
-          />
-
-          <Input
-            label="Dados bancários"
-            placeholder="Banco, agência, conta"
-            value={createForm.dados_bancarios}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                dados_bancarios: e.target.value,
-              })
-            }
-          />
-
           <div className={styles.actions}>
             <Button onClick={handleCreate} disabled={createDisabled}>
               Cadastrar
@@ -250,11 +166,7 @@ export function Fornecedores() {
       </Card>
 
       <Card title="Lista de fornecedores">
-        <div
-          style={{
-            marginBottom: 16,
-          }}
-        >
+        <div className={styles.filters}>
           <Input
             label="Buscar fornecedor"
             placeholder="Nome, CPF/CNPJ ou telefone"
@@ -277,87 +189,29 @@ export function Fornecedores() {
       </Card>
 
       <Modal
-        open={!!detalhe}
-        onClose={() => setDetalhe(null)}
+        open={!!editForm}
+        onClose={() => {
+          setEditForm(null)
+          setEditarId(null)
+        }}
         title="Detalhes do fornecedor"
+        width="920px"
       >
-        {editForm && (
+        {editForm && editarId && (
           <div className={styles.form}>
-            <Input
-              label="Nome / Razão social"
-              value={editForm.nome}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  nome: e.target.value,
-                })
+            <FornecedorFormFields
+              value={editForm}
+              onChange={(patch) =>
+                setEditForm((current) =>
+                  current ? { ...current, ...patch } : current,
+                )
               }
             />
-
-            <Input
-              label="CPF / CNPJ"
-              value={editForm.doc}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  doc: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Telefone"
-              value={editForm.telefone}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  telefone: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Cidade"
-              value={editForm.cidade}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  cidade: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Endereço"
-              value={editForm.endereco || ''}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  endereco: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Dados bancários"
-              value={editForm.dados_bancarios || ''}
-              onChange={(e) =>
-                setEditForm({
-                  ...editForm,
-                  dados_bancarios: e.target.value,
-                })
-              }
-            />
-
             <div className={styles.actions}>
               <Button onClick={handleUpdate} disabled={updateDisabled}>
                 Salvar
               </Button>
-
-              <Button
-                variant="danger"
-                onClick={() => handleDelete(editForm.id)}
-              >
+              <Button variant="danger" onClick={() => handleDelete(editarId)}>
                 Excluir
               </Button>
             </div>

@@ -4,22 +4,23 @@ import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
 import { clientesService } from '@/services/cliente.service'
 import { ClienteExtratoModal } from './ClienteExtratoModal'
+import {
+  ClienteFormFields,
+  clienteFormFromRow,
+  clienteFormToPayload,
+  emptyClienteForm,
+  type ClienteFormData,
+} from './ClienteFormFields'
 
-interface ClienteRow {
+interface ClienteRow extends ClienteFormData {
   id: string
-  nome: string
-  doc: string
-  telefone: string
-  endereco?: string
-  limite_credito?: string
-  status: string,
-  nome_empresa?: string,
-  complemento?: string,
+  status: string
 }
 
 export function Clientes() {
   const [clientes, setClientes] = useState<ClienteRow[]>([])
-  const [editar, setEditar] = useState<ClienteRow | null>(null)
+  const [editar, setEditar] = useState<ClienteFormData | null>(null)
+  const [editarId, setEditarId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const [page, setPage] = useState(1)
@@ -34,22 +35,14 @@ export function Clientes() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [clienteExtrato, setClienteExtrato] = useState<any>(null)
 
-  const [createForm, setCreateForm] = useState({
-    nome: '',
-    doc: '',
-    telefone: '',
-    endereco: '',
-    limite_credito: '',
-    complemento:'',
-    nome_empresa:''
-  })
+  const [createForm, setCreateForm] = useState<ClienteFormData>(emptyClienteForm())
 
   const loadClientes = async (
     currentPage: number,
     currentLimit: number,
     currentSearch: string,
     currentStartDate: string,
-    currentEndDate: string
+    currentEndDate: string,
   ) => {
     setLoading(true)
     try {
@@ -58,7 +51,7 @@ export function Clientes() {
         currentLimit,
         currentSearch,
         currentStartDate,
-        currentEndDate
+        currentEndDate,
       )
 
       setClientes(response.data)
@@ -95,28 +88,10 @@ export function Clientes() {
 
   const handleCreate = async () => {
     try {
-      await clientesService.create({
-        nome: createForm.nome,
-        doc: createForm.doc,
-        telefone: createForm.telefone,
-        endereco: createForm.endereco,
-        nome_empresa:createForm.nome_empresa,
-        complemento:createForm.complemento,
-        limite_credito: createForm.limite_credito
-          ? Number(createForm.limite_credito)
-          : null,
-      })
+      await clientesService.create(clienteFormToPayload(createForm))
 
       toast.success('Cliente criado com sucesso')
-      setCreateForm({
-        nome: '',
-        doc: '',
-        telefone: '',
-        endereco: '',
-        limite_credito: '',
-        complemento:'',
-        nome_empresa:''
-      })
+      setCreateForm(emptyClienteForm())
 
       loadClientes(1, limit, search, startDate, endDate)
     } catch (e: any) {
@@ -125,26 +100,17 @@ export function Clientes() {
   }
 
   const handleSaveEdit = async () => {
-    if (!editar || !isEditFormValid) {
+    if (!editar || !editarId || !isEditFormValid) {
       toast.error('Preencha os campos obrigatórios')
       return
     }
 
     try {
-      await clientesService.update(editar.id, {
-        nome: editar.nome,
-        doc: editar.doc,
-        telefone: editar.telefone,
-        endereco: editar.endereco,
-        nome_empresa:editar.nome_empresa,
-        complemento:editar.complemento,
-        limite_credito: editar.limite_credito
-          ? Number(editar.limite_credito)
-          : null,
-      })
+      await clientesService.update(editarId, clienteFormToPayload(editar))
 
       toast.success('Cliente atualizado com sucesso')
       setEditar(null)
+      setEditarId(null)
 
       loadClientes(page, limit, search, startDate, endDate)
     } catch (e: any) {
@@ -158,6 +124,7 @@ export function Clientes() {
 
       toast.success('Cliente excluído com sucesso')
       setEditar(null)
+      setEditarId(null)
 
       loadClientes(page, limit, search, startDate, endDate)
     } catch (e: any) {
@@ -188,8 +155,14 @@ export function Clientes() {
           {r?.nome}
         </a>
       ),
-    },    { key: 'doc', header: 'CPF/CNPJ' },
+    },
+    { key: 'doc', header: 'CPF/CNPJ' },
     { key: 'telefone', header: 'Telefone / WhatsApp' },
+    {
+      key: 'cidade',
+      header: 'Cidade',
+      render: (r: ClienteRow) => r.cidade || '—',
+    },
     { key: 'limite_credito', header: 'Limite de crédito' },
     { key: 'status', header: 'Status' },
     {
@@ -197,7 +170,13 @@ export function Clientes() {
       header: 'Ações',
       render: (r: ClienteRow) => (
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => setEditar(r)}>
+          <Button
+            variant="ghost"
+            onClick={() => {
+              setEditarId(r.id)
+              setEditar(clienteFormFromRow(r))
+            }}
+          >
             Ver detalhes
           </Button>
         </div>
@@ -211,69 +190,16 @@ export function Clientes() {
 
       <Card title="Novo cliente">
         <div className={styles.form}>
-          <Input
-            label="Nome "
-            value={createForm.nome}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, nome: e.target.value })
-            }
-          />
-                 <Input
-            label="Nome da empresa"
-            value={createForm.nome_empresa}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, nome_empresa: e.target.value })
-            }
-          />
-          <Input
-            label="CPF / CNPJ"
-            value={createForm.doc}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, doc: e.target.value })
-            }
-          />
-          <Input
-            label="Telefone / WhatsApp"
-            value={createForm.telefone}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, telefone: e.target.value })
-            }
-          />
-          </div>
-          <div className={styles.form}>
-
-          <Input
-            label="Endereço"
-            value={createForm.endereco}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, endereco: e.target.value })
-            }
-          />
-          <Input
-            label="Limite de crédito"
-            type="number"
-            value={createForm.limite_credito}
-            onChange={(e) =>
-              setCreateForm({ ...createForm, limite_credito: e.target.value })
-            }
-          />
-
-          <Input
-            label="Complemento"
-            multiline
-            rows={4}
-            value={createForm.complemento}
-            onChange={(e) =>
-              setCreateForm({
-                ...createForm,
-                complemento: e.target.value,
-              })
+          <ClienteFormFields
+            value={createForm}
+            onChange={(patch) =>
+              setCreateForm((current) => ({ ...current, ...patch }))
             }
           />
           <div className={styles.actions}>
             <Button onClick={handleCreate} disabled={!isCreateFormValid}>
               Cadastrar
-            </Button>{' '}
+            </Button>
           </div>
         </div>
       </Card>
@@ -317,68 +243,40 @@ export function Clientes() {
 
       <Modal
         open={!!editar}
-        onClose={() => setEditar(null)}
+        onClose={() => {
+          setEditar(null)
+          setEditarId(null)
+        }}
         title="Editar cliente"
+        width="920px"
       >
-        {editar && (
+        {editar && editarId && (
           <div className={styles.form}>
-            <Input
-              label="Nome"
-              value={editar.nome}
-              onChange={(e) => setEditar({ ...editar, nome: e.target.value })}
-            />
-            <Input
-              label="Nome empresa"
-              value={editar.nome_empresa}
-              onChange={(e) => setEditar({ ...editar, nome_empresa: e.target.value })}
-            />
-            <Input
-              label="CPF / CNPJ"
-              value={editar.doc}
-              onChange={(e) => setEditar({ ...editar, doc: e.target.value })}
-            />
-            <Input
-              label="Telefone / WhatsApp"
-              value={editar.telefone}
-              onChange={(e) =>
-                setEditar({ ...editar, telefone: e.target.value })
+            <ClienteFormFields
+              value={editar}
+              onChange={(patch) =>
+                setEditar((current) =>
+                  current ? { ...current, ...patch } : current,
+                )
               }
-            />
-            <Input
-              label="Endereço"
-              value={editar.endereco}
-              onChange={(e) =>
-                setEditar({ ...editar, endereco: e.target.value })
-              }
-            />
-            <Input
-              label="Limite de crédito"
-              type="number"
-              value={editar.limite_credito}
-              onChange={(e) =>
-                setEditar({ ...editar, limite_credito: e.target.value })
-              }
-            />
-             <Input
-              label="Complemento"
-              multiline
-              value={editar.complemento}
-              onChange={(e) => setEditar({ ...editar, complemento: e.target.value })}
             />
             <div className={styles.actions}>
-              <Button onClick={handleSaveEdit}>Salvar alterações</Button>
-              <Button variant="danger" onClick={() => handleDelete(editar.id)}>
+              <Button onClick={handleSaveEdit} disabled={!isEditFormValid}>
+                Salvar alterações
+              </Button>
+              <Button variant="danger" onClick={() => handleDelete(editarId)}>
                 Excluir
               </Button>
             </div>
           </div>
         )}
       </Modal>
-       <ClienteExtratoModal
-              open={!!clienteExtrato}
-              cliente={clienteExtrato}
-              onClose={() => setClienteExtrato(null)}
-            />
+
+      <ClienteExtratoModal
+        open={!!clienteExtrato}
+        cliente={clienteExtrato}
+        onClose={() => setClienteExtrato(null)}
+      />
     </div>
   )
 }
