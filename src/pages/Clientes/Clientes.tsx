@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Card, Input, Table, Modal } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, AddNewButton } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
 import { clientesService } from '@/services/cliente.service'
@@ -36,6 +36,12 @@ export function Clientes() {
   const [clienteExtrato, setClienteExtrato] = useState<any>(null)
 
   const [createForm, setCreateForm] = useState<ClienteFormData>(emptyClienteForm())
+  const [showCreate, setShowCreate] = useState(false)
+
+  function closeCreate() {
+    setShowCreate(false)
+    setCreateForm(emptyClienteForm())
+  }
 
   const loadClientes = async (
     currentPage: number,
@@ -91,7 +97,7 @@ export function Clientes() {
       await clientesService.create(clienteFormToPayload(createForm))
 
       toast.success('Cliente criado com sucesso')
-      setCreateForm(emptyClienteForm())
+      closeCreate()
 
       loadClientes(1, limit, search, startDate, endDate)
     } catch (e: any) {
@@ -188,23 +194,36 @@ export function Clientes() {
     <div className={styles.page}>
       <h1 className="page-title">Clientes</h1>
 
-      <Card title="Novo cliente">
-        <div className={styles.form}>
-          <ClienteFormFields
-            value={createForm}
-            onChange={(patch) =>
-              setCreateForm((current) => ({ ...current, ...patch }))
-            }
-          />
-          <div className={styles.actions}>
-            <Button onClick={handleCreate} disabled={!isCreateFormValid}>
-              Cadastrar
-            </Button>
+      {showCreate && (
+        <Card title="Novo cliente">
+          <div className={styles.form}>
+            <ClienteFormFields
+              value={createForm}
+              onChange={(patch) =>
+                setCreateForm((current) => ({ ...current, ...patch }))
+              }
+            />
+            <div className={styles.actions}>
+              <Button onClick={handleCreate} disabled={!isCreateFormValid}>
+                Cadastrar
+              </Button>
+              <Button variant="ghost" onClick={closeCreate}>
+                Cancelar
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <Card title="Lista de clientes">
+      <Card
+        title="Clientes cadastrados"
+        action={
+          <AddNewButton
+            open={showCreate}
+            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
+          />
+        }
+      >
         <div className={styles.filters}>
           <Input
             label="Buscar"

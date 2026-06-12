@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Input, Table, Modal } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, AddNewButton } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Fornecedores.module.scss'
 import { fornecedoresService } from '@/services/fornecedores.service'
@@ -27,8 +27,14 @@ export function Fornecedores() {
   const [createForm, setCreateForm] = useState<FornecedorFormData>(
     emptyFornecedorForm(),
   )
+  const [showCreate, setShowCreate] = useState(false)
   const [editForm, setEditForm] = useState<FornecedorFormData | null>(null)
   const [editarId, setEditarId] = useState<string | null>(null)
+
+  function closeCreate() {
+    setShowCreate(false)
+    setCreateForm(emptyFornecedorForm())
+  }
 
   const createDisabled =
     !createForm.nome.trim() ||
@@ -69,7 +75,7 @@ export function Fornecedores() {
       await fornecedoresService.create(fornecedorFormToPayload(createForm))
 
       toast.success('Fornecedor criado com sucesso')
-      setCreateForm(emptyFornecedorForm())
+      closeCreate()
       fetchFornecedores()
     } catch {
       toast.error('Erro ao criar fornecedor')
@@ -149,23 +155,36 @@ export function Fornecedores() {
     <div className={styles.page}>
       <h1 className="page-title">Fornecedores</h1>
 
-      <Card title="Novo fornecedor">
-        <div className={styles.form}>
-          <FornecedorFormFields
-            value={createForm}
-            onChange={(patch) =>
-              setCreateForm((current) => ({ ...current, ...patch }))
-            }
-          />
-          <div className={styles.actions}>
-            <Button onClick={handleCreate} disabled={createDisabled}>
-              Cadastrar
-            </Button>
+      {showCreate && (
+        <Card title="Novo fornecedor">
+          <div className={styles.form}>
+            <FornecedorFormFields
+              value={createForm}
+              onChange={(patch) =>
+                setCreateForm((current) => ({ ...current, ...patch }))
+              }
+            />
+            <div className={styles.actions}>
+              <Button onClick={handleCreate} disabled={createDisabled}>
+                Cadastrar
+              </Button>
+              <Button variant="ghost" onClick={closeCreate}>
+                Cancelar
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <Card title="Lista de fornecedores">
+      <Card
+        title="Fornecedores cadastrados"
+        action={
+          <AddNewButton
+            open={showCreate}
+            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
+          />
+        }
+      >
         <div className={styles.filters}>
           <Input
             label="Buscar fornecedor"

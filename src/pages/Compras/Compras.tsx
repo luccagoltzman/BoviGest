@@ -6,6 +6,7 @@ import {
   Table,
   Select,
   Autocomplete,
+  AddNewButton,
 } from '@/components/ui'
 
 import { fornecedoresService } from '@/services/fornecedores.service'
@@ -76,6 +77,22 @@ interface CompraRow {
   pagamento_quitado?: boolean
 }
 
+const emptyCompraForm = () => ({
+  fornecedor_id: '',
+  data: '',
+  quantidade_animais: '',
+  condicao_gado: '1',
+  peso_total: '',
+  valor_kg: '',
+  tipo_imposto: 'fixo',
+  valor_imposto: '',
+  gta_valor: '',
+  valor_total: '',
+  tipo_gado: '',
+  observacoes: '',
+  status: 'Pendente',
+})
+
 export function Compras() {
   const [compras, setCompras] = useState<CompraRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -107,22 +124,9 @@ export function Compras() {
 
   const [viagemOpen, setViagemOpen] = useState(false)
   const [viagemInitial, setViagemInitial] = useState<any>(null)
+  const [showCreate, setShowCreate] = useState(false)
 
-  const [form, setForm] = useState({
-    fornecedor_id: '',
-    data: '',
-    quantidade_animais: '',
-    condicao_gado: '1',
-    peso_total: '',
-    valor_kg: '',
-    tipo_imposto: 'fixo',
-    valor_imposto: '',
-    gta_valor: '',
-    valor_total: '',
-    tipo_gado: '',
-    observacoes: '',
-    status: 'Pendente',
-  })
+  const [form, setForm] = useState(emptyCompraForm)
 
   function resetPagamento(dataCompra = '', valorTotal = 0) {
     const qtd = 1
@@ -131,6 +135,13 @@ export function Compras() {
       formaPagamento: 'Pix',
       parcelas: criarParcelasDraft(qtd, valorTotal, dataCompra),
     })
+  }
+
+  function closeCreate() {
+    setShowCreate(false)
+    setForm(emptyCompraForm())
+    setFornecedorBusca('')
+    resetPagamento()
   }
 
   function atualizarQtdParcelas(qtdRaw: string) {
@@ -322,24 +333,7 @@ export function Compras() {
 
       toast.success('Compra cadastrada com sucesso')
 
-      setForm({
-        fornecedor_id: '',
-        data: '',
-        quantidade_animais: '',
-        condicao_gado: '1',
-        peso_total: '',
-        valor_kg: '',
-        tipo_imposto: 'fixo',
-        valor_imposto: '',
-        gta_valor: '',
-        valor_total: '',
-        tipo_gado: '',
-        observacoes: '',
-        status: 'Pendente',
-      })
-
-      setFornecedorBusca('')
-      resetPagamento()
+      closeCreate()
       setLoadingSave(false)
       carregarCompras()
     } catch (e: any) {
@@ -502,6 +496,7 @@ export function Compras() {
     <div className={styles.page}>
       <h1 className="page-title">Compras de Gado</h1>
 
+      {showCreate && (
       <Card title="Nova compra">
         <div className={styles.form}>
           <Autocomplete
@@ -832,11 +827,24 @@ export function Compras() {
             >
               Salvar compra
             </Button>
+            <Button variant="ghost" onClick={closeCreate}>
+              Cancelar
+            </Button>
           </div>
         </div>
       </Card>
+      )}
 
-      <Card title="Histórico">
+      <Card
+        title="Compras cadastradas"
+        action={
+          <AddNewButton
+            open={showCreate}
+            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
+            label="Adicionar nova compra"
+          />
+        }
+      >
         <Table
           columns={columns}
           data={compras}
