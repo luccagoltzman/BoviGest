@@ -10,6 +10,7 @@ import {
   Table,
   TouchTooltip,
   touchTooltipStyles,
+  AddNewButton,
 } from '@/components/ui'
 
 import toast from 'react-hot-toast'
@@ -32,6 +33,14 @@ const emptyItem = {
   composicoes: [],
 }
 
+const emptyForm = () => ({
+  cliente_id: '',
+  observacao: '',
+  data_movimentacao: new Date().toISOString().split('T')[0],
+  itens: [{ ...emptyItem }],
+  movimentacao_status: 'pendente',
+})
+
 export function Vendas() {
   const [clientes, setClientes] = useState<ClienteOption[]>([])
   const [historico, setHistorico] = useState<any[]>([])
@@ -42,19 +51,23 @@ export function Vendas() {
   const [editando, setEditando] = useState<any>(null)
   const [detalhe, setDetalhe] = useState<any>(null)
   const [clienteExtrato, setClienteExtrato] = useState<any>(null)
-  const [form, setForm] = useState<any>({
-    cliente_id: '',
-    observacao: '',
-    data_movimentacao: new Date().toISOString().split('T')[0],
-    itens: [{ ...emptyItem }],
-    movimentacao_status: 'pendente',
-  })
+  const [showCreate, setShowCreate] = useState(false)
+  const [form, setForm] = useState<any>(emptyForm())
 
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(1)
   const [loading, setLoading] = useState(false)
   const [loadingSave, setLoadingSave] = useState(false)
+
+  function closeCreate() {
+    setShowCreate(false)
+    setForm(emptyForm())
+    setClienteBusca('')
+    setTotalGeral(0)
+    setPesoTotalGeral(0)
+  }
+
   useEffect(() => {
     const timer = setTimeout(() => {
       carregarClientes(clienteBusca)
@@ -266,16 +279,11 @@ export function Vendas() {
         await gerarMovimentacaoEstoqueAutomatica(venda, form)
       }
 
-      setForm({
-        cliente_id: '',
-        observacao: '',
-        data_movimentacao: new Date().toISOString().split('T')[0],
-        itens: [{ ...emptyItem }],
-        movimentacao_status: 'pendente',
-      })
+      setForm(emptyForm())
       setClienteBusca('')
       setTotalGeral(0)
       setPesoTotalGeral(0)
+      setShowCreate(false)
       carregarMovimentacoes()
       setLoadingSave(false)
     } catch {
@@ -666,10 +674,10 @@ export function Vendas() {
   // ─── render ──────────────────────────────────────────────────
 
   return (
-    <div>
-      <h1>Movimentações</h1>
+    <div className={styles.page}>
+      <h1 className="page-title">Movimentações</h1>
 
-      {/* ── Formulário de criação ── */}
+      {showCreate && (
       <Card className={styles.card} title="Nova movimentação">
         <div className={styles.formSimples}>
           <Autocomplete
@@ -806,17 +814,31 @@ export function Vendas() {
           </div>
         </div>
 
-        <Button
-        loading={loadingSave}
-          disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
-          onClick={handleCreate}
-        >
-          Salvar movimentação
-        </Button>
+        <div className={styles.createActions}>
+          <Button
+            loading={loadingSave}
+            disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
+            onClick={handleCreate}
+          >
+            Salvar movimentação
+          </Button>
+          <Button variant="ghost" onClick={closeCreate}>
+            Cancelar
+          </Button>
+        </div>
       </Card>
+      )}
 
-      {/* ── Histórico ── */}
-      <Card title="Histórico">
+      <Card
+        title="Movimentações cadastradas"
+        action={
+          <AddNewButton
+            open={showCreate}
+            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
+            label="Nova movimentação"
+          />
+        }
+      >
         <Table
           columns={columns}
           data={historico}

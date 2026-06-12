@@ -1,5 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { preparePdfLogo } from '@/utils/pdfLogo'
 
 interface Composicao {
   tipo_corte: string
@@ -41,6 +42,7 @@ export interface ExtratoPdfInput {
   clienteNome: string
   startDate: string
   endDate: string
+  logoUrl?: string | null
   debitoAnterior?: number
   debitoAnteriorObservacao?: string
   debitoAnteriorReferencia?: string
@@ -192,16 +194,29 @@ function buildHistoricoDetalhadoRows(
 
 export { buildHistoricoDetalhadoRows }
 
-export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
+export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 14
+  const pageWidth = doc.internal.pageSize.getWidth()
   let y = margin
+
+  const logo = await preparePdfLogo(input.logoUrl)
+  if (logo) {
+    doc.addImage(
+      logo.dataUrl,
+      logo.format,
+      pageWidth - margin - logo.widthMm,
+      y,
+      logo.widthMm,
+      logo.heightMm,
+    )
+  }
 
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
-  doc.text('Extrato do cliente', margin, y)
+  doc.text('Extrato do cliente', margin, y + 6)
 
-  y += 8
+  y += logo ? Math.max(12, logo.heightMm + 4) : 8
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(10)
   doc.setTextColor(60, 60, 60)

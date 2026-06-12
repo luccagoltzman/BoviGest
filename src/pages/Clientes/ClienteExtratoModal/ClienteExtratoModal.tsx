@@ -412,7 +412,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     try {
       setDownloadingPdf(true)
       const { gerarExtratoClientePdf } = await import('@/utils/clienteExtratoPdf')
-      gerarExtratoClientePdf({
+      await gerarExtratoClientePdf({
         clienteNome: cliente.nome,
         startDate,
         endDate,
