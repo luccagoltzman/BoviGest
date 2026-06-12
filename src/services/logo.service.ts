@@ -36,6 +36,25 @@ function getExtension(file: File) {
   return mimeMap[file.type] ?? 'png'
 }
 
+function formatLogoUploadError(error: unknown): string {
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    if (msg.includes('bucket not found')) {
+      return 'Bucket de logos não existe no Supabase. Execute o arquivo supabase/storage-logos.sql no SQL Editor do projeto.'
+    }
+    if (msg.includes('row-level security') || msg.includes('policy')) {
+      return 'Sem permissão para enviar a logo. Verifique se está logado e se as políticas do bucket foram criadas (storage-logos.sql).'
+    }
+    return error.message
+  }
+
+  if (error && typeof error === 'object' && 'message' in error) {
+    return formatLogoUploadError(new Error(String((error as { message: unknown }).message)))
+  }
+
+  return 'Erro ao enviar logo'
+}
+
 export async function uploadLogo(file: File): Promise<string> {
   const user = AuthService.getCachedUser()
 
@@ -54,7 +73,9 @@ export async function uploadLogo(file: File): Promise<string> {
       cacheControl: '3600',
     })
 
-  if (uploadError) throw uploadError
+  if (uploadError) {
+    throw new Error(formatLogoUploadError(uploadError))
+  }
 
   const { data } = supabase.storage.from(LOGO_BUCKET).getPublicUrl(path)
 

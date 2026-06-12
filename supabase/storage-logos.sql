@@ -1,5 +1,5 @@
--- Executar no SQL Editor do Supabase
--- Cria bucket público para logos das empresas
+-- Bucket de logos das empresas — executar no SQL Editor do Supabase
+-- Corrige: {"statusCode":"404","error":"Bucket not found"}
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
 values (
@@ -14,13 +14,25 @@ on conflict (id) do update set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
--- Leitura pública
+-- Políticas (recriar para evitar conflito ao rodar de novo)
+drop policy if exists "logos_public_read" on storage.objects;
+drop policy if exists "logos_authenticated_select" on storage.objects;
+drop policy if exists "logos_authenticated_insert" on storage.objects;
+drop policy if exists "logos_authenticated_update" on storage.objects;
+drop policy if exists "logos_authenticated_delete" on storage.objects;
+
+-- Leitura pública (exibir logo no app)
 create policy "logos_public_read"
 on storage.objects for select
 to public
 using (bucket_id = 'logos');
 
--- Upload/atualização por usuários autenticados
+-- SELECT para authenticated (necessário para upsert/substituir arquivo)
+create policy "logos_authenticated_select"
+on storage.objects for select
+to authenticated
+using (bucket_id = 'logos');
+
 create policy "logos_authenticated_insert"
 on storage.objects for insert
 to authenticated
