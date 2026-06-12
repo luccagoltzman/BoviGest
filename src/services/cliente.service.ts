@@ -9,6 +9,18 @@ function getUser() {
   return user
 }
 
+export type ClienteOption = {
+  id: string
+  nome: string
+  nome_empresa?: string | null
+}
+
+export function formatClienteOptionLabel(cliente: ClienteOption) {
+  const empresa = cliente.nome_empresa?.trim()
+  if (empresa) return `${cliente.nome} · ${empresa}`
+  return cliente.nome
+}
+
 export const clientesService = {
   async getAll(
     page = 1,
@@ -33,7 +45,7 @@ export const clientesService = {
 
       if (search) {
         query = query.or(
-          `nome.ilike.%${search}%,doc.ilike.%${search}%,telefone.ilike.%${search}%`
+          `nome.ilike.%${search}%,doc.ilike.%${search}%,telefone.ilike.%${search}%,nome_empresa.ilike.%${search}%`,
         )
       }
 
@@ -126,7 +138,7 @@ export const clientesService = {
 
       let query = supabase
         .from('clientes')
-        .select('id, nome')
+        .select('id, nome, nome_empresa')
         .eq('empresa_id', user.empresa_id)
         .eq('status', 1)
         .order('nome', {
@@ -134,8 +146,11 @@ export const clientesService = {
         })
         .limit(20)
 
-      if (search) {
-        query = query.ilike('nome', `%${search}%`)
+      if (search.trim()) {
+        const term = search.trim()
+        query = query.or(
+          `nome.ilike.%${term}%,nome_empresa.ilike.%${term}%`,
+        )
       }
 
       const { data, error } = await query
@@ -144,7 +159,7 @@ export const clientesService = {
         throw error
       }
 
-      return data || []
+      return (data || []) as ClienteOption[]
     } catch {
       return []
     }

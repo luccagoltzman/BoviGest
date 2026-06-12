@@ -16,7 +16,11 @@ import toast from 'react-hot-toast'
 import styles from './Vendas.module.scss'
 import { TIPOS_CORTE } from '@/constants/cortes'
 import { ClienteExtratoModal } from '../Clientes/ClienteExtratoModal'
-import { clientesService } from '@/services/cliente.service'
+import {
+  clientesService,
+  formatClienteOptionLabel,
+  type ClienteOption,
+} from '@/services/cliente.service'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { estoqueService } from '@/services/estoque.service'
 import { viscerasService } from '@/services/visceras.service';
@@ -29,9 +33,10 @@ const emptyItem = {
 }
 
 export function Vendas() {
-  const [clientes, setClientes] = useState<any[]>([])
+  const [clientes, setClientes] = useState<ClienteOption[]>([])
   const [historico, setHistorico] = useState<any[]>([])
   const [clienteBusca, setClienteBusca] = useState('')
+  const [loadingClientes, setLoadingClientes] = useState(false)
   const [totalGeral, setTotalGeral] = useState(0)
   const [pesoTotalGeral, setPesoTotalGeral] = useState(0)
   const [editando, setEditando] = useState<any>(null)
@@ -51,8 +56,12 @@ export function Vendas() {
   const [loading, setLoading] = useState(false)
   const [loadingSave, setLoadingSave] = useState(false)
   useEffect(() => {
-    carregarClientes()
-  }, [])
+    const timer = setTimeout(() => {
+      carregarClientes(clienteBusca)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [clienteBusca])
 
   useEffect(() => {
     carregarMovimentacoes(page)
@@ -67,9 +76,23 @@ export function Vendas() {
     (tipo || '').toLowerCase().includes('banda') ||
     (tipo || '').toLowerCase().includes('bd')
 
-  async function carregarClientes() {
-    const data = await clientesService.getOptions()
-    setClientes(data || [])
+  async function carregarClientes(search = '') {
+    setLoadingClientes(true)
+    try {
+      const data = await clientesService.getOptions(search)
+      setClientes(data || [])
+    } finally {
+      setLoadingClientes(false)
+    }
+  }
+
+  function selecionarClientePorLabel(label: string) {
+    setClienteBusca(label)
+    const cli = clientes.find((c) => formatClienteOptionLabel(c) === label)
+    setForm((prev: typeof form) => ({
+      ...prev,
+      cliente_id: cli?.id || '',
+    }))
   }
 
   async function carregarMovimentacoes(currentPage = 1) {
@@ -631,13 +654,11 @@ export function Vendas() {
         <div className={styles.formSimples}>
           <Autocomplete
             label="Cliente"
-            options={clientes.map((c) => c.nome)}
+            placeholder="Nome ou nome da empresa..."
+            loading={loadingClientes}
+            options={clientes.map(formatClienteOptionLabel)}
             value={clienteBusca}
-            onChange={(v) => {
-              setClienteBusca(v)
-              const cli = clientes.find((c) => c.nome === v)
-              setForm({ ...form, cliente_id: cli?.id || '' })
-            }}
+            onChange={selecionarClientePorLabel}
           />
 
           <Input
