@@ -138,11 +138,31 @@
   font-weight: 700;
 }
 
+.info {
+  background: rgba($color-success, 0.09);
+  color: $color-success;
+  padding: 0.75rem 0.9rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-success, 0.18);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
 .footerText {
   color: $color-text-muted;
   font-size: 0.82rem;
   text-align: center;
   margin: 0.25rem 0 0;
+}
+
+.footerLink {
+  color: var(--theme-primary, $color-primary);
+  font-weight: 600;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
 }
 
 @media (max-width: 880px) {

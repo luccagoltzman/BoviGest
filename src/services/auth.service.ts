@@ -8,6 +8,28 @@ export interface AuthUser {
 
 const STORAGE_KEY = 'auth_user'
 
+async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
+  const { data: vinculo, error } = await supabase
+    .from('usuarios_empresas')
+    .select('empresa_id, status')
+    .eq('user_id', userId)
+    .maybeSingle()
+
+  if (error) throw error
+
+  if (!vinculo || vinculo.status !== 1) {
+    await supabase.auth.signOut()
+    localStorage.removeItem(STORAGE_KEY)
+    throw new Error('Usuário inativo ou sem acesso à empresa')
+  }
+
+  return {
+    id: userId,
+    email,
+    empresa_id: vinculo.empresa_id,
+  }
+}
+
 export const AuthService = {
   async login(email: string, password: string): Promise<AuthUser> {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -16,7 +38,10 @@ export const AuthService = {
     })
     if (error) throw error
 
-    const user = await this.me(data.user?.id)
+    const user = await loadAuthUser(
+      data.user?.id ?? '',
+      data.user?.email ?? email,
+    )
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     return user
   },
@@ -25,32 +50,24 @@ export const AuthService = {
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
 
-    const user = await this.me(data.user?.id)
+    const user = await loadAuthUser(
+      data.user?.id ?? '',
+      data.user?.email ?? email,
+    )
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     return user
   },
 
   async me(userId?: string): Promise<AuthUser> {
     const cached = localStorage.getItem(STORAGE_KEY)
-    if (cached) return JSON.parse(cached)
+    if (cached && !userId) return JSON.parse(cached)
 
     const { data: userData, error: userErr } = await supabase.auth.getUser()
     if (userErr) throw userErr
     const id = userId || userData.user?.id
     if (!id) throw new Error('Usuário não logado')
 
-    const { data: vinculo } = await supabase
-      .from('usuarios_empresas')
-      .select('empresa_id')
-      .eq('user_id', id)
-      .single()
-
-    const user: AuthUser = {
-      id,
-      email: userData.user?.email || '',
-      empresa_id: vinculo?.empresa_id ?? null,
-    }
-
+    const user = await loadAuthUser(id, userData.user?.email || '')
     localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
     return user
   },

@@ -1,0 +1,1 @@
+export { RedefinirSenha } from './RedefinirSenha'

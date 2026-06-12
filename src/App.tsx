@@ -16,6 +16,7 @@ import { Viagens } from '@/pages/custos/Viagens'
 import { Abate } from '@/pages/custos/Abate'
 import { CustosOperacionais } from '@/pages/custos/CustosOperacionais'
 import { Login } from '@/pages/Login'
+import { RedefinirSenha } from '@/pages/RedefinirSenha'
 import { ProtectedRoute } from './ProtectedRoute'
 import { Toaster } from 'react-hot-toast'
 
@@ -27,6 +28,7 @@ function App() {
 
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/redefinir-senha" element={<RedefinirSenha />} />
         <Route element={<ProtectedRoute />}>
           <Route path="/" element={<MainLayout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
