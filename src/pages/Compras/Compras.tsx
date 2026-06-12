@@ -1,18 +1,28 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Button,
   Card,
   Input,
   Table,
-  Modal,
   Select,
   Autocomplete,
 } from '@/components/ui'
 
 import { fornecedoresService } from '@/services/fornecedores.service'
 import { comprasService } from '@/services/compras.service'
+import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
+import {
+  criarParcelasDraft,
+  somaValoresParcelas,
+  calcularRestanteAposParcelas,
+  valorProximaParcelaSugerida,
+  redistribuirParcelasAposIndex,
+  formatCurrency,
+  type ParcelaDraft,
+} from '@/utils/compraParcelas'
 
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
+import { CompraDetalheModal } from './CompraDetalheModal'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
@@ -39,6 +49,25 @@ interface CompraRow {
   observacoes?: string
   status: string
   detalhes_custo?: any
+  pagamento_resumo?: {
+    quitado: boolean
+    pagas: number
+    total: number
+    valorPago?: number
+    valorPendente?: number
+    forma_pagamento?: string | null
+    detalhes?: {
+      numero: number
+      total: number
+      valor: number
+      status: string
+      data_pagamento?: string | null
+      data_vencimento?: string
+    }[]
+  }
+  forma_pagamento?: string | null
+  qtd_parcelas?: number
+  pagamento_quitado?: boolean
 }
 
 export function Compras() {
@@ -61,7 +90,14 @@ export function Compras() {
   const [fornecedores, setFornecedores] = useState<any[]>([])
   const [fornecedorBusca, setFornecedorBusca] = useState('')
 
-  const [editar, setEditar] = useState<CompraRow | null>(null)
+  const [compraDetalhe, setCompraDetalhe] = useState<CompraRow | null>(null)
+  const [detalheTab, setDetalheTab] = useState<'pagamento' | 'dados'>('pagamento')
+
+  const [pagamento, setPagamento] = useState({
+    qtdParcelas: '1',
+    formaPagamento: 'Pix',
+    parcelas: [] as ParcelaDraft[],
+  })
 
   const [viagemOpen, setViagemOpen] = useState(false)
   const [viagemInitial, setViagemInitial] = useState<any>(null)
@@ -81,6 +117,105 @@ export function Compras() {
     observacoes: '',
     status: 'Pendente',
   })
+
+  function resetPagamento(dataCompra = '', valorTotal = 0) {
+    const qtd = 1
+    setPagamento({
+      qtdParcelas: String(qtd),
+      formaPagamento: 'Pix',
+      parcelas: criarParcelasDraft(qtd, valorTotal, dataCompra),
+    })
+  }
+
+  function atualizarQtdParcelas(qtdRaw: string) {
+    const qtd = Math.max(1, Number(qtdRaw || 1))
+    const dataBase = form.data || new Date().toISOString().slice(0, 10)
+    const valorTotal = calcularTotal(form)
+
+    setPagamento((prev) => ({
+      ...prev,
+      qtdParcelas: String(qtd),
+      parcelas: criarParcelasDraft(qtd, valorTotal, dataBase, prev.parcelas),
+    }))
+  }
+
+  function dividirValoresIgualmente() {
+    const qtd = Number(pagamento.qtdParcelas || 1)
+    const dataBase = form.data || new Date().toISOString().slice(0, 10)
+    const valorTotal = calcularTotal(form)
+
+    setPagamento((prev) => ({
+      ...prev,
+      parcelas: criarParcelasDraft(qtd, valorTotal, dataBase, prev.parcelas),
+    }))
+  }
+
+  function atualizarParcelaDraft(
+    index: number,
+    campo: keyof ParcelaDraft,
+    valor: string | boolean,
+  ) {
+    setPagamento((prev) => {
+      let parcelas = [...prev.parcelas]
+      parcelas[index] = { ...parcelas[index], [campo]: valor }
+
+      if (campo === 'valor' && typeof valor === 'string') {
+        parcelas = redistribuirParcelasAposIndex(
+          parcelas,
+          index,
+          calcularTotal(form),
+        )
+      }
+
+      return { ...prev, parcelas }
+    })
+  }
+
+  const somaParcelas = useMemo(
+    () => somaValoresParcelas(pagamento.parcelas),
+    [pagamento.parcelas],
+  )
+
+  const valorTotalCompra = useMemo(() => calcularTotal(form), [form])
+
+  const parcelasConferem =
+    Math.abs(somaParcelas - valorTotalCompra) < 0.02
+
+  useEffect(() => {
+    const qtd = Number(pagamento.qtdParcelas || 1)
+    const dataBase = form.data || new Date().toISOString().slice(0, 10)
+
+    if (
+      pagamento.parcelas.length === 0 &&
+      qtd >= 1 &&
+      valorTotalCompra > 0
+    ) {
+      setPagamento((prev) => ({
+        ...prev,
+        parcelas: criarParcelasDraft(qtd, valorTotalCompra, dataBase),
+      }))
+    }
+  }, [
+    form.data,
+    valorTotalCompra,
+    pagamento.qtdParcelas,
+    pagamento.parcelas.length,
+  ])
+
+  function abrirDetalhe(
+    compra: CompraRow,
+    tab: 'pagamento' | 'dados' = 'pagamento',
+  ) {
+    setDetalheTab(tab)
+    setCompraDetalhe(compra)
+  }
+
+  function formatDateBr(value: string) {
+    if (!value) return '—'
+    const date = new Date(`${value.slice(0, 10)}T12:00:00`)
+    if (Number.isNaN(date.getTime())) return value
+    return date.toLocaleDateString('pt-BR')
+  }
 
   function calcularSubtotal(data: any) {
     return Number(data.peso_total || 0) * Number(data.valor_kg || 0)
@@ -146,22 +281,28 @@ export function Compras() {
       const subtotal = calcularSubtotal(form)
       const valorTotal = calcularTotal(form)
 
-      await comprasService.create({
-        fornecedor_id: form.fornecedor_id,
-        data: form.data,
-        quantidade_animais: Number(form.quantidade_animais),
-        condicao_gado: Number(form.condicao_gado),
-        peso_total: Number(form.peso_total),
-        valor_kg: Number(form.valor_kg),
-        tipo_imposto: form.tipo_imposto,
-        valor_imposto: Number(form.valor_imposto),
-        gta_valor: Number(form.gta_valor),
-        subtotal,
-        valor_total: valorTotal,
-        tipo_gado: form.tipo_gado,
-        observacoes: form.observacoes,
-        status: form.status,
-      })
+      await comprasService.create(
+        {
+          fornecedor_id: form.fornecedor_id,
+          data: form.data,
+          quantidade_animais: Number(form.quantidade_animais),
+          condicao_gado: Number(form.condicao_gado),
+          peso_total: Number(form.peso_total),
+          valor_kg: Number(form.valor_kg),
+          tipo_imposto: form.tipo_imposto,
+          valor_imposto: Number(form.valor_imposto),
+          gta_valor: Number(form.gta_valor),
+          subtotal,
+          valor_total: valorTotal,
+          tipo_gado: form.tipo_gado,
+          observacoes: form.observacoes,
+          status: form.status,
+        },
+        {
+          formaPagamento: pagamento.formaPagamento,
+          parcelas: pagamento.parcelas,
+        },
+      )
 
       toast.success('Compra cadastrada com sucesso')
 
@@ -182,55 +323,12 @@ export function Compras() {
       })
 
       setFornecedorBusca('')
+      resetPagamento()
       setLoadingSave(false)
       carregarCompras()
     } catch (e: any) {
       setLoadingSave(false)
       toast.error(e?.message || 'Erro ao cadastrar compra')
-    }
-  }
-
-  async function handleDelete(id: number) {
-    try {
-      await comprasService.delete(id)
-
-      toast.success('Compra excluída com sucesso')
-      setEditar(null)
-      carregarCompras()
-    } catch (e: any) {
-      toast.error(e?.message || 'Erro ao excluir compra')
-    }
-  }
-
-  async function handleSaveEdit() {
-    if (!editar) return
-
-    try {
-      const subtotal = calcularSubtotal(editar)
-      const valorTotal = calcularTotal(editar)
-
-      await comprasService.update(editar.id, {
-        fornecedor_id: editar.fornecedor_id,
-        data: editar.data,
-        quantidade_animais: Number(editar.quantidade_animais),
-        condicao_gado: Number(editar.condicao_gado),
-        peso_total: Number(editar.peso_total),
-        valor_kg: Number(editar.valor_kg),
-        tipo_imposto: editar.tipo_imposto,
-        valor_imposto: Number(editar.valor_imposto),
-        gta_valor: Number(editar.gta_valor),
-        subtotal,
-        valor_total: valorTotal,
-        tipo_gado: editar.tipo_gado,
-        observacoes: editar.observacoes,
-        status: editar.status,
-      })
-
-      toast.success('Compra atualizada com sucesso')
-      setEditar(null)
-      carregarCompras()
-    } catch (e: any) {
-      toast.error(e?.message || 'Erro ao atualizar compra')
     }
   }
 
@@ -262,7 +360,10 @@ export function Compras() {
     form.data &&
     Number(form.quantidade_animais) > 0 &&
     Number(form.peso_total) > 0 &&
-    Number(form.valor_kg) > 0
+    Number(form.valor_kg) > 0 &&
+    pagamento.parcelas.length === Number(pagamento.qtdParcelas || 1) &&
+    pagamento.parcelas.every((p) => p.valor && p.data) &&
+    parcelasConferem
 
   const columns = [
     {
@@ -313,12 +414,60 @@ export function Compras() {
       }
     },
     {
+      key: 'pagamento',
+      header: 'Pagamento',
+      render: (r: CompraRow) => {
+        const resumo = r.pagamento_resumo
+
+        if (!resumo?.total) {
+          return <span>—</span>
+        }
+
+        const detalhes = resumo.detalhes || []
+
+        return (
+          <div className={styles.pagamentoCell}>
+            {detalhes.length > 0 ? (
+              detalhes.map((p) => (
+                <div key={p.numero} className={styles.pagamentoLinha}>
+                  <span>
+                    {p.numero}/{p.total}:
+                  </span>
+                  <strong>{formatCurrency(p.valor)}</strong>
+                  <span>
+                    {p.status === 'pago' && p.data_pagamento
+                      ? ` · pago em ${formatDateBr(p.data_pagamento)}`
+                      : p.data_vencimento
+                        ? ` · vence ${formatDateBr(p.data_vencimento)}`
+                        : ''}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div>
+                {resumo.pagas}/{resumo.total} parcelas
+              </div>
+            )}
+            {resumo.valorPendente != null && resumo.valorPendente > 0 && (
+              <small className={styles.pagamentoPendente}>
+                Falta: {formatCurrency(resumo.valorPendente)}
+              </small>
+            )}
+          </div>
+        )
+      },
+    },
+    {
       key: 'acoes',
       header: 'Ações',
       render: (r: CompraRow) => (
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" onClick={() => setEditar(r)}>
-            Ver detalhes
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button variant="outline" onClick={() => abrirDetalhe(r, 'pagamento')}>
+            Pagamentos
+          </Button>
+
+          <Button variant="ghost" onClick={() => abrirDetalhe(r, 'dados')}>
+            Dados
           </Button>
 
           <Button
@@ -359,12 +508,27 @@ export function Compras() {
             label="Data"
             type="date"
             value={form.data}
-            onChange={(e) =>
+            onChange={(e) => {
+              const data = e.target.value
+
               setForm({
                 ...form,
-                data: e.target.value,
+                data,
               })
-            }
+
+              setPagamento((prev) => {
+                const qtd = Math.max(1, Number(prev.qtdParcelas || 1))
+                const total = calcularTotal({ ...form, data })
+
+                return {
+                  ...prev,
+                  parcelas:
+                    prev.parcelas.length > 0
+                      ? prev.parcelas
+                      : criarParcelasDraft(qtd, total, data),
+                }
+              })
+            }}
           />
 
           <Select
@@ -495,6 +659,159 @@ export function Compras() {
             }
           />
 
+          <div className={styles.pagamentoSection}>
+            <h3 className={styles.sectionTitle}>Pagamento parcelado</h3>
+
+            <Input
+              label="Quantidade de parcelas"
+              type="number"
+              min={1}
+              value={pagamento.qtdParcelas}
+              onChange={(e) => atualizarQtdParcelas(e.target.value)}
+            />
+
+            <Select
+              label="Forma de pagamento"
+              options={[...FORMAS_PAGAMENTO]}
+              value={pagamento.formaPagamento}
+              onChange={(e) =>
+                setPagamento({
+                  ...pagamento,
+                  formaPagamento: e.target.value,
+                })
+              }
+            />
+
+            {pagamento.parcelas.length > 0 && (
+              <div className={styles.parcelasPreview}>
+                <div className={styles.parcelasPreviewHeader}>
+                  <strong>Detalhamento de cada parcela</strong>
+                  <Button variant="outline" onClick={dividirValoresIgualmente}>
+                    Dividir igualmente
+                  </Button>
+                </div>
+                <p className={styles.parcelasHint}>
+                  Informe quanto será pago em cada parcela e a data (pagamento
+                  ou vencimento). Marque &quot;Já pago&quot; nas que já foram
+                  quitadas.
+                </p>
+
+                <div className={styles.parcelasTabela}>
+                  <div className={styles.parcelasTabelaHead}>
+                    <span>Parcela</span>
+                    <span>Valor (R$)</span>
+                    <span>Já pago?</span>
+                    <span>Data</span>
+                  </div>
+                  {pagamento.parcelas.map((parcela, index) => (
+                    <div
+                      key={index}
+                      className={styles.parcelasTabelaRow}
+                    >
+                      <span className={styles.parcelaNumero}>
+                        {index + 1}/{pagamento.parcelas.length}
+                      </span>
+                      <div className={styles.parcelaValorCell}>
+                        <Input
+                          label="Valor"
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          value={parcela.valor}
+                          onChange={(e) =>
+                            atualizarParcelaDraft(index, 'valor', e.target.value)
+                          }
+                        />
+                        {index < pagamento.parcelas.length - 1 &&
+                          Number(parcela.valor) > 0 && (
+                            <small className={styles.parcelaSugestao}>
+                              {(() => {
+                                const restante = calcularRestanteAposParcelas(
+                                  pagamento.parcelas,
+                                  index,
+                                  valorTotalCompra,
+                                )
+                                const proxima = valorProximaParcelaSugerida(
+                                  pagamento.parcelas,
+                                  index,
+                                  valorTotalCompra,
+                                )
+
+                                if (proxima === null) return null
+
+                                if (restante < 0) {
+                                  return (
+                                    <>
+                                      Valor acima do total — excedente de{' '}
+                                      {formatCurrency(Math.abs(restante))}
+                                    </>
+                                  )
+                                }
+
+                                const qtdRestantes =
+                                  pagamento.parcelas.length - index - 1
+
+                                return (
+                                  <>
+                                    Restante: {formatCurrency(restante)}
+                                    {' · '}
+                                    Próxima parcela
+                                    {qtdRestantes > 1 ? ' (sugerida)' : ''}:{' '}
+                                    <strong>{formatCurrency(proxima)}</strong>
+                                  </>
+                                )
+                              })()}
+                            </small>
+                          )}
+                      </div>
+                      <Select
+                        label="Status"
+                        options={['Não', 'Sim']}
+                        value={parcela.pago ? 'Sim' : 'Não'}
+                        onChange={(e) =>
+                          atualizarParcelaDraft(
+                            index,
+                            'pago',
+                            e.target.value === 'Sim',
+                          )
+                        }
+                      />
+                      <Input
+                        label={
+                          parcela.pago
+                            ? 'Data do pagamento'
+                            : 'Data de vencimento'
+                        }
+                        type="date"
+                        value={parcela.data}
+                        onChange={(e) =>
+                          atualizarParcelaDraft(index, 'data', e.target.value)
+                        }
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div
+                  className={[
+                    styles.parcelasTotal,
+                    !parcelasConferem && styles.parcelasTotalErro,
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  Soma das parcelas: <strong>{formatCurrency(somaParcelas)}</strong>
+                  {' · '}
+                  Total da compra:{' '}
+                  <strong>{formatCurrency(valorTotalCompra)}</strong>
+                  {!parcelasConferem && (
+                    <span> — ajuste os valores para fechar o total</span>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className={styles.actions}>
             <Button
               onClick={salvarCompra}
@@ -519,189 +836,13 @@ export function Compras() {
         />
       </Card>
 
-      <Modal
-        open={!!editar}
-        onClose={() => setEditar(null)}
-        title="Editar compra"
-      >
-        {editar && (
-          <div className={styles.form}>
-            <Autocomplete
-              label="Fornecedor"
-              options={fornecedores.map((f) => f.nome)}
-              value={
-                fornecedores.find((f) => f.id === editar.fornecedor_id)?.nome ||
-                ''
-              }
-              onChange={(value) => {
-                const fornecedor = fornecedores.find((f) => f.nome === value)
-
-                setEditar({
-                  ...editar,
-                  fornecedor_id: fornecedor?.id || '',
-                })
-              }}
-            />
-
-            <Input
-              label="Data"
-              type="date"
-              value={editar.data}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  data: e.target.value,
-                })
-              }
-            />
-
-            <Select
-              label="Condição"
-              options={['Vivo', 'Abatido']}
-              value={editar.condicao_gado === 1 ? 'Vivo' : 'Abatido'}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  condicao_gado: e.target.value === 'Vivo' ? 1 : 0,
-                })
-              }
-            />
-
-            <Input
-              label="Quantidade de animais"
-              type="number"
-              value={editar.quantidade_animais}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  quantidade_animais: Number(e.target.value),
-                })
-              }
-            />
-
-            <Input
-              label="Peso total"
-              type="number"
-              value={editar.peso_total}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  peso_total: Number(e.target.value),
-                })
-              }
-            />
-
-            <Input
-              label="Valor por KG"
-              type="number"
-              value={editar.valor_kg}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  valor_kg: Number(e.target.value),
-                })
-              }
-            />
-
-            {editar.condicao_gado == 1 && (
-              <>
-                <Select
-                  label="Tipo imposto"
-                  options={['fixo', 'percentual']}
-                  value={form.tipo_imposto}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      tipo_imposto: e.target.value as any,
-                    })
-                  }
-                />
-
-                <Input
-                  label={
-                    form.tipo_imposto === 'percentual'
-                      ? 'Imposto (%)'
-                      : 'Imposto (R$)'
-                  }
-                  type="number"
-                  value={form.valor_imposto}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      valor_imposto: e.target.value,
-                    })
-                  }
-                />
-
-                <Input
-                  label="GTA / Transporte"
-                  type="number"
-                  value={form.gta_valor}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      gta_valor: e.target.value,
-                    })
-                  }
-                />
-              </>
-            )}
-
-            <Input
-              label="Subtotal"
-              value={calcularSubtotal(editar).toFixed(2)}
-              disabled
-            />
-
-            <Input
-              label="Valor total"
-              value={calcularTotal(editar).toFixed(2)}
-              disabled
-            />
-
-            <Input
-              label="Tipo gado"
-              value={editar.tipo_gado || ''}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  tipo_gado: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Observações"
-              value={editar.observacoes || ''}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  observacoes: e.target.value,
-                })
-              }
-            />
-
-            <Input
-              label="Status"
-              value={editar.status}
-              onChange={(e) =>
-                setEditar({
-                  ...editar,
-                  status: e.target.value,
-                })
-              }
-            />
-
-            <div className={styles.actions}>
-              <Button onClick={handleSaveEdit}>Salvar alterações</Button>
-
-              <Button variant="danger" onClick={() => handleDelete(editar.id)}>
-                Excluir
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      <CompraDetalheModal
+        compra={compraDetalhe}
+        initialTab={detalheTab}
+        fornecedores={fornecedores}
+        onClose={() => setCompraDetalhe(null)}
+        onUpdated={carregarCompras}
+      />
 
       <ModalViagem
         open={viagemOpen}

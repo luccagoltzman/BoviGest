@@ -15,8 +15,216 @@
   margin-top: 0.5rem;
 }
 
+.pagamentoSection {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border-color, #e5e7eb);
+}
+
+.sectionTitle {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.parcelasPreview {
+  grid-column: 1 / -1;
+}
+
+.parcelasHint {
+  margin: 0.35rem 0 0.75rem;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.875rem;
+}
+
+.parcelasPreviewHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.parcelasTabela {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.parcelasTabelaHead,
+.parcelasTabelaRow,
+.parcelasTabelaRowDetalhe {
+  display: grid;
+  gap: 0.75rem;
+  align-items: end;
+  min-width: 640px;
+}
+
+.parcelasTabelaHead {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted, #6b7280);
+}
+
+.parcelaValorCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.parcelaSugestao {
+  font-size: 0.78rem;
+  color: var(--text-muted, #6b7280);
+  line-height: 1.35;
+
+  strong {
+    color: #15803d;
+  }
+}
+
+.parcelasTabelaRow {
+  grid-template-columns: 64px 1fr 120px 1fr;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+  background: var(--surface-muted, #f9fafb);
+}
+
+.parcelasTabelaRowDetalhe {
+  grid-template-columns: 64px 1fr 120px 160px 90px 140px;
+  padding: 0.75rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.parcelaNumero {
+  font-weight: 600;
+  padding-bottom: 0.5rem;
+}
+
+.parcelasTotal {
+  margin-top: 0.75rem;
+  padding: 0.75rem 1rem;
+  border-radius: 8px;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.parcelasTotalErro {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.parcelasResumo {
+  grid-column: 1 / -1;
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.pagamentoCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 180px;
+}
+
+.pagamentoLinha {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+}
+
+.pagamentoPendente {
+  color: #b45309;
+}
+
+.parcelasEditor {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parcelaEditorItem {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) minmax(180px, 220px);
+  gap: 1rem;
+  align-items: end;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.parcelaEditorLabel {
+  font-weight: 600;
+}
+
+.parcelasLista {
+  grid-column: 1 / -1;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parcelaItem {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border-color, #e5e7eb);
+  border-radius: 8px;
+}
+
+.parcelaAcao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.75rem;
+  min-width: 180px;
+}
+
+.statusPago {
+  color: #15803d;
+  font-weight: 600;
+}
+
+.statusPendente {
+  color: #b45309;
+  font-weight: 600;
+}
+
 @media (max-width: 768px) {
   .form {
     grid-template-columns: 1fr;
+  }
+
+  .parcelaItem {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .parcelasTabelaRow,
+  .parcelasTabelaRowDetalhe {
+    grid-template-columns: 1fr;
+    min-width: 0;
   }
 }

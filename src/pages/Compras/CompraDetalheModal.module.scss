@@ -1,0 +1,295 @@
+@use 'styles/variables' as *;
+
+.tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid $color-border;
+  padding-bottom: 0.5rem;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.85rem;
+  border: none;
+  border-radius: $radius;
+  background: transparent;
+  color: $color-text-muted;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: rgba(0, 0, 0, 0.04);
+    color: $color-text;
+  }
+}
+
+.tabActive {
+  background: rgba($color-primary, 0.1);
+  color: $color-primary-dark;
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.25rem;
+  height: 1.25rem;
+  padding: 0 0.35rem;
+  border-radius: 999px;
+  background: #b45309;
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 700;
+}
+
+.pagamentoPainel {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.kpiGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.75rem;
+}
+
+.kpiCard {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  background: $color-surface;
+
+  strong {
+    font-size: 1.1rem;
+    color: $color-primary-dark;
+  }
+
+  small {
+    color: $color-text-muted;
+    font-size: 0.8rem;
+  }
+}
+
+.kpiPago {
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+
+  strong {
+    color: #15803d;
+  }
+}
+
+.kpiPendente {
+  border-color: #fde68a;
+  background: #fffbeb;
+
+  strong {
+    color: #b45309;
+  }
+}
+
+.kpiLabel {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $color-text-muted;
+}
+
+.loadingText {
+  color: $color-text-muted;
+  margin: 0;
+}
+
+.parcelasLista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.parcelaCard {
+  border: 1px solid $color-border;
+  border-radius: $radius;
+  padding: 1rem;
+  background: $color-surface;
+}
+
+.parcelaCardPago {
+  border-color: #bbf7d0;
+  background: #fafdfa;
+}
+
+.parcelaCardPendente {
+  border-color: #fde68a;
+  background: #fffdf7;
+}
+
+.parcelaCardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.85rem;
+}
+
+.vencimentoLabel {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+  color: $color-text-muted;
+}
+
+.statusBadge {
+  flex-shrink: 0;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.statusPago {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.statusPendente {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.statusAtrasado {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.parcelaDetalhes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin: 0;
+
+  dt {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: $color-text-muted;
+    margin-bottom: 0.15rem;
+  }
+
+  dd {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: $color-primary-dark;
+  }
+}
+
+.parcelaCardGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.parcelaValorCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  grid-column: 1 / -1;
+}
+
+.parcelaSugestao {
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  line-height: 1.35;
+
+  strong {
+    color: #15803d;
+  }
+}
+
+.parcelaCardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid $color-border;
+}
+
+.setupBox {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.setupTitle {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.setupHint {
+  margin: 0;
+  color: $color-text-muted;
+  font-size: 0.9rem;
+}
+
+.setupFields {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.somaBox {
+  padding: 0.75rem 1rem;
+  border-radius: $radius;
+  background: #ecfdf5;
+  color: #065f46;
+  font-size: 0.9rem;
+}
+
+.somaBoxErro {
+  background: #fef2f2;
+  color: #991b1b;
+}
+
+.dadosForm {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.85rem;
+}
+
+.dadosActions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid $color-border;
+}
+
+@media (max-width: 768px) {
+  .kpiGrid,
+  .parcelaDetalhes,
+  .parcelaCardGrid,
+  .setupFields,
+  .dadosForm {
+    grid-template-columns: 1fr;
+  }
+
+  .parcelaCardActions {
+    flex-direction: column;
+
+    button {
+      width: 100%;
+    }
+  }
+}

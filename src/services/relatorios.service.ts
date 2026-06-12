@@ -10,6 +10,8 @@ export type RelatorioFiltros = {
 
 export type RelatorioKpis = {
   totalCompras: number
+  totalComprasPagas: number
+  totalComprasPendentes: number
   qtdCompras: number
   totalVendas: number
   qtdVendas: number
@@ -99,8 +101,18 @@ type RawMovimentacaoEstoque = {
   itens?: { peso_liquido_kg?: number }[]
 }
 
+type RawParcelaCompra = {
+  id: number
+  compra_id: number
+  valor?: number
+  data_vencimento?: string
+  data_pagamento?: string | null
+  status?: string
+}
+
 type RawRelatorio = {
   compras: RawCompra[]
+  parcelasCompras: RawParcelaCompra[]
   vendas: RawVenda[]
   custos: RawCusto[]
   estoque: RawEstoque[]
@@ -183,12 +195,22 @@ function eachDayInRange(startDate: string, endDate: string) {
   return days
 }
 
+function dataNoPeriodo(data: string, filtros: RelatorioFiltros) {
+  const dia = isoDateFromValue(data || '')
+  if (!dia) return false
+  if (filtros.startDate && dia < filtros.startDate) return false
+  if (filtros.endDate && dia > filtros.endDate) return false
+  return true
+}
+
 function montarSerieFinanceira(
   compras: RawCompra[],
+  parcelasCompras: RawParcelaCompra[],
   vendas: RawVenda[],
   filtros: RelatorioFiltros,
 ): PontoSerieDia[] {
   const map = new Map<string, { compras: number; vendas: number }>()
+  const comprasComParcelas = new Set(parcelasCompras.map((p) => p.compra_id))
 
   const ensureDay = (dia: string) => {
     if (!map.has(dia)) {
@@ -196,7 +218,19 @@ function montarSerieFinanceira(
     }
   }
 
+  for (const parcela of parcelasCompras) {
+    if (parcela.status !== 'pago' || !parcela.data_pagamento) continue
+
+    const dia = isoDateFromValue(parcela.data_pagamento)
+    if (!dia) continue
+
+    ensureDay(dia)
+    map.get(dia)!.compras += Number(parcela.valor || 0)
+  }
+
   for (const compra of compras) {
+    if (comprasComParcelas.has(compra.id)) continue
+
     const dia = isoDateFromValue(compra.data || '')
     if (!dia) continue
     ensureDay(dia)
@@ -232,16 +266,28 @@ async function buscarDadosBrutos(
   empresaId: number,
   filtros: RelatorioFiltros,
 ): Promise<RawRelatorio> {
-  const [compras, vendas, custos, estoque, movimentacoesEstoque] =
+  const [compras, parcelasCompras, vendas, custos, estoque, movimentacoesEstoque] =
     await Promise.all([
       buscarCompras(empresaId, filtros),
+      buscarParcelasCompras(empresaId),
       buscarVendas(empresaId, filtros),
       buscarCustos(empresaId, filtros),
       buscarEstoqueAtual(empresaId),
       buscarMovimentacoesEstoque(empresaId, filtros),
     ])
 
-  return { compras, vendas, custos, estoque, movimentacoesEstoque }
+  return { compras, parcelasCompras, vendas, custos, estoque, movimentacoesEstoque }
+}
+
+async function buscarParcelasCompras(empresaId: number) {
+  const { data, error } = await supabase
+    .from('compras_parcelas')
+    .select('id, compra_id, valor, data_vencimento, data_pagamento, status')
+    .eq('empresa_id', empresaId)
+
+  if (error) throw error
+
+  return (data || []) as RawParcelaCompra[]
 }
 
 async function buscarCompras(empresaId: number, filtros: RelatorioFiltros) {
@@ -368,12 +414,25 @@ function montarRelatorio(
   filtros: RelatorioFiltros,
   raw: RawRelatorio,
 ): RelatorioDados {
-  const { compras, vendas, custos, estoque, movimentacoesEstoque } = raw
+  const { compras, parcelasCompras, vendas, custos, estoque, movimentacoesEstoque } = raw
 
   const totalCompras = compras.reduce(
     (acc, row) => acc + Number(row.valor_total || 0),
     0,
   )
+
+  const totalComprasPagas = parcelasCompras
+    .filter(
+      (p) =>
+        p.status === 'pago' &&
+        p.data_pagamento &&
+        dataNoPeriodo(p.data_pagamento, filtros),
+    )
+    .reduce((acc, row) => acc + Number(row.valor || 0), 0)
+
+  const totalComprasPendentes = parcelasCompras
+    .filter((p) => p.status === 'pendente')
+    .reduce((acc, row) => acc + Number(row.valor || 0), 0)
 
   const totalVendas = vendas.reduce(
     (acc, row) => acc + Number(row.valor_total || 0),
@@ -423,6 +482,8 @@ function montarRelatorio(
     filtros,
     kpis: {
       totalCompras,
+      totalComprasPagas,
+      totalComprasPendentes,
       qtdCompras: compras.length,
       totalVendas,
       qtdVendas: vendas.length,
@@ -437,7 +498,12 @@ function montarRelatorio(
       saidasKg,
       resultadoEstimado: totalVendas - totalCompras - totalCustos,
     },
-    serieFinanceira: montarSerieFinanceira(compras, vendas, filtros),
+    serieFinanceira: montarSerieFinanceira(
+      compras,
+      parcelasCompras,
+      vendas,
+      filtros,
+    ),
     comprasPorFornecedor: somarPorCampo(
       compras,
       (r) => r.fornecedor?.nome || 'Sem fornecedor',

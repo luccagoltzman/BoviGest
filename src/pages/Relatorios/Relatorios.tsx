@@ -157,6 +157,20 @@ export function Relatorios() {
                 iconClass={styles.kpiIconCompras}
               />
               <KpiCard
+                label="Compras pagas"
+                value={formatCurrency(kpis!.totalComprasPagas)}
+                sub="Saídas de caixa no período"
+                icon={<ArrowDownLeft />}
+                iconClass={styles.kpiIconCompras}
+              />
+              <KpiCard
+                label="Compras a pagar"
+                value={formatCurrency(kpis!.totalComprasPendentes)}
+                sub="Parcelas pendentes (todas)"
+                icon={<ShoppingCart />}
+                iconClass={styles.kpiIconCompras}
+              />
+              <KpiCard
                 label="Vendas"
                 value={formatCurrency(kpis!.totalVendas)}
                 sub={`${kpis!.vendasFinalizadas} finalizadas · ${kpis!.vendasPendentes} pendentes`}

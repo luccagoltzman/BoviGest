@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
   Button,
@@ -9,6 +9,7 @@ import {
   ModalDetails,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import { pagamentosComprasService } from '@/services/pagamentosCompras.service'
 import {
   ArrowRight,
   BadgePercent,
@@ -30,6 +31,9 @@ interface ContaRow {
   valor: number
   vencimento: string
   status: string
+  formaPagamento?: string
+  dataPagamento?: string
+  parcelaId?: number
 }
 
 const mock: ContaRow[] = [
@@ -170,6 +174,8 @@ function getDefaultPeriodFromRows(rows: ContaRow[]) {
 export function Financeiro() {
   const [detalhe, setDetalhe] = useState<ContaRow | null>(null)
   const [tab, setTab] = useState<TabId>('resumo')
+  const [contasPagar, setContasPagar] = useState<ContaRow[]>([])
+  const [loadingContas, setLoadingContas] = useState(false)
   const defaultPeriod = useMemo(() => getDefaultPeriodFromRows(mock), [])
   const [startDate, setStartDate] = useState(defaultPeriod.startDate)
   const [endDate, setEndDate] = useState(defaultPeriod.endDate)
@@ -181,6 +187,54 @@ export function Financeiro() {
     'todos' | 'pendente' | 'pago' | 'atrasado'
   >('todos')
 
+  async function carregarContasPagar() {
+    try {
+      setLoadingContas(true)
+
+      const parcelas = await pagamentosComprasService.listarParaFinanceiro(
+        startDate,
+        endDate,
+      )
+
+      setContasPagar(
+        parcelas.map((parcela) => {
+          const fornecedor =
+            parcela.compra?.fornecedor?.nome || 'Fornecedor não informado'
+          const parcelaLabel =
+            parcela.total_parcelas > 1
+              ? ` (parcela ${parcela.numero_parcela}/${parcela.total_parcelas})`
+              : ''
+
+          return {
+            id: `compra-parcela-${parcela.id}`,
+            descricao: `Compra gado - ${fornecedor}${parcelaLabel} · ${formatCurrency(Number(parcela.valor || 0))}`,
+            tipo: 'pagar' as const,
+            valor: Number(parcela.valor || 0),
+            vencimento: parcela.data_vencimento,
+            dataPagamento: parcela.data_pagamento || undefined,
+            status: parcela.statusExibicao,
+            formaPagamento: parcela.forma_pagamento || undefined,
+            parcelaId: parcela.id,
+          }
+        }),
+      )
+    } catch {
+      toast.error('Erro ao carregar contas a pagar')
+      setContasPagar([])
+    } finally {
+      setLoadingContas(false)
+    }
+  }
+
+  useEffect(() => {
+    carregarContasPagar()
+  }, [startDate, endDate])
+
+  const rows = useMemo(
+    () => [...contasPagar, ...mock.filter((r) => r.tipo === 'receber')],
+    [contasPagar],
+  )
+
   const filtered = useMemo(() => {
     const startTs = startDate
       ? new Date(`${startDate}T00:00:00`).getTime()
@@ -189,7 +243,7 @@ export function Financeiro() {
 
     const q = normalizeText(search)
 
-    return mock.filter((row) => {
+    return rows.filter((row) => {
       const ts = row.vencimento
         ? new Date(`${row.vencimento.slice(0, 10)}T12:00:00`).getTime()
         : NaN
@@ -214,7 +268,7 @@ export function Financeiro() {
 
       return true
     })
-  }, [endDate, search, startDate, statusFiltro, tipoFiltro])
+  }, [endDate, rows, search, startDate, statusFiltro, tipoFiltro])
 
   const kpis = useMemo(() => {
     const pagar = filtered.filter((r) => r.tipo === 'pagar')
@@ -289,7 +343,13 @@ export function Financeiro() {
     { label: 'Tipo', value: r.tipo === 'pagar' ? 'A pagar' : 'A receber' },
     { label: 'Valor', value: formatCurrency(r.valor) },
     { label: 'Vencimento', value: formatDateBr(r.vencimento) },
+    ...(r.dataPagamento
+      ? [{ label: 'Pago em', value: formatDateBr(r.dataPagamento) }]
+      : []),
     { label: 'Status', value: r.status },
+    ...(r.formaPagamento
+      ? [{ label: 'Forma de pagamento', value: r.formaPagamento }]
+      : []),
   ]
 
   return (
@@ -385,12 +445,13 @@ export function Financeiro() {
           </Button>
           <Button
             onClick={() => {
-              // dados ainda são mock — botão para consistência visual
-              toast.success('Filtros aplicados')
+              carregarContasPagar()
+              toast.success('Dados atualizados')
             }}
+            disabled={loadingContas}
           >
             <RefreshCw size={16} style={{ marginRight: 6 }} />
-            Atualizar
+            {loadingContas ? 'Atualizando...' : 'Atualizar'}
           </Button>
         </div>
       </div>
@@ -491,13 +552,14 @@ export function Financeiro() {
           <div className={styles.sectionGrid}>
             <Card title="Contas a pagar" className={styles.sectionFull}>
               <p className={styles.sectionIntro}>
-                Despesas e compromissos. Use filtros acima para ajustar o período.
+                Parcelas de compras de gado. Use filtros acima para ajustar o período.
               </p>
               <div className={styles.tableWrap}>
                 <Table
                   columns={columns}
                   data={filtered.filter((r) => r.tipo === 'pagar')}
                   keyExtractor={(r) => r.id}
+                  loading={loadingContas}
                 />
               </div>
             </Card>
