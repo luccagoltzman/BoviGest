@@ -562,7 +562,14 @@ export function Vendas() {
       header: 'Cliente',
       render: (r: any) => (
         <a
-          onClick={() => setClienteExtrato(r)}
+          onClick={() =>
+            setClienteExtrato({
+              cliente: r.cliente ?? {
+                id: r.cliente_id,
+                nome: r.cliente?.nome ?? 'Cliente',
+              },
+            })
+          }
           style={{ cursor: 'pointer', textDecoration: 'underline' }}
         >
           {r.cliente?.nome}
@@ -626,7 +633,20 @@ export function Vendas() {
       key: 'acao',
       header: 'Ação',
       render: (r: any) => (
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Button
+            variant="ghost"
+            onClick={() =>
+              setClienteExtrato({
+                cliente: r.cliente ?? {
+                  id: r.cliente_id,
+                  nome: r.cliente?.nome ?? 'Cliente',
+                },
+              })
+            }
+          >
+            Extrato
+          </Button>
           <Button
             variant="outline"
             onClick={() => {
@@ -1040,7 +1060,7 @@ export function Vendas() {
         )}
       </Modal>
       <ClienteExtratoModal
-        open={!!clienteExtrato}
+        open={!!clienteExtrato?.cliente?.id}
         cliente={clienteExtrato?.cliente}
         onClose={() => setClienteExtrato(null)}
       />

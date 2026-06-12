@@ -11,6 +11,7 @@ import {
   parseCurrencyInput,
   formatCurrencyFromNumber,
 } from '@/utils/masks'
+import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
 
 interface Composicao {
   id: number
@@ -83,14 +84,15 @@ function getBandaComposicao(item: MovimentacaoItem) {
 
 export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   const hoje = new Date()
-  const seteDiasAtras = new Date(hoje)
-  seteDiasAtras.setDate(hoje.getDate() - 7)
+  const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
+  const [totalVendasGeral, setTotalVendasGeral] = useState(0)
+  const [totalRecebidoGeral, setTotalRecebidoGeral] = useState(0)
   const [startDate, setStartDate] = useState(
-    seteDiasAtras.toISOString().split('T')[0]
+    inicioMes.toISOString().split('T')[0],
   )
   const [endDate, setEndDate] = useState(hoje.toISOString().split('T')[0])
 
@@ -129,20 +131,41 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   async function carregarDados() {
     try {
       setLoading(true)
-      const [movs, recs, clienteDetalhe] = await Promise.all([
-        movimentacoesClientesService.getAll(1, 100, '', startDate, endDate),
-        recebimentosClientesService.getAll(1, 100, '', startDate, endDate),
+      const [
+        movsPeriodo,
+        recsPeriodo,
+        movsGeral,
+        recsGeral,
+        clienteDetalhe,
+      ] = await Promise.all([
+        movimentacoesClientesService.getByCliente(
+          cliente.id,
+          startDate,
+          endDate,
+        ),
+        recebimentosClientesService.getByCliente(
+          cliente.id,
+          startDate,
+          endDate,
+        ),
+        movimentacoesClientesService.getByCliente(cliente.id),
+        recebimentosClientesService.getByCliente(cliente.id),
         clientesService.getById(cliente.id),
       ])
-      setMovimentacoes(
-        (movs.data ?? []).filter(
-          (m: Movimentacao) => m.cliente_id === cliente.id
-        )
+
+      setMovimentacoes(movsPeriodo as Movimentacao[])
+      setRecebimentos(recsPeriodo as Recebimento[])
+      setTotalVendasGeral(
+        (movsGeral ?? []).reduce(
+          (acc: number, m: Movimentacao) => acc + Number(m.valor_total ?? 0),
+          0,
+        ),
       )
-      setRecebimentos(
-        (recs.data ?? []).filter(
-          (r: Recebimento) => r.cliente_id === cliente.id
-        )
+      setTotalRecebidoGeral(
+        (recsGeral ?? []).reduce(
+          (acc: number, r: Recebimento) => acc + Number(r.valor ?? 0),
+          0,
+        ),
       )
 
       const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
@@ -268,14 +291,15 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
 
   const totalVendasPeriodo = movimentacoes.reduce(
     (acc, m) => acc + Number(m.valor_total ?? 0),
-    0
+    0,
   )
-  const totalCompras = debitoAnterior + totalVendasPeriodo
-  const totalRecebido = recebimentos.reduce(
+  const totalComprasPeriodo = totalVendasPeriodo
+  const totalRecebidoPeriodo = recebimentos.reduce(
     (acc, r) => acc + Number(r.valor ?? 0),
-    0
+    0,
   )
-  const saldo = totalCompras - totalRecebido
+  const totalComprasGeral = debitoAnterior + totalVendasGeral
+  const saldo = totalComprasGeral - totalRecebidoGeral
 
   /**
    * Resumo de cortes — agora acumula a composição (dianteiro/traseiro)
@@ -366,6 +390,24 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     )
   }, [movimentacoes, recebimentos, debitoAnterior, debitoObs, debitoReferencia])
 
+  const extratoDetalhado = useMemo(
+    () =>
+      buildHistoricoDetalhadoRows(
+        movimentacoes,
+        recebimentos,
+        debitoAnterior,
+        debitoObsPersistido,
+        debitoReferenciaPersistida,
+      ),
+    [
+      movimentacoes,
+      recebimentos,
+      debitoAnterior,
+      debitoObsPersistido,
+      debitoReferenciaPersistida,
+    ],
+  )
+
   async function handleDownloadPdf() {
     try {
       setDownloadingPdf(true)
@@ -378,8 +420,8 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
         debitoAnteriorObservacao: debitoObs,
         debitoAnteriorReferencia: debitoReferencia,
         totalVendasPeriodo,
-        totalCompras,
-        totalRecebido,
+        totalCompras: totalComprasPeriodo + debitoAnterior,
+        totalRecebido: totalRecebidoPeriodo,
         saldo,
         movimentacoes,
         recebimentos,
@@ -400,7 +442,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
       open={open}
       onClose={onClose}
       title={`Extrato — ${cliente?.nome ?? ''}`}
-      width="860px"
+      width="1020px"
     >
       <div className={styles.container}>
         {/* Filtro de período */}
@@ -541,9 +583,9 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             </span>
           </div>
           <div className={`${styles.resumoCard} ${styles.cardRecebido}`}>
-            <span className={styles.cardLabel}>Total recebido</span>
+            <span className={styles.cardLabel}>Recebido no período</span>
             <strong className={styles.cardValor}>
-              {formatCurrency(totalRecebido)}
+              {formatCurrency(totalRecebidoPeriodo)}
             </strong>
             <span className={styles.cardSub}>
               {recebimentos.length} pagamento
@@ -559,10 +601,65 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             </strong>
             <span className={styles.cardSub}>
               {saldo <= 0 ? '✓ Quitado' : 'Em aberto'}
-              {debitoAnterior > 0 && saldo > 0 && (
-                <> · inclui débito anterior</>
+              {debitoAnterior > 0 && (
+                <> · inclui débito anterior de {formatCurrency(debitoAnterior)}</>
               )}
             </span>
+          </div>
+        </div>
+
+        {/* Extrato detalhado — uma linha por peça / recebimento */}
+        <div className={styles.section}>
+          <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
+          <p className={styles.extratoHint}>
+            Compras discriminadas por peça no período. O saldo devedor acima
+            considera débito anterior + todas as compras − todos os recebimentos.
+          </p>
+          <div className={styles.extratoTableWrap}>
+            <table className={styles.extratoTable}>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Tipo</th>
+                  <th>Corte / detalhe</th>
+                  <th>Peso</th>
+                  <th>Valor unit.</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading && (
+                  <tr>
+                    <td colSpan={6} className={styles.tableEmpty}>
+                      Carregando...
+                    </td>
+                  </tr>
+                )}
+                {!loading && extratoDetalhado.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className={styles.tableEmpty}>
+                      Nenhum registro no período.
+                    </td>
+                  </tr>
+                )}
+                {!loading &&
+                  extratoDetalhado.map((row, index) => (
+                    <tr
+                      key={`${row.tipo}-${row.sortTs}-${index}`}
+                      data-tipo={row.tipo
+                        .toLowerCase()
+                        .replace(/\s+/g, '_')}
+                    >
+                      <td>{row.data}</td>
+                      <td>{row.tipo}</td>
+                      <td className={styles.corteCell}>{row.corte}</td>
+                      <td>{row.peso}</td>
+                      <td>{row.valorUnitario}</td>
+                      <td className={styles.valorCell}>{row.valor}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
           </div>
         </div>
 

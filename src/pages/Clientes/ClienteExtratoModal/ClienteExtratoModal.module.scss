@@ -156,6 +156,76 @@
   margin: 0;
 }
 
+.extratoHint {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+  line-height: 1.45;
+}
+
+.extratoTableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+}
+
+.extratoTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th,
+  td {
+    padding: 10px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--color-border);
+    vertical-align: top;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-muted);
+    background: var(--color-surface-soft);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 0;
+  }
+
+  tbody tr[data-tipo='venda'] {
+    background: color-mix(in srgb, var(--color-info) 4%, transparent);
+  }
+
+  tbody tr[data-tipo='recebimento'] {
+    background: color-mix(in srgb, var(--color-success) 5%, transparent);
+  }
+
+  tbody tr[data-tipo='débito_anterior'],
+  tbody tr[data-tipo='debito_anterior'] {
+    background: color-mix(in srgb, var(--color-warning, #d97706) 8%, transparent);
+  }
+}
+
+.corteCell {
+  white-space: pre-line;
+  min-width: 160px;
+}
+
+.valorCell {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.tableEmpty {
+  text-align: center;
+  color: var(--color-text-muted);
+  padding: 24px !important;
+}
+
 .cortesGrid {
   display: flex;
   flex-direction: column;

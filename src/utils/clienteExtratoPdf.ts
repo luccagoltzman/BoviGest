@@ -120,7 +120,7 @@ function formatValorUnitarioItem(item: MovimentacaoItem) {
   return `${formatCurrency(valor)}/kg`
 }
 
-interface HistoricoDetalhadoRow {
+export type HistoricoDetalhadoRow = {
   data: string
   tipo: string
   corte: string
@@ -187,8 +187,10 @@ function buildHistoricoDetalhadoRows(
     })
   })
 
-  return rows.sort((a, b) => b.sortTs - a.sortTs)
+  return rows.sort((a, b) => a.sortTs - b.sortTs)
 }
+
+export { buildHistoricoDetalhadoRows }
 
 export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
