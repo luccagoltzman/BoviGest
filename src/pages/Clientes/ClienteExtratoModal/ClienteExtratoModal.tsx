@@ -5,6 +5,7 @@ import { Download } from 'lucide-react'
 import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
+import { clientesService } from '@/services/cliente.service'
 import { FORMAS_PAGAMENTO } from '../../../constants/formasPagamentos'
 import {
   parseCurrencyInput,
@@ -110,6 +111,15 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   const [editData, setEditData] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
 
+  const [debitoAnterior, setDebitoAnterior] = useState(0)
+  const [debitoValor, setDebitoValor] = useState('')
+  const [debitoObs, setDebitoObs] = useState('')
+  const [debitoReferencia, setDebitoReferencia] = useState('')
+  const [debitoObsPersistido, setDebitoObsPersistido] = useState('')
+  const [debitoReferenciaPersistida, setDebitoReferenciaPersistida] = useState('')
+  const [salvandoDebito, setSalvandoDebito] = useState(false)
+  const [editandoDebito, setEditandoDebito] = useState(false)
+
   useEffect(() => {
     if (open && cliente?.id) carregarDados()
   }, [open, cliente, startDate, endDate])
@@ -119,9 +129,10 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
   async function carregarDados() {
     try {
       setLoading(true)
-      const [movs, recs] = await Promise.all([
+      const [movs, recs, clienteDetalhe] = await Promise.all([
         movimentacoesClientesService.getAll(1, 100, '', startDate, endDate),
         recebimentosClientesService.getAll(1, 100, '', startDate, endDate),
+        clientesService.getById(cliente.id),
       ])
       setMovimentacoes(
         (movs.data ?? []).filter(
@@ -133,10 +144,69 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
           (r: Recebimento) => r.cliente_id === cliente.id
         )
       )
+
+      const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
+      setDebitoAnterior(debito)
+      setDebitoValor(debito > 0 ? formatCurrencyFromNumber(debito) : '')
+      setDebitoObs(clienteDetalhe?.debito_anterior_observacao ?? '')
+      setDebitoObsPersistido(clienteDetalhe?.debito_anterior_observacao ?? '')
+      const referencia =
+        clienteDetalhe?.debito_anterior_referencia?.slice(0, 10) ?? ''
+      setDebitoReferencia(referencia)
+      setDebitoReferenciaPersistida(referencia)
     } catch {
       toast.error('Erro ao carregar extrato')
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function salvarDebitoAnterior() {
+    const valor = parseCurrencyInput(debitoValor)
+    if (!debitoValor.trim()) {
+      toast.error('Informe o valor do débito anterior')
+      return
+    }
+
+    try {
+      setSalvandoDebito(true)
+      await clientesService.update(cliente.id, {
+        debito_anterior: valor,
+        debito_anterior_observacao: debitoObs.trim() || null,
+        debito_anterior_referencia: debitoReferencia || null,
+      })
+      setDebitoAnterior(valor)
+      setDebitoObsPersistido(debitoObs.trim())
+      setDebitoReferenciaPersistida(debitoReferencia)
+      setEditandoDebito(false)
+      toast.success('Débito anterior salvo')
+    } catch {
+      toast.error('Erro ao salvar débito anterior')
+    } finally {
+      setSalvandoDebito(false)
+    }
+  }
+
+  async function removerDebitoAnterior() {
+    try {
+      setSalvandoDebito(true)
+      await clientesService.update(cliente.id, {
+        debito_anterior: 0,
+        debito_anterior_observacao: null,
+        debito_anterior_referencia: null,
+      })
+      setDebitoAnterior(0)
+      setDebitoValor('')
+      setDebitoObs('')
+      setDebitoReferencia('')
+      setDebitoObsPersistido('')
+      setDebitoReferenciaPersistida('')
+      setEditandoDebito(false)
+      toast.success('Débito anterior removido')
+    } catch {
+      toast.error('Erro ao remover débito anterior')
+    } finally {
+      setSalvandoDebito(false)
     }
   }
 
@@ -196,15 +266,16 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
 
   // ─── Derivados ────────────────────────────────────────────────────────────
 
-  const totalVendas = movimentacoes.reduce(
+  const totalVendasPeriodo = movimentacoes.reduce(
     (acc, m) => acc + Number(m.valor_total ?? 0),
     0
   )
+  const totalCompras = debitoAnterior + totalVendasPeriodo
   const totalRecebido = recebimentos.reduce(
     (acc, r) => acc + Number(r.valor ?? 0),
     0
   )
-  const saldo = totalVendas - totalRecebido
+  const saldo = totalCompras - totalRecebido
 
   /**
    * Resumo de cortes — agora acumula a composição (dianteiro/traseiro)
@@ -273,10 +344,27 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
       id: r.id,
       raw: r,
     }))
-    return [...vendas, ...recs].sort(
+
+    const debito =
+      debitoAnterior > 0
+        ? [
+            {
+              tipo: 'debito_anterior' as const,
+              data: debitoReferencia || '1970-01-01',
+              valor: debitoAnterior,
+              id: 'debito-anterior',
+              raw: {
+                observacao: debitoObs,
+                referencia: debitoReferencia,
+              },
+            },
+          ]
+        : []
+
+    return [...vendas, ...recs, ...debito].sort(
       (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
     )
-  }, [movimentacoes, recebimentos])
+  }, [movimentacoes, recebimentos, debitoAnterior, debitoObs, debitoReferencia])
 
   async function handleDownloadPdf() {
     try {
@@ -286,7 +374,11 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
         clienteNome: cliente.nome,
         startDate,
         endDate,
-        totalVendas,
+        debitoAnterior,
+        debitoAnteriorObservacao: debitoObs,
+        debitoAnteriorReferencia: debitoReferencia,
+        totalVendasPeriodo,
+        totalCompras,
         totalRecebido,
         saldo,
         movimentacoes,
@@ -339,12 +431,109 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
           </Button>
         </div>
 
+        {/* Débito anterior (fora do sistema) */}
+        <div className={styles.debitoSection}>
+          <div className={styles.sectionHeader}>
+            <div>
+              <h4 className={styles.sectionTitle}>Débito anterior</h4>
+              <p className={styles.debitoHint}>
+                Saldo de vendas anteriores ao uso do sistema (ex.: mês passado).
+              </p>
+            </div>
+            {!editandoDebito && (
+              <button
+                type="button"
+                className={styles.btnNovo}
+                onClick={() => setEditandoDebito(true)}
+              >
+                {debitoAnterior > 0 ? '✎ Editar' : '+ Informar débito'}
+              </button>
+            )}
+          </div>
+
+          {editandoDebito ? (
+            <div className={styles.debitoForm}>
+              <Input
+                label="Valor do débito (R$)"
+                mask="currency"
+                value={debitoValor}
+                onChange={(e) => setDebitoValor(e.target.value)}
+              />
+              <Input
+                label="Referência (data)"
+                type="date"
+                value={debitoReferencia}
+                onChange={(e) => setDebitoReferencia(e.target.value)}
+              />
+              <Input
+                label="Observação"
+                placeholder="Ex.: Vendas até jan/2025 fora do sistema"
+                value={debitoObs}
+                onChange={(e) => setDebitoObs(e.target.value)}
+              />
+              <div className={styles.debitoFormActions}>
+                <Button loading={salvandoDebito} onClick={salvarDebitoAnterior}>
+                  Salvar
+                </Button>
+                {debitoAnterior > 0 && (
+                  <Button
+                    variant="outline"
+                    loading={salvandoDebito}
+                    onClick={removerDebitoAnterior}
+                  >
+                    Remover
+                  </Button>
+                )}
+                <button
+                  type="button"
+                  className={styles.btnCancelar}
+                  onClick={() => {
+                    setEditandoDebito(false)
+                    setDebitoValor(
+                      debitoAnterior > 0
+                        ? formatCurrencyFromNumber(debitoAnterior)
+                        : '',
+                    )
+                    setDebitoObs(debitoObsPersistido)
+                    setDebitoReferencia(debitoReferenciaPersistida)
+                  }}
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          ) : debitoAnterior > 0 ? (
+            <div className={styles.debitoResumo}>
+              <strong>{formatCurrency(debitoAnterior)}</strong>
+              {debitoReferencia && (
+                <span> · ref. {formatDate(debitoReferencia)}</span>
+              )}
+              {debitoObs && (
+                <p className={styles.debitoObsText}>{debitoObs}</p>
+              )}
+            </div>
+          ) : (
+            <p className={styles.debitoEmpty}>
+              Nenhum débito anterior informado.
+            </p>
+          )}
+        </div>
+
         {/* Cards de resumo */}
         <div className={styles.resumoGrid}>
+          {debitoAnterior > 0 && (
+            <div className={`${styles.resumoCard} ${styles.cardDebitoAnterior}`}>
+              <span className={styles.cardLabel}>Débito anterior</span>
+              <strong className={styles.cardValor}>
+                {formatCurrency(debitoAnterior)}
+              </strong>
+              <span className={styles.cardSub}>Fora do período filtrado</span>
+            </div>
+          )}
           <div className={`${styles.resumoCard} ${styles.cardVendas}`}>
-            <span className={styles.cardLabel}>Total em compras</span>
+            <span className={styles.cardLabel}>Compras no período</span>
             <strong className={styles.cardValor}>
-              {formatCurrency(totalVendas)}
+              {formatCurrency(totalVendasPeriodo)}
             </strong>
             <span className={styles.cardSub}>
               {movimentacoes.length} venda
@@ -370,6 +559,9 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             </strong>
             <span className={styles.cardSub}>
               {saldo <= 0 ? '✓ Quitado' : 'Em aberto'}
+              {debitoAnterior > 0 && saldo > 0 && (
+                <> · inclui débito anterior</>
+              )}
             </span>
           </div>
         </div>
@@ -530,6 +722,30 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                         )
                       })}
                     </div>
+                    <strong className={styles.historicoValor}>
+                      {formatCurrency(entry.valor)}
+                    </strong>
+                  </div>
+                ) : entry.tipo === 'debito_anterior' ? (
+                  <div className={styles.debitoHistoricoRow}>
+                    <div className={styles.historicoLeft}>
+                      <span
+                        className={styles.tipoBadge}
+                        data-tipo="debito_anterior"
+                      >
+                        Débito anterior
+                      </span>
+                      <span className={styles.historicoData}>
+                        {debitoReferencia
+                          ? formatDate(debitoReferencia)
+                          : 'Fora do sistema'}
+                      </span>
+                    </div>
+                    {(entry.raw as { observacao?: string }).observacao && (
+                      <span className={styles.obsText}>
+                        {(entry.raw as { observacao?: string }).observacao}
+                      </span>
+                    )}
                     <strong className={styles.historicoValor}>
                       {formatCurrency(entry.valor)}
                     </strong>

@@ -41,7 +41,11 @@ export interface ExtratoPdfInput {
   clienteNome: string
   startDate: string
   endDate: string
-  totalVendas: number
+  debitoAnterior?: number
+  debitoAnteriorObservacao?: string
+  debitoAnteriorReferencia?: string
+  totalVendasPeriodo: number
+  totalCompras: number
   totalRecebido: number
   saldo: number
   movimentacoes: Movimentacao[]
@@ -129,8 +133,25 @@ interface HistoricoDetalhadoRow {
 function buildHistoricoDetalhadoRows(
   movimentacoes: Movimentacao[],
   recebimentos: Recebimento[],
+  debitoAnterior = 0,
+  debitoObs = '',
+  debitoReferencia = '',
 ): HistoricoDetalhadoRow[] {
   const rows: HistoricoDetalhadoRow[] = []
+
+  if (debitoAnterior > 0) {
+    rows.push({
+      data: debitoReferencia ? formatDate(debitoReferencia) : '—',
+      tipo: 'Débito anterior',
+      corte: debitoObs || 'Vendas fora do sistema',
+      peso: '—',
+      valorUnitario: '—',
+      valor: formatCurrency(debitoAnterior),
+      sortTs: debitoReferencia
+        ? new Date(debitoReferencia).getTime()
+        : 0,
+    })
+  }
 
   movimentacoes.forEach((m) => {
     const itens = m.itens?.length ? m.itens : [null]
@@ -203,9 +224,10 @@ export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
 
   autoTable(doc, {
     startY: y,
-    head: [['Total em compras', 'Total recebido', 'Saldo devedor']],
+    head: [['Débito anterior', 'Compras no período', 'Total recebido', 'Saldo devedor']],
     body: [[
-      formatCurrency(input.totalVendas),
+      formatCurrency(input.debitoAnterior ?? 0),
+      formatCurrency(input.totalVendasPeriodo),
       formatCurrency(input.totalRecebido),
       formatCurrency(input.saldo),
     ]],
@@ -284,6 +306,9 @@ export function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   const historicoRows = buildHistoricoDetalhadoRows(
     input.movimentacoes,
     input.recebimentos,
+    input.debitoAnterior,
+    input.debitoAnteriorObservacao,
+    input.debitoAnteriorReferencia,
   )
 
   autoTable(doc, {

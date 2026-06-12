@@ -31,7 +31,7 @@
 
 .resumoGrid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 12px;
 }
 
@@ -83,6 +83,56 @@
 .cardQuitado {
   background: color-mix(in srgb, var(--color-success) 10%, transparent);
   color: var(--color-success);
+}
+
+.cardDebitoAnterior {
+  background: color-mix(in srgb, var(--color-warning, #d97706) 12%, transparent);
+  color: var(--color-warning, #b45309);
+}
+
+.debitoSection {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 16px;
+  background: color-mix(in srgb, var(--color-warning, #d97706) 4%, transparent);
+}
+
+.debitoHint {
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
+.debitoForm {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.debitoFormActions {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.debitoResumo {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
+.debitoObsText {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
+}
+
+.debitoEmpty {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--color-text-muted);
 }
 
 .section {
@@ -241,10 +291,17 @@
     background: color-mix(in srgb, var(--color-success) 6%, transparent);
     border: 1px solid color-mix(in srgb, var(--color-success) 18%, transparent);
   }
+
+  &.debito_anterior {
+    background: color-mix(in srgb, var(--color-warning, #d97706) 6%, transparent);
+    border: 1px solid
+      color-mix(in srgb, var(--color-warning, #d97706) 22%, transparent);
+  }
 }
 
 .vendaRow,
-.recebimentoRow {
+.recebimentoRow,
+.debitoHistoricoRow {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -276,6 +333,11 @@
   &[data-tipo='recebimento'] {
     background: color-mix(in srgb, var(--color-success) 14%, transparent);
     color: var(--color-success);
+  }
+
+  &[data-tipo='debito_anterior'] {
+    background: color-mix(in srgb, var(--color-warning, #d97706) 14%, transparent);
+    color: var(--color-warning, #b45309);
   }
 }
 
@@ -445,7 +507,8 @@
   }
 
   .recebimentoForm,
-  .editForm {
+  .editForm,
+  .debitoForm {
     grid-template-columns: 1fr;
   }
 

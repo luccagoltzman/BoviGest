@@ -132,6 +132,21 @@ export const clientesService = {
     }
   },
 
+  async getById(id: string) {
+    const user = getUser()
+
+    const { data, error } = await supabase
+      .from('clientes')
+      .select('*')
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
+      .eq('status', 1)
+      .single()
+
+    if (error) throw error
+    return data
+  },
+
   async getOptions(search = '') {
     try {
       const user = getUser()
