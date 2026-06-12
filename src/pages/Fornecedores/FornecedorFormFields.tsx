@@ -4,16 +4,20 @@ import { Button, Input, Select } from '@/components/ui'
 import {
   buscarEnderecoPorCep,
   cepSomenteDigitos,
-  formatCepInput,
 } from '@/services/cep.service'
 import {
   avisoSituacaoCadastral,
   buscarDadosPorCnpj,
   cnpjSomenteDigitos,
-  formatCpfCnpjInput,
   isCnpj,
   mapDadosCnpjParaFornecedor,
 } from '@/services/cnpj.service'
+import {
+  formatCepInput,
+  formatCpfCnpjInput,
+  formatPhoneInput,
+  formatPixChaveInput,
+} from '@/utils/masks'
 import styles from './Fornecedores.module.scss'
 
 export type FornecedorFormData = {
@@ -89,7 +93,7 @@ export function fornecedorFormFromRow(
   return {
     nome: row.nome || '',
     doc: row.doc ? formatCpfCnpjInput(row.doc) : '',
-    telefone: row.telefone || '',
+    telefone: row.telefone ? formatPhoneInput(row.telefone) : '',
     data_nascimento: row.data_nascimento?.slice(0, 10) || '',
     cep: row.cep ? formatCepInput(row.cep) : '',
     endereco: row.endereco || '',
@@ -237,12 +241,9 @@ export function FornecedorFormFields({
       <div className={styles.cepRow}>
         <Input
           label="CPF / CNPJ"
-          placeholder="00.000.000/0000-00"
-          inputMode="numeric"
+          mask="cpfCnpj"
           value={value.doc}
-          onChange={(e) =>
-            onChange({ doc: formatCpfCnpjInput(e.target.value) })
-          }
+          onChange={(e) => onChange({ doc: e.target.value })}
           onBlur={handleDocBlur}
         />
         <Button
@@ -262,6 +263,7 @@ export function FornecedorFormFields({
       )}
       <Input
         label="Telefone"
+        mask="phone"
         value={value.telefone}
         onChange={(e) => onChange({ telefone: e.target.value })}
       />
@@ -277,11 +279,9 @@ export function FornecedorFormFields({
       <div className={styles.cepRow}>
         <Input
           label="CEP"
-          placeholder="00000-000"
-          inputMode="numeric"
-          maxLength={9}
+          mask="cep"
           value={value.cep}
-          onChange={(e) => onChange({ cep: formatCepInput(e.target.value) })}
+          onChange={(e) => onChange({ cep: e.target.value })}
           onBlur={handleCepBlur}
         />
         <Button
@@ -373,7 +373,11 @@ export function FornecedorFormFields({
         label="Chave PIX"
         placeholder="Informe a chave conforme o tipo selecionado"
         value={value.pix_chave}
-        onChange={(e) => onChange({ pix_chave: e.target.value })}
+        onChange={(e) =>
+          onChange({
+            pix_chave: formatPixChaveInput(value.pix_tipo, e.target.value),
+          })
+        }
       />
     </>
   )

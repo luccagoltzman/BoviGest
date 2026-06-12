@@ -20,6 +20,12 @@ import {
   formatCurrency,
   type ParcelaDraft,
 } from '@/utils/compraParcelas'
+import {
+  parseCurrencyInput,
+  parseDecimalInput,
+  parseIntegerInput,
+  formatCurrencyFromNumber,
+} from '@/utils/masks'
 
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
 import { CompraDetalheModal } from './CompraDetalheModal'
@@ -128,7 +134,7 @@ export function Compras() {
   }
 
   function atualizarQtdParcelas(qtdRaw: string) {
-    const qtd = Math.max(1, Number(qtdRaw || 1))
+    const qtd = Math.max(1, parseIntegerInput(qtdRaw || '1'))
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
     const valorTotal = calcularTotal(form)
 
@@ -140,7 +146,7 @@ export function Compras() {
   }
 
   function dividirValoresIgualmente() {
-    const qtd = Number(pagamento.qtdParcelas || 1)
+    const qtd = parseIntegerInput(pagamento.qtdParcelas || '1')
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
     const valorTotal = calcularTotal(form)
 
@@ -182,7 +188,7 @@ export function Compras() {
     Math.abs(somaParcelas - valorTotalCompra) < 0.02
 
   useEffect(() => {
-    const qtd = Number(pagamento.qtdParcelas || 1)
+    const qtd = parseIntegerInput(pagamento.qtdParcelas || '1')
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
 
     if (
@@ -218,24 +224,27 @@ export function Compras() {
   }
 
   function calcularSubtotal(data: any) {
-    return Number(data.peso_total || 0) * Number(data.valor_kg || 0)
+    return (
+      parseDecimalInput(data.peso_total || '') *
+      parseCurrencyInput(data.valor_kg || '')
+    )
   }
 
   function calcularImposto(data: any) {
     const subtotal = calcularSubtotal(data)
 
     if (data.tipo_imposto === 'percentual') {
-      return subtotal * (Number(data.valor_imposto || 0) / 100)
+      return subtotal * (parseDecimalInput(data.valor_imposto || '') / 100)
     }
 
-    return Number(data.valor_imposto || 0)
+    return parseCurrencyInput(data.valor_imposto || '')
   }
 
   function calcularTotal(data: any) {
     return (
       calcularSubtotal(data) +
       calcularImposto(data) +
-      Number(data.gta_valor || 0)
+      parseCurrencyInput(data.gta_valor || '')
     )
   }
 
@@ -285,13 +294,16 @@ export function Compras() {
         {
           fornecedor_id: form.fornecedor_id,
           data: form.data,
-          quantidade_animais: Number(form.quantidade_animais),
+          quantidade_animais: parseIntegerInput(form.quantidade_animais),
           condicao_gado: Number(form.condicao_gado),
-          peso_total: Number(form.peso_total),
-          valor_kg: Number(form.valor_kg),
+          peso_total: parseDecimalInput(form.peso_total),
+          valor_kg: parseCurrencyInput(form.valor_kg),
           tipo_imposto: form.tipo_imposto,
-          valor_imposto: Number(form.valor_imposto),
-          gta_valor: Number(form.gta_valor),
+          valor_imposto:
+            form.tipo_imposto === 'percentual'
+              ? parseDecimalInput(form.valor_imposto)
+              : parseCurrencyInput(form.valor_imposto),
+          gta_valor: parseCurrencyInput(form.gta_valor),
           subtotal,
           valor_total: valorTotal,
           tipo_gado: form.tipo_gado,
@@ -358,10 +370,10 @@ export function Compras() {
   const canSaveCompra =
     form.fornecedor_id &&
     form.data &&
-    Number(form.quantidade_animais) > 0 &&
-    Number(form.peso_total) > 0 &&
-    Number(form.valor_kg) > 0 &&
-    pagamento.parcelas.length === Number(pagamento.qtdParcelas || 1) &&
+    parseDecimalInput(form.quantidade_animais) > 0 &&
+    parseDecimalInput(form.peso_total) > 0 &&
+    parseCurrencyInput(form.valor_kg) > 0 &&
+    pagamento.parcelas.length === parseIntegerInput(pagamento.qtdParcelas || '1') &&
     pagamento.parcelas.every((p) => p.valor && p.data) &&
     parcelasConferem
 
@@ -545,7 +557,7 @@ export function Compras() {
 
           <Input
             label="Quantidade de animais"
-            type="number"
+            mask="integer"
             value={form.quantidade_animais}
             onChange={(e) =>
               setForm({
@@ -556,8 +568,8 @@ export function Compras() {
           />
 
           <Input
-            label="Peso total"
-            type="number"
+            label="Peso total (kg)"
+            mask="decimal"
             value={form.peso_total}
             onChange={(e) =>
               setForm({
@@ -569,7 +581,7 @@ export function Compras() {
 
           <Input
             label="Valor por KG"
-            type="number"
+            mask="currency"
             value={form.valor_kg}
             onChange={(e) =>
               setForm({
@@ -599,7 +611,7 @@ export function Compras() {
                     ? 'Imposto (%)'
                     : 'Imposto (R$)'
                 }
-                type="number"
+                mask={form.tipo_imposto === 'percentual' ? 'decimal' : 'currency'}
                 value={form.valor_imposto}
                 onChange={(e) =>
                   setForm({
@@ -611,7 +623,7 @@ export function Compras() {
 
               <Input
                 label="GTA / Transporte"
-                type="number"
+                mask="currency"
                 value={form.gta_valor}
                 onChange={(e) =>
                   setForm({
@@ -625,13 +637,13 @@ export function Compras() {
 
           <Input
             label="Subtotal"
-            value={calcularSubtotal(form).toFixed(2)}
+            value={formatCurrencyFromNumber(calcularSubtotal(form))}
             disabled
           />
 
           <Input
             label="Valor total"
-            value={calcularTotal(form).toFixed(2)}
+            value={formatCurrencyFromNumber(calcularTotal(form))}
             disabled
           />
 
@@ -664,8 +676,7 @@ export function Compras() {
 
             <Input
               label="Quantidade de parcelas"
-              type="number"
-              min={1}
+              mask="integer"
               value={pagamento.qtdParcelas}
               onChange={(e) => atualizarQtdParcelas(e.target.value)}
             />
@@ -714,9 +725,7 @@ export function Compras() {
                       <div className={styles.parcelaValorCell}>
                         <Input
                           label="Valor"
-                          type="number"
-                          min={0}
-                          step="0.01"
+                          mask="currency"
                           value={parcela.valor}
                           onChange={(e) =>
                             atualizarParcelaDraft(index, 'valor', e.target.value)

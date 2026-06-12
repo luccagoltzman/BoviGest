@@ -1,15 +1,11 @@
+export { formatCepInput } from '@/utils/masks'
+
 export type EnderecoPorCep = {
   logradouro: string
   bairro: string
   cidade: string
   uf: string
   complemento?: string
-}
-
-export function formatCepInput(value: string) {
-  const digits = value.replace(/\D/g, '').slice(0, 8)
-  if (digits.length <= 5) return digits
-  return `${digits.slice(0, 5)}-${digits.slice(5)}`
 }
 
 export function cepSomenteDigitos(value: string) {

@@ -17,6 +17,14 @@ import {
   formatCurrency,
   type ParcelaDraft,
 } from '@/utils/compraParcelas'
+import {
+  parseCurrencyInput,
+  parseDecimalInput,
+  parseIntegerInput,
+  formatCurrencyFromNumber,
+  formatIntegerInput,
+  formatDecimalInput,
+} from '@/utils/masks'
 import styles from './CompraDetalheModal.module.scss'
 
 export type CompraDetalheRow = {
@@ -47,6 +55,44 @@ type ParcelaDraftEdicao = {
   dataPagamento: string
   vencimento: string
   formaPagamento: string
+}
+
+type EditarCampos = {
+  quantidade_animais: string
+  peso_total: string
+  valor_kg: string
+  valor_imposto: string
+  gta_valor: string
+}
+
+function rowToEditarCampos(row: CompraDetalheRow): EditarCampos {
+  return {
+    quantidade_animais: formatIntegerInput(String(row.quantidade_animais)),
+    peso_total: formatDecimalInput(String(row.peso_total).replace('.', ',')),
+    valor_kg: formatCurrencyFromNumber(row.valor_kg),
+    valor_imposto:
+      row.tipo_imposto === 'percentual'
+        ? formatDecimalInput(String(row.valor_imposto).replace('.', ','))
+        : formatCurrencyFromNumber(row.valor_imposto),
+    gta_valor: formatCurrencyFromNumber(row.gta_valor),
+  }
+}
+
+function dadosParaCalculo(
+  editar: CompraDetalheRow,
+  campos: EditarCampos,
+): CompraDetalheRow {
+  return {
+    ...editar,
+    quantidade_animais: parseIntegerInput(campos.quantidade_animais),
+    peso_total: parseDecimalInput(campos.peso_total),
+    valor_kg: parseCurrencyInput(campos.valor_kg),
+    valor_imposto:
+      editar.tipo_imposto === 'percentual'
+        ? parseDecimalInput(campos.valor_imposto)
+        : parseCurrencyInput(campos.valor_imposto),
+    gta_valor: parseCurrencyInput(campos.gta_valor),
+  }
 }
 
 type Props = {
@@ -107,6 +153,13 @@ export function CompraDetalheModal({
 }: Props) {
   const [tab, setTab] = useState<ModalTab>(initialTab)
   const [editar, setEditar] = useState<CompraDetalheRow | null>(null)
+  const [editarCampos, setEditarCampos] = useState<EditarCampos>({
+    quantidade_animais: '',
+    peso_total: '',
+    valor_kg: '',
+    valor_imposto: '',
+    gta_valor: '',
+  })
   const [parcelas, setParcelas] = useState<CompraParcela[]>([])
   const [loadingParcelas, setLoadingParcelas] = useState(false)
   const [salvando, setSalvando] = useState(false)
@@ -123,6 +176,7 @@ export function CompraDetalheModal({
   useEffect(() => {
     if (compra) {
       setEditar(compra)
+      setEditarCampos(rowToEditarCampos(compra))
       setTab(initialTab)
     }
   }, [compra, initialTab])
@@ -146,7 +200,7 @@ export function CompraDetalheModal({
             lista.map((p) => [
               p.id,
               {
-                valor: String(p.valor),
+                valor: formatCurrencyFromNumber(Number(p.valor)),
                 dataPagamento: hoje,
                 vencimento: p.data_vencimento?.slice(0, 10) || hoje,
                 formaPagamento: p.forma_pagamento || formaPadrao,
@@ -166,7 +220,8 @@ export function CompraDetalheModal({
   }, [compra])
 
   const valorTotalCompra = editar
-    ? editar.detalhes_custo?.total ?? calcularTotal(editar)
+    ? editar.detalhes_custo?.total ??
+      calcularTotal(dadosParaCalculo(editar, editarCampos))
     : 0
 
   const resumo = useMemo(() => {
@@ -192,7 +247,7 @@ export function CompraDetalheModal({
   useEffect(() => {
     if (!editar || parcelas.length > 0) return
 
-    const qtd = Number(setupPagamento.qtdParcelas || 1)
+    const qtd = Math.max(1, parseIntegerInput(setupPagamento.qtdParcelas || '1'))
     const dataBase = editar.data || new Date().toISOString().slice(0, 10)
 
     if (
@@ -222,19 +277,19 @@ export function CompraDetalheModal({
       setSalvando(true)
 
       await pagamentosComprasService.atualizarPendente(parcela.id, {
-        valor: Number(draft.valor),
+        valor: parseCurrencyInput(draft.valor),
         data_vencimento: draft.vencimento,
         forma_pagamento: draft.formaPagamento,
       })
 
       await pagamentosComprasService.marcarComoPago(parcela.id, {
         data_pagamento: draft.dataPagamento,
-        valor: Number(draft.valor),
+        valor: parseCurrencyInput(draft.valor),
         forma_pagamento: draft.formaPagamento,
       })
 
       toast.success(
-        `Pagamento registrado: ${formatCurrency(Number(draft.valor))} em ${formatDateBr(draft.dataPagamento)}`,
+        `Pagamento registrado: ${formatCurrency(parseCurrencyInput(draft.valor))} em ${formatDateBr(draft.dataPagamento)}`,
       )
       await recarregarParcelas()
     } catch (e: unknown) {
@@ -253,7 +308,7 @@ export function CompraDetalheModal({
       setSalvando(true)
 
       await pagamentosComprasService.atualizarPendente(parcela.id, {
-        valor: Number(draft.valor),
+        valor: parseCurrencyInput(draft.valor),
         data_vencimento: draft.vencimento,
         forma_pagamento: draft.formaPagamento,
       })
@@ -300,19 +355,20 @@ export function CompraDetalheModal({
 
     try {
       setSalvando(true)
-      const subtotal = calcularSubtotal(editar)
-      const valorTotal = calcularTotal(editar)
+      const dados = dadosParaCalculo(editar, editarCampos)
+      const subtotal = calcularSubtotal(dados)
+      const valorTotal = calcularTotal(dados)
 
       await comprasService.update(editar.id, {
         fornecedor_id: editar.fornecedor_id,
         data: editar.data,
-        quantidade_animais: Number(editar.quantidade_animais),
-        condicao_gado: Number(editar.condicao_gado),
-        peso_total: Number(editar.peso_total),
-        valor_kg: Number(editar.valor_kg),
+        quantidade_animais: dados.quantidade_animais,
+        condicao_gado: editar.condicao_gado,
+        peso_total: dados.peso_total,
+        valor_kg: dados.valor_kg,
         tipo_imposto: editar.tipo_imposto,
-        valor_imposto: Number(editar.valor_imposto),
-        gta_valor: Number(editar.gta_valor),
+        valor_imposto: dados.valor_imposto,
+        gta_valor: dados.gta_valor,
         subtotal,
         valor_total: valorTotal,
         tipo_gado: editar.tipo_gado,
@@ -377,7 +433,7 @@ export function CompraDetalheModal({
   }
 
   function atualizarQtdSetup(qtdRaw: string) {
-    const qtd = Math.max(1, Number(qtdRaw || 1))
+    const qtd = Math.max(1, parseIntegerInput(qtdRaw || '1'))
     const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
 
     setSetupPagamento((prev) => ({
@@ -459,8 +515,7 @@ export function CompraDetalheModal({
               <div className={styles.setupFields}>
                 <Input
                   label="Quantidade de parcelas"
-                  type="number"
-                  min={1}
+                  mask="integer"
                   value={setupPagamento.qtdParcelas}
                   onChange={(e) => atualizarQtdSetup(e.target.value)}
                 />
@@ -489,16 +544,14 @@ export function CompraDetalheModal({
                       <div className={styles.parcelaValorCell}>
                         <Input
                           label="Valor (R$)"
-                          type="number"
-                          min={0}
-                          step="0.01"
+                          mask="currency"
                           value={parcela.valor}
                           onChange={(e) =>
                             atualizarSetupParcela(index, 'valor', e.target.value)
                           }
                         />
                         {index < setupPagamento.parcelas.length - 1 &&
-                          Number(parcela.valor) > 0 && (
+                          parseCurrencyInput(parcela.valor) > 0 && (
                             <small className={styles.parcelaSugestao}>
                               {(() => {
                                 const restante = calcularRestanteAposParcelas(
@@ -647,9 +700,7 @@ export function CompraDetalheModal({
                           <div className={styles.parcelaCardGrid}>
                             <Input
                               label="Valor (R$)"
-                              type="number"
-                              min={0}
-                              step="0.01"
+                              mask="currency"
                               value={draft.valor}
                               onChange={(e) =>
                                 atualizarDraft(
@@ -761,31 +812,31 @@ export function CompraDetalheModal({
 
           <Input
             label="Quantidade de animais"
-            type="number"
-            value={editar.quantidade_animais}
+            mask="integer"
+            value={editarCampos.quantidade_animais}
             onChange={(e) =>
-              setEditar({
-                ...editar,
-                quantidade_animais: Number(e.target.value),
+              setEditarCampos({
+                ...editarCampos,
+                quantidade_animais: e.target.value,
               })
             }
           />
 
           <Input
             label="Peso total (kg)"
-            type="number"
-            value={editar.peso_total}
+            mask="decimal"
+            value={editarCampos.peso_total}
             onChange={(e) =>
-              setEditar({ ...editar, peso_total: Number(e.target.value) })
+              setEditarCampos({ ...editarCampos, peso_total: e.target.value })
             }
           />
 
           <Input
             label="Valor por kg"
-            type="number"
-            value={editar.valor_kg}
+            mask="currency"
+            value={editarCampos.valor_kg}
             onChange={(e) =>
-              setEditar({ ...editar, valor_kg: Number(e.target.value) })
+              setEditarCampos({ ...editarCampos, valor_kg: e.target.value })
             }
           />
 
@@ -808,21 +859,26 @@ export function CompraDetalheModal({
                     ? 'Imposto (%)'
                     : 'Imposto (R$)'
                 }
-                type="number"
-                value={editar.valor_imposto}
+                mask={
+                  editar.tipo_imposto === 'percentual' ? 'decimal' : 'currency'
+                }
+                value={editarCampos.valor_imposto}
                 onChange={(e) =>
-                  setEditar({
-                    ...editar,
-                    valor_imposto: Number(e.target.value),
+                  setEditarCampos({
+                    ...editarCampos,
+                    valor_imposto: e.target.value,
                   })
                 }
               />
               <Input
                 label="GTA / Transporte"
-                type="number"
-                value={editar.gta_valor}
+                mask="currency"
+                value={editarCampos.gta_valor}
                 onChange={(e) =>
-                  setEditar({ ...editar, gta_valor: Number(e.target.value) })
+                  setEditarCampos({
+                    ...editarCampos,
+                    gta_valor: e.target.value,
+                  })
                 }
               />
             </>

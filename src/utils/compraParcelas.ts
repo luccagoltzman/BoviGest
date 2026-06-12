@@ -1,3 +1,8 @@
+import {
+  formatCurrencyFromNumber,
+  parseCurrencyInput,
+} from '@/utils/masks'
+
 export type CompraParcelaGerada = {
   numero_parcela: number
   total_parcelas: number
@@ -43,7 +48,8 @@ export function sugerirValoresParcelas(valorTotal: number, qtd: number) {
 
   return Array.from({ length: qtd }, (_, index) => {
     const extra = index === qtd - 1 ? resto : 0
-    return String(Math.round((valorBase + extra) * 100) / 100)
+    const valor = Math.round((valorBase + extra) * 100) / 100
+    return formatCurrencyFromNumber(valor)
   })
 }
 
@@ -73,7 +79,7 @@ export function gerarParcelasCompra(
   const qtd = parcelas.length
 
   return parcelas.map((parcela, index) => {
-    const valor = Number(parcela.valor)
+    const valor = parseCurrencyInput(parcela.valor)
     const data = parcela.data.slice(0, 10)
     const pago = parcela.pago
 
@@ -90,7 +96,10 @@ export function gerarParcelasCompra(
 }
 
 export function somaValoresParcelas(parcelas: ParcelaDraft[]) {
-  return parcelas.reduce((acc, p) => acc + Number(p.valor || 0), 0)
+  return parcelas.reduce(
+    (acc, p) => acc + parseCurrencyInput(p.valor || ''),
+    0,
+  )
 }
 
 /** Soma das parcelas de 0 até index (inclusive) */

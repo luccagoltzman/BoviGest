@@ -6,6 +6,10 @@ import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
 import { FORMAS_PAGAMENTO } from '../../../constants/formasPagamentos'
+import {
+  parseCurrencyInput,
+  formatCurrencyFromNumber,
+} from '@/utils/masks'
 
 interface Composicao {
   id: number
@@ -146,7 +150,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     try {
       await recebimentosClientesService.create({
         cliente_id: cliente.id,
-        valor: Number(valorRecebimento),
+        valor: parseCurrencyInput(valorRecebimento),
         forma_pagamento: formaPagamento,
         observacao,
         data_recebimento: dataRecebimento,
@@ -164,7 +168,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
 
   function iniciarEdicao(rec: Recebimento) {
     setEditandoId(rec.id)
-    setEditValor(String(rec.valor))
+    setEditValor(formatCurrencyFromNumber(rec.valor))
     setEditForma(rec.forma_pagamento ?? 'Pix')
     setEditObs(rec.observacao ?? '')
     setEditData(rec.data_recebimento?.split('T')[0] ?? '')
@@ -177,7 +181,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     }
     try {
       await recebimentosClientesService.update(editandoId, {
-        valor: Number(editValor),
+        valor: parseCurrencyInput(editValor),
         forma_pagamento: editForma,
         observacao: editObs,
         data_recebimento: editData,
@@ -444,7 +448,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
               <div className={styles.recebimentoForm}>
                 <Input
                   label="Valor (R$)"
-                  type="number"
+                  mask="currency"
                   value={valorRecebimento}
                   onChange={(e) => setValorRecebimento(e.target.value)}
                 />
@@ -536,7 +540,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     <div className={styles.editForm}>
                       <Input
                         label="Valor"
-                        type="number"
+                        mask="currency"
                         value={editValor}
                         onChange={(e) => setEditValor(e.target.value)}
                       />

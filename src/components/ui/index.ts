@@ -1,6 +1,7 @@
 export { TouchTooltip, touchTooltipStyles } from './TouchTooltip'
 export { Button } from './Button'
 export { Input } from './Input'
+export type { InputMask } from './Input'
 export { Card } from './Card'
 export { PageReveal, REVEAL_TARGET_ATTR } from './PageReveal'
 export { Table } from './Table'

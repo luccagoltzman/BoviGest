@@ -4,16 +4,21 @@ import { Button, Input } from '@/components/ui'
 import {
   buscarEnderecoPorCep,
   cepSomenteDigitos,
-  formatCepInput,
 } from '@/services/cep.service'
 import {
   avisoSituacaoCadastral,
   buscarDadosPorCnpj,
   cnpjSomenteDigitos,
-  formatCpfCnpjInput,
   isCnpj,
   mapDadosCnpjParaCliente,
 } from '@/services/cnpj.service'
+import {
+  formatCepInput,
+  formatCpfCnpjInput,
+  formatCurrencyFromNumber,
+  formatPhoneInput,
+  parseCurrencyInput,
+} from '@/utils/masks'
 import styles from './Clientes.module.scss'
 
 export type ClienteFormData = {
@@ -53,7 +58,7 @@ export function clienteFormFromRow(row: Partial<ClienteFormData>): ClienteFormDa
     nome: row.nome || '',
     nome_empresa: row.nome_empresa || '',
     doc: row.doc ? formatCpfCnpjInput(row.doc) : '',
-    telefone: row.telefone || '',
+    telefone: row.telefone ? formatPhoneInput(row.telefone) : '',
     data_nascimento: row.data_nascimento?.slice(0, 10) || '',
     cep: row.cep ? formatCepInput(row.cep) : '',
     endereco: row.endereco || '',
@@ -64,7 +69,7 @@ export function clienteFormFromRow(row: Partial<ClienteFormData>): ClienteFormDa
     complemento: row.complemento || '',
     limite_credito:
       row.limite_credito !== undefined && row.limite_credito !== null
-        ? String(row.limite_credito)
+        ? formatCurrencyFromNumber(Number(row.limite_credito))
         : '',
   }
 }
@@ -83,7 +88,9 @@ export function clienteFormToPayload(form: ClienteFormData) {
     cidade: form.cidade.trim() || null,
     uf: form.uf.trim().toUpperCase() || null,
     complemento: form.complemento.trim() || null,
-    limite_credito: form.limite_credito ? Number(form.limite_credito) : null,
+    limite_credito: form.limite_credito
+      ? parseCurrencyInput(form.limite_credito)
+      : null,
   }
 }
 
@@ -194,12 +201,9 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
       <div className={styles.cepRow}>
         <Input
           label="CPF / CNPJ"
-          placeholder="00.000.000/0000-00"
-          inputMode="numeric"
+          mask="cpfCnpj"
           value={value.doc}
-          onChange={(e) =>
-            onChange({ doc: formatCpfCnpjInput(e.target.value) })
-          }
+          onChange={(e) => onChange({ doc: e.target.value })}
           onBlur={handleDocBlur}
         />
         <Button
@@ -219,6 +223,7 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
       )}
       <Input
         label="Telefone / WhatsApp"
+        mask="phone"
         value={value.telefone}
         onChange={(e) => onChange({ telefone: e.target.value })}
       />
@@ -234,13 +239,9 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
       <div className={styles.cepRow}>
         <Input
           label="CEP"
-          placeholder="00000-000"
-          inputMode="numeric"
-          maxLength={9}
+          mask="cep"
           value={value.cep}
-          onChange={(e) =>
-            onChange({ cep: formatCepInput(e.target.value) })
-          }
+          onChange={(e) => onChange({ cep: e.target.value })}
           onBlur={handleCepBlur}
         />
         <Button
@@ -294,7 +295,7 @@ export function ClienteFormFields({ value, onChange }: ClienteFormFieldsProps) {
 
       <Input
         label="Limite de crédito"
-        type="number"
+        mask="currency"
         value={value.limite_credito}
         onChange={(e) => onChange({ limite_credito: e.target.value })}
       />

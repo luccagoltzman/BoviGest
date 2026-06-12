@@ -592,7 +592,7 @@ export function Financeiro() {
               </p>
               <div className={styles.formGrid}>
                 <Input label="Descrição" placeholder="Ex.: Transporte - Viagem #12" />
-                <Input label="Valor (R$)" type="number" />
+                <Input label="Valor (R$)" mask="currency" />
                 <Input label="Vencimento" type="date" />
                 <Input label="Categoria" placeholder="Transporte, abate, energia..." />
               </div>
