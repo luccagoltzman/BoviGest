@@ -247,11 +247,12 @@ export function CompraDetalheModal({
   useEffect(() => {
     if (!editar || parcelas.length > 0) return
 
-    const qtd = Math.max(1, parseIntegerInput(setupPagamento.qtdParcelas || '1'))
+    const qtd = parseIntegerInput(setupPagamento.qtdParcelas)
     const dataBase = editar.data || new Date().toISOString().slice(0, 10)
 
     if (
       setupPagamento.parcelas.length === 0 &&
+      qtd >= 1 &&
       valorTotalCompra > 0
     ) {
       setSetupPagamento((prev) => ({
@@ -433,13 +434,17 @@ export function CompraDetalheModal({
   }
 
   function atualizarQtdSetup(qtdRaw: string) {
-    const qtd = Math.max(1, parseIntegerInput(qtdRaw || '1'))
+    const qtdParcelas = qtdRaw.replace(/\D/g, '')
+    const qtd = parseIntegerInput(qtdParcelas)
     const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
 
     setSetupPagamento((prev) => ({
       ...prev,
-      qtdParcelas: String(qtd),
-      parcelas: criarParcelasDraft(qtd, valorTotalCompra, dataBase, prev.parcelas),
+      qtdParcelas,
+      parcelas:
+        qtd > 0
+          ? criarParcelasDraft(qtd, valorTotalCompra, dataBase, prev.parcelas)
+          : prev.parcelas,
     }))
   }
 

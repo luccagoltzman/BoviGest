@@ -134,14 +134,18 @@ export function Compras() {
   }
 
   function atualizarQtdParcelas(qtdRaw: string) {
-    const qtd = Math.max(1, parseIntegerInput(qtdRaw || '1'))
+    const qtdParcelas = qtdRaw.replace(/\D/g, '')
+    const qtd = parseIntegerInput(qtdParcelas)
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
     const valorTotal = calcularTotal(form)
 
     setPagamento((prev) => ({
       ...prev,
-      qtdParcelas: String(qtd),
-      parcelas: criarParcelasDraft(qtd, valorTotal, dataBase, prev.parcelas),
+      qtdParcelas,
+      parcelas:
+        qtd > 0
+          ? criarParcelasDraft(qtd, valorTotal, dataBase, prev.parcelas)
+          : prev.parcelas,
     }))
   }
 
@@ -529,7 +533,7 @@ export function Compras() {
               })
 
               setPagamento((prev) => {
-                const qtd = Math.max(1, Number(prev.qtdParcelas || 1))
+                const qtd = parseIntegerInput(prev.qtdParcelas) || 1
                 const total = calcularTotal({ ...form, data })
 
                 return {
