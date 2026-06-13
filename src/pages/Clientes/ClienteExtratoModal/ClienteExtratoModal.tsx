@@ -12,6 +12,11 @@ import {
   formatCurrencyFromNumber,
 } from '@/utils/masks'
 import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
+import {
+  formatResumoCasado,
+  isCorteCasado,
+  isVisceraCorte,
+} from '@/utils/corteComposicao'
 
 interface Composicao {
   id: number
@@ -313,6 +318,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
         peso: number
         valor: number
         isBanda: boolean
+        isCasado: boolean
         composicao: { dianteiro: number; traseiro: number }
       }
     > = {}
@@ -321,6 +327,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
       mov.itens?.forEach((item) => {
         const corte = item.tipo_corte || 'Sem corte'
         const isBanda = corte.toLowerCase().includes('banda')
+        const isCasado = isCorteCasado(corte)
 
         if (!acc[corte]) {
           acc[corte] = {
@@ -328,16 +335,20 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             peso: 0,
             valor: 0,
             isBanda,
+            isCasado,
             composicao: { dianteiro: 0, traseiro: 0 },
           }
         }
 
-        acc[corte].quantidade += 1
-        acc[corte].peso += Number(item.peso_total_kg ?? 0)
+        if (isCasado) {
+          acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
+        } else {
+          acc[corte].quantidade += 1
+          acc[corte].peso += Number(item.peso_total_kg ?? 0)
+        }
         acc[corte].valor += Number(item.valor_total ?? 0)
 
-        // Acumula composição se for banda
-        if (isBanda && item.composicoes?.length) {
+        if ((isBanda || isCasado) && item.composicoes?.length) {
           item.composicoes.forEach((c) => {
             if (c.tipo_corte.toLowerCase().includes('diant')) {
               acc[corte].composicao.dianteiro += Number(c.peso_kg)
@@ -672,6 +683,30 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                 <div key={corte} className={styles.corteChip}>
                   <div className={styles.corteNome}>
                     <span>{corte}</span>
+                    {dados.isCasado && (
+                      <>
+                        <span className={styles.bandaTag}>2 diant. + 2 tras. / casado</span>
+                        {(dados.composicao.dianteiro > 0 ||
+                          dados.composicao.traseiro > 0) && (
+                          <div className={styles.bandaComposicao}>
+                            {dados.composicao.dianteiro > 0 && (
+                              <span
+                                className={`${styles.composicaoTag} ${styles.dianteiro}`}
+                              >
+                                Diant. {dados.composicao.dianteiro.toFixed(1)} kg
+                              </span>
+                            )}
+                            {dados.composicao.traseiro > 0 && (
+                              <span
+                                className={`${styles.composicaoTag} ${styles.traseiro}`}
+                              >
+                                Tras. {dados.composicao.traseiro.toFixed(1)} kg
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                     {dados.isBanda && (
                       <>
                         <span className={styles.bandaTag}>
@@ -702,16 +737,30 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     )}
                   </div>
                   <div className={styles.corteNumeros}>
-                    <span>
-                      <strong>{dados.quantidade}</strong> peça
-                      {dados.quantidade !== 1 ? 's' : ''}
-                    </span>
-                    <span>
-                      <strong>{dados.peso.toFixed(2)}</strong> kg
-                    </span>
-                    <span>
-                      <strong>{formatCurrency(dados.valor)}</strong>
-                    </span>
+                    {dados.isCasado ? (
+                      <>
+                        <span>
+                          <strong>{dados.quantidade}</strong> casado
+                          {dados.quantidade !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          <strong>{formatCurrency(dados.valor)}</strong>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          <strong>{dados.quantidade}</strong> peça
+                          {dados.quantidade !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          <strong>{dados.peso.toFixed(2)}</strong> kg
+                        </span>
+                        <span>
+                          <strong>{formatCurrency(dados.valor)}</strong>
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}
@@ -797,20 +846,26 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     <div className={styles.vendaItensInline}>
                       {(entry.raw as Movimentacao).itens?.map((item, idx) => {
                         const comp = getBandaComposicao(item)
+                        const casado = isCorteCasado(item.tipo_corte)
+                        const visceras = isVisceraCorte(item.tipo_corte)
                         return (
                           <span key={idx} className={styles.itemTag}>
-                            {item.tipo_corte} · {item.peso_total_kg}kg
-                            {/* Composição inline da banda */}
-                            {comp && (
+                            {casado
+                              ? formatResumoCasado(
+                                  Number(item.peso_total_kg || 0),
+                                  item.composicoes,
+                                )
+                              : `${item.tipo_corte} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
+                            {comp && !casado && (
                               <span className={styles.itemComposicao}>
                                 {comp.dianteiro > 0 && (
                                   <span className={styles.dianteiro}>
-                                    D {comp.dianteiro}kg
+                                    D {comp.dianteiro} kg
                                   </span>
                                 )}
                                 {comp.traseiro > 0 && (
                                   <span className={styles.traseiro}>
-                                    T {comp.traseiro}kg
+                                    T {comp.traseiro} kg
                                   </span>
                                 )}
                               </span>

@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { preparePdfLogo } from '@/utils/pdfLogo'
+import { isCorteCasado } from '@/utils/corteComposicao'
 
 interface Composicao {
   tipo_corte: string
@@ -35,6 +36,7 @@ interface ResumoCorte {
   peso: number
   valor: number
   isBanda: boolean
+  isCasado?: boolean
   composicao: { dianteiro: number; traseiro: number }
 }
 
@@ -90,8 +92,23 @@ function isViscera(tipo: string) {
 }
 
 function formatCorteItem(item: MovimentacaoItem) {
-  const comp = getBandaComposicao(item)
   let corte = item.tipo_corte || '—'
+
+  if (isCorteCasado(item.tipo_corte) && item.composicoes?.length) {
+    const linhas = item.composicoes
+      .filter((c) => Number(c.peso_kg || 0) > 0)
+      .map(
+        (c) =>
+          `${c.tipo_corte}: ${Number(c.peso_kg || 0).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })} kg`,
+      )
+    if (linhas.length) corte += `\n${linhas.join('\n')}`
+    return corte
+  }
+
+  const comp = getBandaComposicao(item)
 
   if (comp) {
     const partes: string[] = []
@@ -108,6 +125,10 @@ function formatCorteItem(item: MovimentacaoItem) {
 }
 
 function formatPesoItem(item: MovimentacaoItem) {
+  if (isCorteCasado(item.tipo_corte)) {
+    const qty = Number(item.peso_total_kg || 0)
+    return `${qty} casado${qty !== 1 ? 's' : ''}`
+  }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
   }
@@ -116,6 +137,9 @@ function formatPesoItem(item: MovimentacaoItem) {
 
 function formatValorUnitarioItem(item: MovimentacaoItem) {
   const valor = Number(item.valor_kg || 0)
+  if (isCorteCasado(item.tipo_corte)) {
+    return `${formatCurrency(valor)}/casado`
+  }
   if (isViscera(item.tipo_corte)) {
     return `${formatCurrency(valor)}/un`
   }
@@ -270,7 +294,16 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
       head: [['Corte', 'Peças', 'Peso (kg)', 'Valor']],
       body: cortesEntries.map(([corte, dados]) => {
         let corteLabel = corte
-        if (dados.isBanda) {
+        if (dados.isCasado) {
+          const partes: string[] = []
+          if (dados.composicao.dianteiro > 0) {
+            partes.push(`Diant. ${dados.composicao.dianteiro.toFixed(1)} kg`)
+          }
+          if (dados.composicao.traseiro > 0) {
+            partes.push(`Tras. ${dados.composicao.traseiro.toFixed(1)} kg`)
+          }
+          if (partes.length) corteLabel += `\n${partes.join(' · ')}`
+        } else if (dados.isBanda) {
           const partes: string[] = []
           if (dados.composicao.dianteiro > 0) {
             partes.push(`Diant. ${dados.composicao.dianteiro.toFixed(1)} kg`)
@@ -282,8 +315,12 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
         }
         return [
           corteLabel,
-          String(dados.quantidade),
-          dados.peso.toFixed(2),
+          dados.isCasado
+            ? `${dados.quantidade} casado${dados.quantidade !== 1 ? 's' : ''}`
+            : String(dados.quantidade),
+          dados.isCasado
+            ? `${dados.composicao.dianteiro + dados.composicao.traseiro > 0 ? (dados.composicao.dianteiro + dados.composicao.traseiro).toFixed(2) : '—'}`
+            : dados.peso.toFixed(2),
           formatCurrency(dados.valor),
         ]
       }),

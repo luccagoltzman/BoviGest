@@ -15,7 +15,24 @@ import {
 
 import toast from 'react-hot-toast'
 import styles from './Vendas.module.scss'
-import { TIPOS_CORTE } from '@/constants/cortes'
+import { TIPOS_CORTE, REGRA_CASADO } from '@/constants/cortes'
+import {
+  buildComposicoesBandaVazia,
+  buildComposicoesCasadoVazia,
+  formatResumoCasado,
+  isCorteBanda,
+  isCorteCasado,
+  isVisceraCorte,
+  labelQuantidadeCorte,
+  labelValorUnitarioCorte,
+  normalizeCorteEstoque,
+  syncComposicoesCasado,
+} from '@/utils/corteComposicao'
+import {
+  parseCurrencyInput,
+  parseDecimalInput,
+  parseIntegerInput,
+} from '@/utils/masks'
 import { ClienteExtratoModal } from '../Clientes/ClienteExtratoModal'
 import {
   clientesService,
@@ -85,9 +102,34 @@ export function Vendas() {
     setPesoTotalGeral(calcularPesoTotal(form.itens))
   }, [form.itens])
 
-  const isBanda = (tipo: string) =>
-    (tipo || '').toLowerCase().includes('banda') ||
-    (tipo || '').toLowerCase().includes('bd')
+  const isBanda = isCorteBanda
+  const isCasado = isCorteCasado
+  const isViscera = isVisceraCorte
+
+  function parseValorUnitario(value: unknown) {
+    if (value === null || value === undefined || value === '') return 0
+    if (typeof value === 'number') return value
+    return parseCurrencyInput(String(value))
+  }
+
+  function parseQuantidadeCasados(value: unknown) {
+    if (value === null || value === undefined || value === '') return 0
+    if (typeof value === 'number') return value
+    return parseIntegerInput(String(value))
+  }
+
+  function recalcItemValores(item: any) {
+    if (isCasado(item.tipo_corte)) {
+      const qty = parseQuantidadeCasados(item.peso_total_kg)
+      item.composicoes = syncComposicoesCasado(qty, item.composicoes)
+      item.valor_total = qty * parseValorUnitario(item.valor_kg)
+      return
+    }
+
+    const peso = Number(item.peso_total_kg || 0)
+    const valorKg = Number(item.valor_kg || 0)
+    item.valor_total = Number.isNaN(peso * valorKg) ? 0 : peso * valorKg
+  }
 
   async function carregarClientes(search = '') {
     setLoadingClientes(true)
@@ -155,12 +197,10 @@ export function Vendas() {
     const itens = [...form.itens]
     itens[index][field] = value
 
-    if (field !== 'valor_total') {
-      const peso = Number(itens[index].peso_total_kg || 0)
-      const valorKg = Number(itens[index].valor_kg || 0)
-      itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
-    } else {
+    if (field === 'valor_total' && !isCasado(itens[index].tipo_corte)) {
       itens[index].valor_total = Number(value) || 0
+    } else {
+      recalcItemValores(itens[index])
     }
 
     setForm({ ...form, itens })
@@ -179,11 +219,11 @@ export function Vendas() {
   function changeTipo(index: number, tipo: string) {
     const itens = [...form.itens]
     itens[index].tipo_corte = tipo
-    if (isBanda(tipo)) {
-      itens[index].composicoes = [
-        { tipo_corte: 'Dianteiro', peso_kg: '' },
-        { tipo_corte: 'Traseiro', peso_kg: '' },
-      ]
+    if (isCasado(tipo)) {
+      itens[index].peso_total_kg = ''
+      itens[index].composicoes = buildComposicoesCasadoVazia()
+    } else if (isBanda(tipo)) {
+      itens[index].composicoes = buildComposicoesBandaVazia()
     } else {
       itens[index].composicoes = []
     }
@@ -193,6 +233,12 @@ export function Vendas() {
   function updateComposicao(itemIndex: number, compIndex: number, value: any) {
     const itens = [...form.itens]
     itens[itemIndex].composicoes[compIndex].peso_kg = value
+
+    if (isCasado(itens[itemIndex].tipo_corte)) {
+      setForm({ ...form, itens })
+      return
+    }
+
     const total = itens[itemIndex].composicoes.reduce(
       (acc: number, c: any) => acc + Number(c.peso_kg || 0),
       0
@@ -212,10 +258,17 @@ export function Vendas() {
 
   function calcularPesoTotal(itens: any[]) {
     return itens.reduce((acc: number, item: any) => {
+      if (isCasado(item.tipo_corte)) {
+        const pesoCasado = (item.composicoes || []).reduce(
+          (soma: number, c: any) => soma + Number(c.peso_kg || 0),
+          0,
+        )
+        return acc + pesoCasado
+      }
       if (isBanda(item.tipo_corte)) {
         const pesoBanda = (item.composicoes || []).reduce(
           (soma: number, c: any) => soma + Number(c.peso_kg || 0),
-          0
+          0,
         )
         return acc + pesoBanda
       }
@@ -252,10 +305,15 @@ export function Vendas() {
         movimentacao_status: form.movimentacao_status,
         itens: form.itens.map((i: any) => ({
           tipo_corte: i.tipo_corte,
-          peso_total_kg: Number(i.peso_total_kg || 0),
-          valor_kg: Number(i.valor_kg || 0),
+          peso_total_kg: isCasado(i.tipo_corte)
+            ? parseQuantidadeCasados(i.peso_total_kg)
+            : Number(i.peso_total_kg || 0),
+          valor_kg: parseValorUnitario(i.valor_kg),
           valor_total: Number(i.valor_total || 0),
-          composicoes: i.composicoes || [],
+          composicoes: (i.composicoes || []).map((c: any) => ({
+            tipo_corte: c.tipo_corte,
+            peso_kg: parseDecimalInput(String(c.peso_kg || '')),
+          })),
         })),
         valor_total: totalGeral,
       }
@@ -313,7 +371,7 @@ export function Vendas() {
 
       mapa[key].peso_bruto_kg += Number(item.peso_bruto_kg || 0)
       mapa[key].peso_liquido_kg += Number(item.peso_liquido_kg || 0)
-      mapa[key].quantidade_pecas += 1
+      mapa[key].quantidade_pecas += Number(item.quantidade_pecas || 1)
     }
 
     return Object.values(mapa)
@@ -328,6 +386,24 @@ export function Vendas() {
 
     const itensSaida = itensNormais.flatMap((item: any) => {
       const banda = isBanda(item.tipo_corte)
+      const casado = isCasado(item.tipo_corte)
+
+      if (casado) {
+        const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+
+        return (item.composicoes || []).map((c: any) => {
+          const peso = parseDecimalInput(String(c.peso_kg || ''))
+          totalPeso += peso
+
+          return {
+            corte: normalizeCorteEstoque(c.tipo_corte),
+            peso_bruto_kg: peso,
+            peso_liquido_kg: peso,
+            quantidade_pecas: 1,
+            agrupamento_id: agrupamentoId,
+          }
+        })
+      }
 
       if (banda) {
           const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
@@ -407,12 +483,10 @@ export function Vendas() {
     const itens = [...editando.itens]
     itens[index][field] = value
 
-    if (field !== 'valor_total') {
-      const peso = Number(itens[index].peso_total_kg || 0)
-      const valorKg = Number(itens[index].valor_kg || 0)
-      itens[index].valor_total = isNaN(peso * valorKg) ? 0 : peso * valorKg
-    } else {
+    if (field === 'valor_total' && !isCasado(itens[index].tipo_corte)) {
       itens[index].valor_total = Number(value) || 0
+    } else {
+      recalcItemValores(itens[index])
     }
 
     setEditando({ ...editando, itens })
@@ -431,11 +505,11 @@ export function Vendas() {
   function changeEditTipo(index: number, tipo: string) {
     const itens = [...editando.itens]
     itens[index].tipo_corte = tipo
-    if (isBanda(tipo)) {
-      itens[index].composicoes = [
-        { tipo_corte: 'Dianteiro', peso_kg: '' },
-        { tipo_corte: 'Traseiro', peso_kg: '' },
-      ]
+    if (isCasado(tipo)) {
+      itens[index].peso_total_kg = ''
+      itens[index].composicoes = buildComposicoesCasadoVazia()
+    } else if (isBanda(tipo)) {
+      itens[index].composicoes = buildComposicoesBandaVazia()
     } else {
       itens[index].composicoes = []
     }
@@ -449,6 +523,12 @@ export function Vendas() {
   ) {
     const itens = [...editando.itens]
     itens[itemIndex].composicoes[compIndex].peso_kg = value
+
+    if (isCasado(itens[itemIndex].tipo_corte)) {
+      setEditando({ ...editando, itens })
+      return
+    }
+
     const total = itens[itemIndex].composicoes.reduce(
       (acc: number, c: any) => acc + Number(c.peso_kg || 0),
       0
@@ -460,14 +540,145 @@ export function Vendas() {
   }
 
   const [movimentacaoOriginal, setMovimentacaoOriginal] = useState<any>(null)
+
   function hasViscera(itens: any[]) {
-    console.log(itens)
     return itens.some((i: any) => isViscera(i.corte || i.tipo_corte))
   }
 
   function hasNormal(itens: any[]) {
     return itens.some((i: any) => !isViscera(i.corte || i.tipo_corte))
   }
+
+  function renderItemFields(
+    item: any,
+    index: number,
+    onChangeTipo: (index: number, tipo: string) => void,
+    onUpdate: (index: number, field: string, value: any) => void,
+    onUpdateComposicao: (itemIndex: number, compIndex: number, value: any) => void,
+    onCopy: (index: number) => void,
+    onRemove: (index: number) => void,
+  ) {
+    const qtyCasados = parseQuantidadeCasados(item.peso_total_kg)
+    const qtyLabel = labelQuantidadeCorte(item.tipo_corte)
+    const valorLabel = labelValorUnitarioCorte(item.tipo_corte)
+
+    return (
+      <Card className={styles.form} key={index}>
+        <div className={styles.selectWrap}>
+          <label>Corte</label>
+          <select
+            className={styles.select}
+            value={item.tipo_corte}
+            onChange={(e) => onChangeTipo(index, e.target.value)}
+          >
+            <option value="">Selecione</option>
+            {TIPOS_CORTE.map((corte) => (
+              <option key={corte} value={corte}>
+                {corte}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {isCasado(item.tipo_corte) ? (
+          <>
+            <Input
+              label={qtyLabel ?? 'Quantidade'}
+              mask="integer"
+              value={item.peso_total_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+            />
+            {qtyCasados > 0 && (
+              <div className={styles.casadoPecas}>
+                <span className={styles.casadoPecasTitulo}>
+                  Peso de cada peça (kg)
+                </span>
+                {(item.composicoes || []).map((c: any, i: number) => (
+                  <Input
+                    key={`${c.tipo_corte}-${i}`}
+                    label={c.tipo_corte}
+                    mask="decimal"
+                    value={c.peso_kg ?? ''}
+                    onChange={(e) =>
+                      onUpdateComposicao(index, i, e.target.value)
+                    }
+                  />
+                ))}
+              </div>
+            )}
+            <Input
+              label={valorLabel}
+              mask="currency"
+              value={item.valor_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+            />
+            {qtyCasados > 0 && (
+              <p className={styles.casadoHint}>
+                {formatResumoCasado(qtyCasados, item.composicoes)}
+              </p>
+            )}
+            <p className={styles.casadoRegra}>{REGRA_CASADO}</p>
+          </>
+        ) : (
+          <Input
+            label={valorLabel}
+            type="number"
+            value={item.valor_kg ?? ''}
+            onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+          />
+        )}
+
+        {!isBanda(item.tipo_corte) && !isCasado(item.tipo_corte) && (
+          <Input
+            label={qtyLabel ?? 'Peso total KG'}
+            type="number"
+            value={item.peso_total_kg ?? ''}
+            onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+          />
+        )}
+
+        {isBanda(item.tipo_corte) &&
+          item.composicoes.map((c: any, i: number) => (
+            <Input
+              key={i}
+              label={c.tipo_corte}
+              type="number"
+              value={c.peso_kg ?? ''}
+              onChange={(e) => onUpdateComposicao(index, i, e.target.value)}
+            />
+          ))}
+
+        <Input
+          label="Valor total da peça (R$)"
+          type="number"
+          min="0"
+          step="0.01"
+          value={item.valor_total ?? ''}
+          onChange={(e) => onUpdate(index, 'valor_total', e.target.value)}
+        />
+
+        <div className={styles.itemActions}>
+          <Button
+            size={48}
+            variant="outline"
+            onClick={() => onCopy(index)}
+            title="Copiar peça"
+          >
+            <Copy className="w-4 h-4" />
+          </Button>
+          <Button
+            size={48}
+            variant="destructive"
+            onClick={() => onRemove(index)}
+            title="Remover peça"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
+      </Card>
+    )
+  }
+
   async function handleEdit() {
     const temViscera = hasViscera(editando.itens)
     const temNormal = hasNormal(editando.itens)
@@ -487,10 +698,15 @@ export function Vendas() {
         movimentacao_status: editando.movimentacao_status,
         itens: editando.itens.map((i: any) => ({
           tipo_corte: i.tipo_corte,
-          peso_total_kg: Number(i.peso_total_kg || 0),
-          valor_kg: Number(i.valor_kg || 0),
+          peso_total_kg: isCasado(i.tipo_corte)
+            ? parseQuantidadeCasados(i.peso_total_kg)
+            : Number(i.peso_total_kg || 0),
+          valor_kg: parseValorUnitario(i.valor_kg),
           valor_total: Number(i.valor_total || 0),
-          composicoes: i.composicoes || [],
+          composicoes: (i.composicoes || []).map((c: any) => ({
+            tipo_corte: c.tipo_corte,
+            peso_kg: parseDecimalInput(String(c.peso_kg || '')),
+          })),
         })),
         valor_total: calcularTotalEdit(editando.itens),
       }
@@ -559,9 +775,6 @@ export function Vendas() {
     }
   }
 
-  function isViscera(tipo: string) {
-    return (tipo || '').toLowerCase() === 'visceras'
-  }
   // ─── tabela ──────────────────────────────────────────────────
 
   const columns = [
@@ -598,16 +811,18 @@ export function Vendas() {
             <div key={index} className={touchTooltipStyles.item}>
               <strong>{item.tipo_corte}</strong>
               <span>
-                {isViscera(item.tipo_corte)
-                  ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
-                  : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
+                {isCasado(item.tipo_corte)
+                  ? `${Number(item.peso_total_kg || 0)} casado(s) × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                  : isViscera(item.tipo_corte)
+                    ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                    : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
               </span>
               <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
               {item.composicoes?.length > 0 && (
                 <div className={touchTooltipStyles.subitems}>
                   {item.composicoes.map((c: any, i: number) => (
                     <small key={i}>
-                      {c.tipo_corte}: {Number(c.peso_kg).toFixed(2)}kg
+                      {c.tipo_corte}: {Number(c.peso_kg || 0).toFixed(2)} kg
                     </small>
                   ))}
                 </div>
@@ -713,82 +928,17 @@ export function Vendas() {
           </div>
         </div>
 
-        {form.itens.map((item: any, index: number) => (
-          <Card className={styles.form} key={index}>
-            <div className={styles.selectWrap}>
-              <label>Corte</label>
-              <select
-                className={styles.select}
-                value={item.tipo_corte}
-                onChange={(e) => changeTipo(index, e.target.value)}
-              >
-                <option value="">Selecione</option>
-                {TIPOS_CORTE.map((corte) => (
-                  <option key={corte} value={corte}>
-                    {corte}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <Input
-              label={isViscera(item.tipo_corte) ? 'Valor por unidade' : 'Valor por KG'}
-              type="number"
-              value={item.valor_kg ?? ''}
-              onChange={(e) => updateItem(index, 'valor_kg', e.target.value)}
-            />
-
-            {!isBanda(item.tipo_corte) && (
-              <Input
-                label={isViscera(item.tipo_corte) ? 'Total de unidades' : 'Peso total KG'}
-                type="number"
-                value={item.peso_total_kg ?? ''}
-                onChange={(e) =>
-                  updateItem(index, 'peso_total_kg', e.target.value)
-                }
-              />
-            )}
-
-            {isBanda(item.tipo_corte) &&
-              item.composicoes.map((c: any, i: number) => (
-                <Input
-                  key={i}
-                  label={c.tipo_corte}
-                  type="number"
-                  value={c.peso_kg ?? ''}
-                  onChange={(e) => updateComposicao(index, i, e.target.value)}
-                />
-              ))}
-
-            <Input
-              label="Valor total da peça (R$)"
-              type="number"
-              min="0"
-              step="0.01"
-              value={item.valor_total ?? ''}
-              onChange={(e) => updateItem(index, 'valor_total', e.target.value)}
-            />
-
-            <div className={styles.itemActions}>
-              <Button
-                size={48}
-                variant="outline"
-                onClick={() => copyItem(index)}
-                title="Copiar peça"
-              >
-                <Copy className="w-4 h-4" />
-              </Button>
-              <Button
-                size={48}
-                variant="destructive"
-                onClick={() => removeItem(index)}
-                title="Remover peça"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          </Card>
-        ))}
+        {form.itens.map((item: any, index: number) =>
+          renderItemFields(
+            item,
+            index,
+            changeTipo,
+            updateItem,
+            updateComposicao,
+            copyItem,
+            removeItem,
+          ),
+        )}
 
         <div className={styles.form}>
           <Button variant='outline' onClick={addItem}>+ Peça</Button>
@@ -884,15 +1034,38 @@ export function Vendas() {
               {detalhe.itens?.map((item: any, idx: number) => (
                 <div key={idx} className={styles.itemCard}>
                   <strong>{item.tipo_corte}</strong>
-                  <p>Peso: {item.peso_total_kg} kg</p>
-                  <p>Valor/kg: R$ {Number(item.valor_kg).toFixed(2)}</p>
+                  {isCasado(item.tipo_corte) ? (
+                    <>
+                      <p>
+                        {formatResumoCasado(
+                          Number(item.peso_total_kg || 0),
+                          item.composicoes,
+                        )}
+                      </p>
+                      <p>
+                        Valor/casado: R$ {Number(item.valor_kg).toFixed(2)}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        {isViscera(item.tipo_corte) ? 'Unidades' : 'Peso'}:{' '}
+                        {item.peso_total_kg}
+                        {isViscera(item.tipo_corte) ? '' : ' kg'}
+                      </p>
+                      <p>
+                        Valor/{isViscera(item.tipo_corte) ? 'un' : 'kg'}: R${' '}
+                        {Number(item.valor_kg).toFixed(2)}
+                      </p>
+                    </>
+                  )}
                   <p>Total: R$ {Number(item.valor_total).toFixed(2)}</p>
 
                   {item.composicoes?.length > 0 && (
                     <div className={styles.composicoes}>
                       {item.composicoes.map((c: any, i: number) => (
                         <span key={i}>
-                          {c.tipo_corte}: {c.peso_kg} kg
+                          {c.tipo_corte}: {Number(c.peso_kg || 0).toFixed(2)} kg
                         </span>
                       ))}
                     </div>
@@ -956,88 +1129,17 @@ export function Vendas() {
             />
 
             <div className={styles.items}>
-              {editando.itens?.map((item: any, index: number) => (
-                <Card key={index} className={styles.form}>
-                  <div className={styles.selectWrap}>
-                    <label>Corte</label>
-                    <select
-                      className={styles.select}
-                      value={item.tipo_corte}
-                      onChange={(e) => changeEditTipo(index, e.target.value)}
-                    >
-                      <option value="">Selecione</option>
-                      {TIPOS_CORTE.map((corte) => (
-                        <option key={corte} value={corte}>
-                          {corte}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Input
-                    label={isViscera(item.tipo_corte) ? 'Valor por unidade' : 'Valor por KG'}
-                    type="number"
-                    value={item.valor_kg ?? ''}
-                    onChange={(e) =>
-                      updateEditItem(index, 'valor_kg', e.target.value)
-                    }
-                  />
-
-                  {!isBanda(item.tipo_corte) && (
-                    <Input
-                      label={isViscera(item.tipo_corte) ? 'Total de unidades' : 'Peso total KG'}
-                      type="number"
-                      value={item.peso_total_kg ?? ''}
-                      onChange={(e) =>
-                        updateEditItem(index, 'peso_total_kg', e.target.value)
-                      }
-                    />
-                  )}
-
-                  {isBanda(item.tipo_corte) &&
-                    item.composicoes?.map((c: any, i: number) => (
-                      <Input
-                        key={i}
-                        label={c.tipo_corte}
-                        type="number"
-                        value={c.peso_kg ?? ''}
-                        onChange={(e) =>
-                          updateEditComposicao(index, i, e.target.value)
-                        }
-                      />
-                    ))}
-
-                  <Input
-                    label="Valor total da peça (R$)"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={item.valor_total ?? ''}
-                    onChange={(e) =>
-                      updateEditItem(index, 'valor_total', e.target.value)
-                    }
-                  />
-
-                  <div className={styles.itemActions}>
-                    <Button
-                      size={48}
-                      variant="outline"
-                      onClick={() => copyEditItem(index)}
-                      title="Copiar peça"
-                    >
-                      <Copy className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      size={48}
-                      variant="destructive"
-                      onClick={() => removeEditItem(index)}
-                      title="Remover peça"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-                </Card>
-              ))}
+              {editando.itens?.map((item: any, index: number) =>
+                renderItemFields(
+                  item,
+                  index,
+                  changeEditTipo,
+                  updateEditItem,
+                  updateEditComposicao,
+                  copyEditItem,
+                  removeEditItem,
+                ),
+              )}
             </div>
 
             <Button variant='outline' onClick={addEditItem}>+ Item</Button>

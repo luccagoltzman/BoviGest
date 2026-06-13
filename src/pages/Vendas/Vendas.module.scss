@@ -83,6 +83,42 @@
   letter-spacing: -0.02em;
 }
 
+.casadoHint {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: $color-primary-dark;
+}
+
+.casadoRegra {
+  margin: 0;
+  grid-column: 1 / -1;
+  font-size: 0.78rem;
+  color: $color-text-muted;
+  line-height: 1.35;
+}
+
+.casadoPecas {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  background: rgba($color-primary, 0.04);
+  border: 1px dashed rgba($color-border, 0.9);
+  border-radius: $radius;
+}
+
+.casadoPecasTitulo {
+  grid-column: 1 / -1;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
 .fontenfo {
   font-size: 13px;
 }

@@ -86,6 +86,7 @@ export function Input(props: InputProps) {
         (() => {
           const inputRest = rest as InputHTMLAttributes<HTMLInputElement>
           const resolvedType = mask ? 'text' : inputRest.type
+          const { type: _ignoredType, ...inputProps } = inputRest
 
           return (
             <input
@@ -97,7 +98,7 @@ export function Input(props: InputProps) {
               inputMode={resolvedInputMode}
               placeholder={resolvedPlaceholder}
               onChange={mask ? handleMaskedChange : onChange}
-              {...inputRest}
+              {...inputProps}
             />
           )
         })()
