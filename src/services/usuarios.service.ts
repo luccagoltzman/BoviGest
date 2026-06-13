@@ -1,7 +1,5 @@
-import { createClient } from '@supabase/supabase-js'
-import { APP_REDEFINIR_SENHA_URL } from '@/config/app'
 import { AuthService, type AuthUser } from './auth.service'
-import { supabase, supabaseAnonKey, supabaseUrl } from './supabase'
+import { supabase } from './supabase'
 
 export type UserRole =
   | 'master'
@@ -9,26 +7,33 @@ export type UserRole =
   | 'operador'
   | 'financeiro'
 
+/** 0 inativo, 1 ativo, 2 aguardando cadastro */
+export type UsuarioStatus = 0 | 1 | 2
+
 export type UsuarioEmpresa = {
   id: string
-  user_id: string
+  user_id: string | null
   empresa_id: number
   nome: string | null
   email: string | null
   perfil: UserRole
-  status: number
+  status: UsuarioStatus
   created_at?: string
 }
 
 export type CreateUsuarioPayload = {
-  nome: string
   email: string
   perfil: UserRole
+  nome?: string
 }
 
 export type CreateUsuarioResult = {
   usuario: UsuarioEmpresa
-  inviteSent: boolean
+}
+
+export type VerificarEmailCadastroResult = {
+  autorizado: boolean
+  perfil?: UserRole
 }
 
 const PERFIL_LABEL: Record<UserRole, string> = {
@@ -46,7 +51,12 @@ export function isUsuarioAtivo(usuario: Pick<UsuarioEmpresa, 'status'>) {
   return usuario.status === 1
 }
 
+export function isUsuarioPendente(usuario: Pick<UsuarioEmpresa, 'status'>) {
+  return usuario.status === 2
+}
+
 export function formatUsuarioStatus(status: number) {
+  if (status === 2) return 'Pendente cadastro'
   return status === 1 ? 'Ativo' : 'Inativo'
 }
 
@@ -58,41 +68,12 @@ function getUser() {
   return user as AuthUser & { empresa_id: number }
 }
 
-function assertNotSelf(targetUserId: string) {
+function assertNotSelf(targetUserId: string | null | undefined) {
+  if (!targetUserId) return
   const current = AuthService.getCachedUser()
   if (current?.id === targetUserId) {
     throw new Error('Você não pode alterar o próprio usuário')
   }
-}
-
-function formatAuthError(error: { message?: string; status?: number }) {
-  const msg = (error.message ?? '').toLowerCase()
-
-  if (msg.includes('already registered') || msg.includes('already exists')) {
-    return 'Este e-mail já está cadastrado'
-  }
-  if (msg.includes('invalid email')) {
-    return 'E-mail inválido'
-  }
-  if (msg.includes('rate limit')) {
-    return 'Limite de tentativas atingido. Aguarde e tente novamente'
-  }
-
-  return error.message || 'Erro ao convidar usuário'
-}
-
-function generateTempPassword() {
-  return `${crypto.randomUUID().replace(/-/g, '')}Aa1!`
-}
-
-function createSignupClient() {
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-    },
-  })
 }
 
 async function assertEmailDisponivel(empresaId: number, email: string) {
@@ -104,7 +85,12 @@ async function assertEmailDisponivel(empresaId: number, email: string) {
     .maybeSingle()
 
   if (existente?.status === 1) {
-    throw new Error('Já existe um usuário com este e-mail na empresa')
+    throw new Error('Já existe um usuário ativo com este e-mail')
+  }
+  if (existente?.status === 2) {
+    throw new Error(
+      'Este e-mail já está autorizado e aguarda cadastro. O usuário pode acessar a tela de cadastro.',
+    )
   }
   if (existente?.status === 0) {
     throw new Error(
@@ -113,115 +99,33 @@ async function assertEmailDisponivel(empresaId: number, email: string) {
   }
 }
 
-async function vincularUsuarioEmpresa(input: {
-  userId: string
-  empresaId: number
-  nome: string
-  email: string
-  perfil: UserRole
-}) {
-  const { data, error } = await supabase
-    .from('usuarios_empresas')
-    .insert([
-      {
-        user_id: input.userId,
-        empresa_id: input.empresaId,
-        nome: input.nome,
-        email: input.email,
-        perfil: input.perfil,
-        status: 1,
-      },
-    ])
-    .select()
-    .single()
-
-  if (error) {
-    throw new Error(
-      `Conta criada no login, mas falhou ao vincular à empresa: ${error.message}`,
-    )
-  }
-
-  return data as UsuarioEmpresa
-}
-
-async function inviteViaEdgeFunction(payload: {
-  nome: string
-  email: string
-  perfil: UserRole
-}): Promise<CreateUsuarioResult | null> {
-  const { data, error } = await supabase.functions.invoke('invite-usuario', {
-    body: payload,
-  })
-
-  if (error) return null
-
-  const response = data as { usuario?: UsuarioEmpresa; error?: string } | null
-  if (response?.error) {
-    throw new Error(response.error)
-  }
-
-  if (response?.usuario) {
-    return { usuario: response.usuario, inviteSent: true }
-  }
-
-  return null
-}
-
-async function inviteViaPasswordResetEmail(input: {
-  nome: string
-  email: string
-  perfil: UserRole
-  empresaId: number
-}): Promise<CreateUsuarioResult> {
-  const signupClient = createSignupClient()
-  const tempPassword = generateTempPassword()
-
-  const { data: authData, error: authError } = await signupClient.auth.signUp({
-    email: input.email,
-    password: tempPassword,
-    options: {
-      emailRedirectTo: APP_REDEFINIR_SENHA_URL,
-      data: {
-        nome: input.nome,
-        perfil: input.perfil,
-      },
-    },
-  })
-
-  if (authError) {
-    throw new Error(formatAuthError(authError))
-  }
-
-  const newUserId = authData.user?.id
-  if (!newUserId) {
-    throw new Error(
-      'Não foi possível concluir o convite. Verifique o e-mail informado e tente novamente.',
-    )
-  }
-
-  const usuario = await vincularUsuarioEmpresa({
-    userId: newUserId,
-    empresaId: input.empresaId,
-    nome: input.nome,
-    email: input.email,
-    perfil: input.perfil,
-  })
-
-  const { error: resetError } = await signupClient.auth.resetPasswordForEmail(
-    input.email,
-    { redirectTo: APP_REDEFINIR_SENHA_URL },
-  )
-
-  if (resetError) {
-    throw new Error(
-      `Usuário vinculado, mas falhou ao enviar o e-mail para definir senha: ${resetError.message}`,
-    )
-  }
-
-  return { usuario, inviteSent: true }
-}
-
 export const usuariosService = {
+  async verificarEmailCadastro(
+    email: string,
+  ): Promise<VerificarEmailCadastroResult> {
+    const { data, error } = await supabase.rpc('verificar_email_cadastro', {
+      p_email: email.trim().toLowerCase(),
+    })
+
+    if (error) throw new Error(error.message)
+
+    const result = data as VerificarEmailCadastroResult | null
+    return result ?? { autorizado: false }
+  },
+
+  async completarCadastro(nome: string) {
+    const { data, error } = await supabase.rpc('completar_cadastro_usuario', {
+      p_nome: nome.trim(),
+    })
+
+    if (error) throw new Error(error.message)
+    return data as {
+      empresa_id: number
+      perfil: UserRole
+      nome: string
+    }
+  },
+
   async getAll(): Promise<UsuarioEmpresa[]> {
     const user = getUser()
 
@@ -238,49 +142,31 @@ export const usuariosService = {
 
   async create(payload: CreateUsuarioPayload): Promise<CreateUsuarioResult> {
     const user = getUser()
-    const nome = payload.nome.trim()
     const email = payload.email.trim().toLowerCase()
+    const nome = payload.nome?.trim() || null
 
-    if (!nome) throw new Error('Informe o nome')
     if (!email) throw new Error('Informe o e-mail')
 
     await assertEmailDisponivel(user.empresa_id, email)
 
-    const invitePayload = { nome, email, perfil: payload.perfil }
-
-    const viaEdge = await inviteViaEdgeFunction(invitePayload)
-    if (viaEdge) return viaEdge
-
-    return inviteViaPasswordResetEmail({
-      ...invitePayload,
-      empresaId: user.empresa_id,
-    })
-  },
-
-  async resendInvite(id: string): Promise<void> {
-    const user = getUser()
-
-    const { data: alvo, error: fetchError } = await supabase
+    const { data, error } = await supabase
       .from('usuarios_empresas')
-      .select('email, user_id, status')
-      .eq('id', id)
-      .eq('empresa_id', user.empresa_id)
-      .maybeSingle()
+      .insert([
+        {
+          empresa_id: user.empresa_id,
+          email,
+          nome,
+          perfil: payload.perfil,
+          status: 2,
+          user_id: null,
+        },
+      ])
+      .select()
+      .single()
 
-    if (fetchError) throw fetchError
-    if (!alvo?.email) throw new Error('Usuário não encontrado')
-    if (alvo.status !== 1) {
-      throw new Error('Reative o usuário antes de reenviar o convite')
-    }
+    if (error) throw new Error(error.message)
 
-    assertNotSelf(alvo.user_id)
-
-    const signupClient = createSignupClient()
-    const { error } = await signupClient.auth.resetPasswordForEmail(alvo.email, {
-      redirectTo: APP_REDEFINIR_SENHA_URL,
-    })
-
-    if (error) throw error
+    return { usuario: data as UsuarioEmpresa }
   },
 
   async setStatus(id: string, status: 0 | 1): Promise<UsuarioEmpresa> {
@@ -295,6 +181,11 @@ export const usuariosService = {
 
     if (fetchError) throw fetchError
     if (!alvo) throw new Error('Usuário não encontrado')
+    if (alvo.status === 2) {
+      throw new Error(
+        'Usuário ainda não concluiu o cadastro. Aguarde ou exclua a autorização.',
+      )
+    }
 
     assertNotSelf(alvo.user_id)
 

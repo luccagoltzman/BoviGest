@@ -45,6 +45,11 @@
     background: color-mix(in srgb, var(--color-text-muted) 18%, transparent);
     color: var(--color-text-muted);
   }
+
+  &[data-status='pendente'] {
+    background: color-mix(in srgb, var(--color-warning, #d97706) 16%, transparent);
+    color: var(--color-warning, #b45309);
+  }
 }
 
 .modalActions {

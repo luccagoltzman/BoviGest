@@ -4,6 +4,12 @@ alter table usuarios_empresas add column if not exists nome text;
 alter table usuarios_empresas add column if not exists email text;
 alter table usuarios_empresas add column if not exists perfil text not null default 'operador';
 alter table usuarios_empresas add column if not exists status smallint not null default 1;
+alter table usuarios_empresas alter column user_id drop not null;
+
+alter table usuarios_empresas drop constraint if exists usuarios_empresas_status_check;
+alter table usuarios_empresas add constraint usuarios_empresas_status_check
+  check (status in (0, 1, 2));
+-- status: 0 inativo, 1 ativo, 2 aguardando cadastro (user_id nulo)
 alter table usuarios_empresas add column if not exists created_at timestamptz default now();
 
 alter table usuarios_empresas drop constraint if exists usuarios_empresas_perfil_check;

@@ -1,8 +1,5 @@
-import type {
-  ChangeEvent,
-  InputHTMLAttributes,
-  TextareaHTMLAttributes,
-} from 'react'
+import { useState, type ChangeEvent, type InputHTMLAttributes, type TextareaHTMLAttributes } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import {
   applyInputMask,
   maskInputMode,
@@ -48,6 +45,7 @@ export function Input(props: InputProps) {
   } = props
 
   const inputId = id ?? `input-${Math.random().toString(36).slice(2)}`
+  const [showPassword, setShowPassword] = useState(false)
 
   function handleMaskedChange(event: ChangeEvent<HTMLInputElement>) {
     if (!mask) {
@@ -85,13 +83,22 @@ export function Input(props: InputProps) {
       ) : (
         (() => {
           const inputRest = rest as InputHTMLAttributes<HTMLInputElement>
-          const resolvedType = mask ? 'text' : inputRest.type
+          const isPasswordField = !mask && inputRest.type === 'password'
+          const resolvedType = mask
+            ? 'text'
+            : isPasswordField && showPassword
+              ? 'text'
+              : inputRest.type
           const { type: _ignoredType, ...inputProps } = inputRest
 
-          return (
+          const inputElement = (
             <input
               id={inputId}
-              className={[styles.input, error && styles.hasError]
+              className={[
+                styles.input,
+                isPasswordField && styles.inputWithToggle,
+                error && styles.hasError,
+              ]
                 .filter(Boolean)
                 .join(' ')}
               type={resolvedType}
@@ -100,6 +107,24 @@ export function Input(props: InputProps) {
               onChange={mask ? handleMaskedChange : onChange}
               {...inputProps}
             />
+          )
+
+          if (!isPasswordField) return inputElement
+
+          return (
+            <div className={styles.passwordField}>
+              {inputElement}
+              <button
+                type="button"
+                className={styles.togglePassword}
+                onClick={() => setShowPassword((visible) => !visible)}
+                disabled={inputProps.disabled}
+                aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           )
         })()
       )}

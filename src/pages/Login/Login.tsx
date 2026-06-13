@@ -1,73 +1,24 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { AppLogo } from '@/components/AppLogo'
 import { Button, Input } from '@/components/ui'
 import { AuthService } from '@/services/auth.service'
 import { loadTheme } from '@/services/theme.service'
-import { supabase } from '@/services/supabase'
 import styles from './Login.module.scss'
 
 export function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [checkingConfirmation, setCheckingConfirmation] = useState(false)
   const [error, setError] = useState('')
-  const [info, setInfo] = useState('')
 
   const navigate = useNavigate()
-
-  useEffect(() => {
-    async function handleEmailConfirmationRedirect() {
-      const searchParams = new URLSearchParams(window.location.search)
-      const code = searchParams.get('code')
-      const hash = window.location.hash
-      const hasHashTokens = hash.includes('access_token=')
-
-      if (!code && !hasHashTokens) return
-
-      setCheckingConfirmation(true)
-      setError('')
-
-      try {
-        if (code) {
-          const { error: exchangeError } =
-            await supabase.auth.exchangeCodeForSession(code)
-          if (exchangeError) throw exchangeError
-        }
-
-        const { data, error: sessionError } = await supabase.auth.getSession()
-        if (sessionError) throw sessionError
-
-        if (data.session) {
-          navigate('/redefinir-senha', { replace: true })
-          return
-        }
-
-        setInfo(
-          'E-mail confirmado. Verifique sua caixa de entrada para definir sua senha de acesso.',
-        )
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error
-            ? err.message
-            : 'Não foi possível validar a confirmação do e-mail.'
-        setError(message)
-      } finally {
-        window.history.replaceState({}, '', '/login')
-        setCheckingConfirmation(false)
-      }
-    }
-
-    handleEmailConfirmationRedirect()
-  }, [navigate])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
     setError('')
-    setInfo('')
 
     try {
       await AuthService.login(email, password)
@@ -110,11 +61,6 @@ export function Login() {
             <p>Informe suas credenciais para continuar.</p>
           </div>
 
-          {checkingConfirmation && (
-            <div className={styles.info}>Validando confirmação do e-mail...</div>
-          )}
-
-          {info && <div className={styles.info}>{info}</div>}
           {error && <div className={styles.error}>{error}</div>}
 
           <Input
@@ -124,7 +70,6 @@ export function Login() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
-            disabled={checkingConfirmation}
           />
 
           <Input
@@ -134,19 +79,17 @@ export function Login() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
-            disabled={checkingConfirmation}
           />
 
-          <Button
-            type="submit"
-            disabled={loading || checkingConfirmation}
-            fullWidth
-          >
+          <Button type="submit" disabled={loading} fullWidth>
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
 
           <p className={styles.footerText}>
-            Acesso restrito aos usuários autorizados pela empresa.
+            Acesso restrito aos usuários autorizados pela empresa.{' '}
+            <Link to="/cadastro" className={styles.footerLink}>
+              Criar conta
+            </Link>
           </p>
         </form>
       </section>

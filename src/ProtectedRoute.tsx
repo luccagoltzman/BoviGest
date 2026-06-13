@@ -4,17 +4,19 @@ import { useEffect, useState } from 'react'
 
 export function ProtectedRoute() {
   const [loading, setLoading] = useState(true)
-  const [isAuth, setIsAuth] = useState<boolean | null>(null)
+  const [isAuth, setIsAuth] = useState(false)
 
   useEffect(() => {
-    AuthService.isAuthenticated().then((authenticated) => {
-      setIsAuth(authenticated)
-      setLoading(false)
-
-      if (!authenticated) {
-        alert('Sessão expirada, faça login novamente.')
-      }
-    })
+    AuthService.syncSession()
+      .then((user) => {
+        setIsAuth(!!user)
+      })
+      .catch(() => {
+        setIsAuth(false)
+      })
+      .finally(() => {
+        setLoading(false)
+      })
   }, [])
 
   if (loading) {

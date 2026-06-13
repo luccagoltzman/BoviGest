@@ -10,12 +10,14 @@ import {
   ModalDetails,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
+import { APP_BASE_URL } from '@/config/app'
 import { currentUserRole } from '@/config/access'
 import { AuthService } from '@/services/auth.service'
 import {
   formatPerfil,
   formatUsuarioStatus,
   isUsuarioAtivo,
+  isUsuarioPendente,
   usuariosService,
   type UserRole,
   type UsuarioEmpresa,
@@ -29,10 +31,14 @@ const PERFIS_DISPONIVEIS: { value: UserRole; label: string }[] = [
 ]
 
 const emptyForm = () => ({
-  nome: '',
   email: '',
   perfil: 'operador' as UserRole,
 })
+
+function statusBadgeKey(usuario: UsuarioEmpresa) {
+  if (isUsuarioPendente(usuario)) return 'pendente'
+  return isUsuarioAtivo(usuario) ? 'ativo' : 'inativo'
+}
 
 export function Usuarios() {
   const [usuarios, setUsuarios] = useState<UsuarioEmpresa[]>([])
@@ -43,6 +49,7 @@ export function Usuarios() {
   const [form, setForm] = useState(emptyForm)
 
   const currentUserId = AuthService.getCachedUser()?.id
+  const cadastroUrl = `${APP_BASE_URL}/cadastro`
 
   const perfilOptions = useMemo(() => {
     const options = PERFIS_DISPONIVEIS.map((p) => p.label)
@@ -63,7 +70,7 @@ export function Usuarios() {
   }
 
   function isSelf(usuario: UsuarioEmpresa) {
-    return usuario.user_id === currentUserId
+    return !!usuario.user_id && usuario.user_id === currentUserId
   }
 
   async function carregarUsuarios() {
@@ -80,29 +87,24 @@ export function Usuarios() {
     }
   }
 
-  async function handleCadastrar() {
+  async function handleAutorizar() {
     try {
       setSaving(true)
 
-      const result = await usuariosService.create({
-        nome: form.nome,
+      await usuariosService.create({
         email: form.email,
         perfil: form.perfil,
       })
 
-      if (result.inviteSent) {
-        toast.success(
-          'Convite enviado. O usuário receberá um e-mail para definir a própria senha.',
-          { duration: 6000 },
-        )
-      } else {
-        toast.success('Usuário convidado com sucesso')
-      }
+      toast.success(
+        'E-mail autorizado. O usuário pode se cadastrar em /cadastro.',
+        { duration: 6000 },
+      )
       setForm(emptyForm())
       await carregarUsuarios()
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Erro ao cadastrar usuário'
+        error instanceof Error ? error.message : 'Erro ao autorizar e-mail'
       toast.error(message)
     } finally {
       setSaving(false)
@@ -136,41 +138,25 @@ export function Usuarios() {
   }
 
   async function handleExcluir(usuario: UsuarioEmpresa) {
-    const confirmMsg = `Excluir permanentemente "${usuario.nome || usuario.email}"?\n\nO vínculo com a empresa será removido. Esta ação não pode ser desfeita.`
+    const confirmMsg = isUsuarioPendente(usuario)
+      ? `Cancelar autorização de "${usuario.email}"?\n\nO e-mail poderá ser autorizado novamente depois.`
+      : `Excluir permanentemente "${usuario.nome || usuario.email}"?\n\nO vínculo com a empresa será removido. Esta ação não pode ser desfeita.`
 
     if (!window.confirm(confirmMsg)) return
 
     try {
       setActionLoading(true)
       await usuariosService.delete(usuario.id)
-      toast.success('Usuário excluído com sucesso')
+      toast.success(
+        isUsuarioPendente(usuario)
+          ? 'Autorização cancelada'
+          : 'Usuário excluído com sucesso',
+      )
       setDetalhe(null)
       await carregarUsuarios()
     } catch (error) {
       const message =
-        error instanceof Error ? error.message : 'Erro ao excluir usuário'
-      toast.error(message)
-    } finally {
-      setActionLoading(false)
-    }
-  }
-
-  async function handleReenviarConvite(usuario: UsuarioEmpresa) {
-    if (
-      !window.confirm(
-        `Reenviar e-mail de convite para "${usuario.nome || usuario.email}"?`,
-      )
-    ) {
-      return
-    }
-
-    try {
-      setActionLoading(true)
-      await usuariosService.resendInvite(usuario.id)
-      toast.success('Convite reenviado com sucesso')
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Erro ao reenviar convite'
+        error instanceof Error ? error.message : 'Erro ao excluir'
       toast.error(message)
     } finally {
       setActionLoading(false)
@@ -193,10 +179,7 @@ export function Usuarios() {
       key: 'status',
       header: 'Status',
       render: (r: UsuarioEmpresa) => (
-        <span
-          className={styles.statusBadge}
-          data-status={isUsuarioAtivo(r) ? 'ativo' : 'inativo'}
-        >
+        <span className={styles.statusBadge} data-status={statusBadgeKey(r)}>
           {formatUsuarioStatus(r.status)}
         </span>
       ),
@@ -219,10 +202,7 @@ export function Usuarios() {
     {
       label: 'Status',
       value: (
-        <span
-          className={styles.statusBadge}
-          data-status={isUsuarioAtivo(r) ? 'ativo' : 'inativo'}
-        >
+        <span className={styles.statusBadge} data-status={statusBadgeKey(r)}>
           {formatUsuarioStatus(r.status)}
         </span>
       ),
@@ -239,17 +219,13 @@ export function Usuarios() {
     <div className={styles.page}>
       <h1 className="page-title">Usuários e permissões</h1>
 
-      <Card title="Convidar usuário">
+      <Card title="Autorizar novo e-mail">
         <p className={styles.inviteHint}>
-          Informe nome, e-mail e perfil. O usuário receberá um e-mail para
-          definir a própria senha — você não precisa criar senha para ele.
+          Informe o e-mail e o perfil de acesso. O usuário deverá acessar{' '}
+          <strong>{cadastroUrl}</strong> para criar a própria senha — nenhum
+          e-mail de convite é enviado automaticamente.
         </p>
         <div className={styles.form}>
-          <Input
-            label="Nome"
-            value={form.nome}
-            onChange={(e) => setForm({ ...form, nome: e.target.value })}
-          />
           <Input
             label="E-mail"
             type="email"
@@ -269,8 +245,8 @@ export function Usuarios() {
             placeholder="Selecione o perfil"
           />
           <div className={styles.actions}>
-            <Button loading={saving} disabled={saving} onClick={handleCadastrar}>
-              Enviar convite
+            <Button loading={saving} disabled={saving} onClick={handleAutorizar}>
+              Autorizar e-mail
             </Button>
           </div>
         </div>
@@ -302,30 +278,37 @@ export function Usuarios() {
               </p>
             ) : (
               <div className={styles.modalActions}>
-                <Button
-                  variant="outline"
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                  onClick={() => handleReenviarConvite(detalhe)}
-                >
-                  Reenviar convite
-                </Button>
-                <Button
-                  variant="outline"
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                  onClick={() => handleToggleStatus(detalhe)}
-                >
-                  {isUsuarioAtivo(detalhe) ? 'Inativar usuário' : 'Reativar usuário'}
-                </Button>
-                <Button
-                  variant="danger"
-                  loading={actionLoading}
-                  disabled={actionLoading}
-                  onClick={() => handleExcluir(detalhe)}
-                >
-                  Excluir permanentemente
-                </Button>
+                {isUsuarioPendente(detalhe) ? (
+                  <Button
+                    variant="danger"
+                    loading={actionLoading}
+                    disabled={actionLoading}
+                    onClick={() => handleExcluir(detalhe)}
+                  >
+                    Cancelar autorização
+                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      loading={actionLoading}
+                      disabled={actionLoading}
+                      onClick={() => handleToggleStatus(detalhe)}
+                    >
+                      {isUsuarioAtivo(detalhe)
+                        ? 'Inativar usuário'
+                        : 'Reativar usuário'}
+                    </Button>
+                    <Button
+                      variant="danger"
+                      loading={actionLoading}
+                      disabled={actionLoading}
+                      onClick={() => handleExcluir(detalhe)}
+                    >
+                      Excluir permanentemente
+                    </Button>
+                  </>
+                )}
               </div>
             )}
           </>

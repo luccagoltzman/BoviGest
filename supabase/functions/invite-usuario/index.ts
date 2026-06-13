@@ -43,6 +43,7 @@ Deno.serve(async (req) => {
       .trim()
       .toLowerCase()
     const perfil = String(body.perfil ?? 'operador')
+    const redirectFromClient = String(body.redirectTo ?? '').trim()
 
     if (!nome) return jsonError('Informe o nome')
     if (!email) return jsonError('Informe o e-mail')
@@ -78,9 +79,7 @@ Deno.serve(async (req) => {
       )
     }
 
-    const redirectTo =
-      Deno.env.get('APP_REDEFINIR_SENHA_URL') ??
-      'https://bovi-gest.vercel.app/redefinir-senha'
+    const redirectTo = resolveInviteRedirect(redirectFromClient)
 
     const { data: invited, error: inviteError } =
       await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
@@ -127,4 +126,34 @@ function jsonError(message: string, status = 400) {
       'Content-Type': 'application/json',
     },
   })
+}
+
+const DEFAULT_REDIRECT = 'https://bovi-gest.vercel.app/redefinir-senha'
+
+function isValidInviteRedirect(url: string) {
+  try {
+    const parsed = new URL(url)
+    if (!parsed.pathname.includes('redefinir-senha')) return false
+    if (parsed.protocol === 'https:') return true
+    return (
+      parsed.protocol === 'http:' &&
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1')
+    )
+  } catch {
+    return false
+  }
+}
+
+function resolveInviteRedirect(preferred?: string) {
+  const candidates = [
+    preferred,
+    Deno.env.get('APP_REDEFINIR_SENHA_URL') ?? '',
+    DEFAULT_REDIRECT,
+  ].filter(Boolean)
+
+  for (const url of candidates) {
+    if (isValidInviteRedirect(url)) return url
+  }
+
+  return DEFAULT_REDIRECT
 }

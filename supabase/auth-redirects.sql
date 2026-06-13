@@ -1,0 +1,21 @@
+-- Configuração manual no Supabase Dashboard (Authentication → URL Configuration)
+--
+-- Site URL (produção):
+--   https://bovi-gest.vercel.app
+--
+-- Redirect URLs (adicione todas as que usar):
+--   https://bovi-gest.vercel.app/**
+--   https://bovi-gest.vercel.app/redefinir-senha
+--   https://bovi-gest.vercel.app/login
+--
+-- Remova ou não use http://localhost:* em produção — isso faz o e-mail de convite
+-- redirecionar para localhost.
+--
+-- Edge Function invite-usuario (Settings → Edge Functions → Secrets):
+--   APP_REDEFINIR_SENHA_URL = https://bovi-gest.vercel.app/redefinir-senha
+--
+-- Vercel (Environment Variables):
+--   VITE_APP_URL = https://bovi-gest.vercel.app
+--
+-- Cadastro sem e-mail de confirmação (Authentication → Providers → Email):
+--   Desative "Confirm email" para o usuário entrar logo após /cadastro

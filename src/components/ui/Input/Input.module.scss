@@ -44,3 +44,40 @@
   font-size: 0.8rem;
   color: $color-danger;
 }
+
+.passwordField {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.inputWithToggle {
+  padding-right: 2.75rem;
+  width: 100%;
+}
+
+.togglePassword {
+  position: absolute;
+  right: 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 0;
+  border-radius: $radius-sm;
+  background: transparent;
+  color: $color-text-muted;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover:not(:disabled) {
+    color: $color-primary;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+}
