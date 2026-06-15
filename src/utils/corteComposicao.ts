@@ -77,10 +77,86 @@ export function normalizeCorteEstoque(tipoCorte: string) {
 }
 
 export function buildComposicoesBandaVazia(): ComposicaoItem[] {
-  return [
-    { tipo_corte: 'Dianteiro', peso_kg: '' },
-    { tipo_corte: 'Traseiro', peso_kg: '' },
-  ]
+  return syncComposicoesBanda(0, [])
+}
+
+/**
+ * Gera N dianteiros + N traseiros (1 par por banda), preservando pesos já digitados.
+ */
+export function syncComposicoesBanda(
+  quantidadeBandias: number,
+  composicoes: ComposicaoItem[] = [],
+): ComposicaoItem[] {
+  const qty = Math.max(0, quantidadeBandias)
+  if (qty === 0) return []
+
+  const hasNumbered = composicoes.some((c) => /\d/.test(c.tipo_corte))
+
+  let pesosDiant: ComposicaoItem['peso_kg'][] = []
+  let pesosTras: ComposicaoItem['peso_kg'][] = []
+
+  if (hasNumbered) {
+    pesosDiant = composicoes
+      .filter((c) => c.tipo_corte.toLowerCase().includes('diant'))
+      .map((c) => c.peso_kg ?? '')
+    pesosTras = composicoes
+      .filter((c) => c.tipo_corte.toLowerCase().includes('tras'))
+      .map((c) => c.peso_kg ?? '')
+  } else if (composicoes.length) {
+    const d = composicoes.find((c) =>
+      c.tipo_corte.toLowerCase().includes('diant'),
+    )
+    const t = composicoes.find((c) =>
+      c.tipo_corte.toLowerCase().includes('tras'),
+    )
+    pesosDiant = [d?.peso_kg ?? '']
+    pesosTras = [t?.peso_kg ?? '']
+  }
+
+  const result: ComposicaoItem[] = []
+
+  for (let i = 0; i < qty; i++) {
+    result.push({
+      tipo_corte: `Dianteiro ${i + 1}`,
+      peso_kg: pesosDiant[i] ?? '',
+    })
+  }
+
+  for (let i = 0; i < qty; i++) {
+    result.push({
+      tipo_corte: `Traseiro ${i + 1}`,
+      peso_kg: pesosTras[i] ?? '',
+    })
+  }
+
+  return result
+}
+
+export function formatResumoBanda(
+  quantidadeBandias: number,
+  composicoes: ComposicaoItem[] = [],
+) {
+  let resumo = `${quantidadeBandias} banda${quantidadeBandias !== 1 ? 's' : ''}`
+
+  const { dianteiro, traseiro } = getComposicaoResumo(composicoes)
+  const pesoTotal = dianteiro + traseiro
+  if (dianteiro > 0 || traseiro > 0) {
+    resumo += ` · ${dianteiro.toFixed(2)} kg diant. + ${traseiro.toFixed(2)} kg tras.`
+    if (pesoTotal > 0) {
+      resumo += ` (${pesoTotal.toFixed(2)} kg total)`
+    }
+  }
+
+  return resumo
+}
+
+export function indiceComposicaoBanda(
+  quantidadeBandias: number,
+  bandaIndex: number,
+  lado: 'dianteiro' | 'traseiro',
+) {
+  if (lado === 'dianteiro') return bandaIndex
+  return quantidadeBandias + bandaIndex
 }
 
 function parseKg(value: number | string) {
@@ -127,8 +203,8 @@ export function formatResumoCasado(
 
 export function labelQuantidadeCorte(tipo: string) {
   if (isCorteCasado(tipo)) return `Quantidade — ${tipo}`
+  if (isCorteBanda(tipo)) return 'Quantidade de bandas'
   if (isVisceraCorte(tipo)) return 'Total de unidades'
-  if (isCorteBanda(tipo)) return null
   return 'Peso total KG'
 }
 
@@ -138,7 +214,7 @@ export function labelValorUnitarioCorte(tipo: string) {
 }
 
 export function corteUsesQuantidade(tipo: string) {
-  return isCorteCasado(tipo) || isVisceraCorte(tipo)
+  return isCorteCasado(tipo) || isCorteBanda(tipo) || isVisceraCorte(tipo)
 }
 
 export function calcularValorTotalViscera(

@@ -110,6 +110,29 @@
   border-radius: $radius;
 }
 
+.bandaRow {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: auto 1fr 1fr;
+  gap: 0.65rem;
+  align-items: end;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid rgba($color-border, 0.55);
+
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+.bandaRowLabel {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: $color-text-muted;
+  padding-bottom: 0.55rem;
+  white-space: nowrap;
+}
+
 .casadoPecasTitulo {
   grid-column: 1 / -1;
   font-size: 0.72rem;

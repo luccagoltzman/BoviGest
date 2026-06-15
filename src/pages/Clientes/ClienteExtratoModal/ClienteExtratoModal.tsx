@@ -13,9 +13,12 @@ import {
 } from '@/utils/masks'
 import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
 import {
+  formatResumoBanda,
   formatResumoCasado,
+  isCorteBanda,
   isCorteCasado,
   isVisceraCorte,
+  pesoTotalComposicao,
 } from '@/utils/corteComposicao'
 
 interface Composicao {
@@ -326,7 +329,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
     movimentacoes.forEach((mov) => {
       mov.itens?.forEach((item) => {
         const corte = item.tipo_corte || 'Sem corte'
-        const isBanda = corte.toLowerCase().includes('banda')
+        const isBandaCorte = isCorteBanda(corte)
         const isCasado = isCorteCasado(corte)
 
         if (!acc[corte]) {
@@ -334,21 +337,29 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             quantidade: 0,
             peso: 0,
             valor: 0,
-            isBanda,
+            isBanda: isBandaCorte,
             isCasado,
             composicao: { dianteiro: 0, traseiro: 0 },
           }
         }
 
-        if (isCasado) {
-          acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
+        if (isCasado || isBandaCorte) {
+          const numbered = (item.composicoes || []).some((c) =>
+            /\d/.test(c.tipo_corte),
+          )
+          if (isBandaCorte && !numbered && item.composicoes?.length) {
+            acc[corte].quantidade += 1
+          } else {
+            acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
+          }
+          acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
         } else {
           acc[corte].quantidade += 1
           acc[corte].peso += Number(item.peso_total_kg ?? 0)
         }
         acc[corte].valor += Number(item.valor_total ?? 0)
 
-        if ((isBanda || isCasado) && item.composicoes?.length) {
+        if ((isBandaCorte || isCasado) && item.composicoes?.length) {
           item.composicoes.forEach((c) => {
             if (c.tipo_corte.toLowerCase().includes('diant')) {
               acc[corte].composicao.dianteiro += Number(c.peso_kg)
@@ -746,6 +757,19 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                           <strong>{formatCurrency(dados.valor)}</strong>
                         </span>
                       </>
+                    ) : dados.isBanda ? (
+                      <>
+                        <span>
+                          <strong>{dados.quantidade}</strong> banda
+                          {dados.quantidade !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          <strong>{dados.peso.toFixed(2)}</strong> kg
+                        </span>
+                        <span>
+                          <strong>{formatCurrency(dados.valor)}</strong>
+                        </span>
+                      </>
                     ) : (
                       <>
                         <span>
@@ -846,6 +870,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                       {(entry.raw as Movimentacao).itens?.map((item, idx) => {
                         const comp = getBandaComposicao(item)
                         const casado = isCorteCasado(item.tipo_corte)
+                        const banda = isCorteBanda(item.tipo_corte)
                         const visceras = isVisceraCorte(item.tipo_corte)
                         return (
                           <span key={idx} className={styles.itemTag}>
@@ -855,8 +880,14 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                                   item.composicoes,
                                   item.tipo_corte,
                                 )
+                              : banda
+                                ? formatResumoBanda(
+                                    Number(item.peso_total_kg || 0) ||
+                                      (item.composicoes?.length ? 1 : 0),
+                                    item.composicoes,
+                                  )
                               : `${item.tipo_corte} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
-                            {comp && !casado && (
+                            {comp && !casado && !banda && (
                               <span className={styles.itemComposicao}>
                                 {comp.dianteiro > 0 && (
                                   <span className={styles.dianteiro}>

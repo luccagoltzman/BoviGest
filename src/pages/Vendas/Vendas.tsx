@@ -15,12 +15,13 @@ import {
 
 import toast from 'react-hot-toast'
 import styles from './Vendas.module.scss'
-import { TIPOS_CORTE, REGRA_CASADO } from '@/constants/cortes'
+import { TIPOS_CORTE, REGRA_BD, REGRA_CASADO } from '@/constants/cortes'
 import {
-  buildComposicoesBandaVazia,
   buildComposicoesCasadoVazia,
   calcularValorTotalViscera,
+  formatResumoBanda,
   formatResumoCasado,
+  indiceComposicaoBanda,
   isCorteBanda,
   isCorteCasado,
   isVisceraCorte,
@@ -28,6 +29,7 @@ import {
   labelValorUnitarioCorte,
   normalizeCorteEstoque,
   pesoTotalComposicao,
+  syncComposicoesBanda,
   syncComposicoesCasado,
 } from '@/utils/corteComposicao'
 import {
@@ -122,11 +124,26 @@ export function Vendas() {
     return parseIntegerInput(String(value))
   }
 
+  function quantidadeBandiasItem(item: any) {
+    const comps = item.composicoes || []
+    const numbered = comps.some((c: any) => /\d/.test(String(c.tipo_corte)))
+    if (numbered) return parseIntegerInput(String(item.peso_total_kg ?? ''))
+    if (comps.length) return 1
+    return parseIntegerInput(String(item.peso_total_kg ?? ''))
+  }
+
   function recalcItemValores(item: any) {
     if (isCasado(item.tipo_corte)) {
       const qty = parseQuantidadeCasados(item.peso_total_kg)
       item.composicoes = syncComposicoesCasado(qty, item.composicoes)
       const pesoTotal = pesoTotalComposicao(item.composicoes)
+      const valorKg = parseValorUnitario(item.valor_kg)
+      item.valor_total = pesoTotal * valorKg
+      return
+    }
+
+    if (isBanda(item.tipo_corte)) {
+      const pesoTotal = pesoTotalComposicao(item.composicoes || [])
       const valorKg = parseValorUnitario(item.valor_kg)
       item.valor_total = pesoTotal * valorKg
       return
@@ -212,6 +229,15 @@ export function Vendas() {
     const itens = [...form.itens]
     itens[index][field] = value
 
+    if (field === 'peso_total_kg' && isBanda(itens[index].tipo_corte)) {
+      const qty = parseIntegerInput(String(value))
+      itens[index].peso_total_kg = qty ? String(qty) : ''
+      itens[index].composicoes = syncComposicoesBanda(
+        qty,
+        itens[index].composicoes,
+      )
+    }
+
     if (field === 'valor_total' && !isCasado(itens[index].tipo_corte)) {
       itens[index].valor_total = Number(value) || 0
     } else {
@@ -238,7 +264,8 @@ export function Vendas() {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = buildComposicoesCasadoVazia()
     } else if (isBanda(tipo)) {
-      itens[index].composicoes = buildComposicoesBandaVazia()
+      itens[index].peso_total_kg = ''
+      itens[index].composicoes = syncComposicoesBanda(0, [])
     } else {
       itens[index].composicoes = []
     }
@@ -249,7 +276,7 @@ export function Vendas() {
     const itens = [...form.itens]
     itens[itemIndex].composicoes[compIndex].peso_kg = value
 
-    if (isCasado(itens[itemIndex].tipo_corte)) {
+    if (isCasado(itens[itemIndex].tipo_corte) || isBanda(itens[itemIndex].tipo_corte)) {
       recalcItemValores(itens[itemIndex])
       setForm({ ...form, itens })
       return
@@ -331,9 +358,11 @@ export function Vendas() {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
-            : isViscera(i.tipo_corte)
-              ? parseIntegerInput(String(i.peso_total_kg || ''))
-              : Number(i.peso_total_kg || 0),
+            : isBanda(i.tipo_corte)
+              ? quantidadeBandiasItem(i)
+              : isViscera(i.tipo_corte)
+                ? parseIntegerInput(String(i.peso_total_kg || ''))
+                : Number(i.peso_total_kg || 0),
           valor_kg: isViscera(i.tipo_corte)
             ? parseCurrencyInput(String(i.valor_kg || ''))
             : parseValorUnitario(i.valor_kg),
@@ -434,18 +463,20 @@ export function Vendas() {
       }
 
       if (banda) {
-          const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+        const baseAgrup = item.agrupamento_id || crypto.randomUUID()
 
         return (item.composicoes || []).map((c: any) => {
-          const peso = Number(c.peso_kg || 0)
-
+          const peso = parseDecimalInput(String(c.peso_kg || ''))
           totalPeso += peso
+          const match = String(c.tipo_corte || '').match(/(\d+)\s*$/)
+          const suffix = match ? match[1] : '1'
 
           return {
-            corte: c.tipo_corte,
+            corte: normalizeCorteEstoque(c.tipo_corte),
             peso_bruto_kg: peso,
             peso_liquido_kg: peso,
-            agrupamento_id: agrupamentoId,
+            quantidade_pecas: 1,
+            agrupamento_id: `${baseAgrup}-b${suffix}`,
           }
         })
       }
@@ -511,6 +542,15 @@ export function Vendas() {
     const itens = [...editando.itens]
     itens[index][field] = value
 
+    if (field === 'peso_total_kg' && isBanda(itens[index].tipo_corte)) {
+      const qty = parseIntegerInput(String(value))
+      itens[index].peso_total_kg = qty ? String(qty) : ''
+      itens[index].composicoes = syncComposicoesBanda(
+        qty,
+        itens[index].composicoes,
+      )
+    }
+
     if (field === 'valor_total' && !isCasado(itens[index].tipo_corte)) {
       itens[index].valor_total = Number(value) || 0
     } else {
@@ -537,7 +577,8 @@ export function Vendas() {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = buildComposicoesCasadoVazia()
     } else if (isBanda(tipo)) {
-      itens[index].composicoes = buildComposicoesBandaVazia()
+      itens[index].peso_total_kg = ''
+      itens[index].composicoes = syncComposicoesBanda(0, [])
     } else {
       itens[index].composicoes = []
     }
@@ -552,7 +593,7 @@ export function Vendas() {
     const itens = [...editando.itens]
     itens[itemIndex].composicoes[compIndex].peso_kg = value
 
-    if (isCasado(itens[itemIndex].tipo_corte)) {
+    if (isCasado(itens[itemIndex].tipo_corte) || isBanda(itens[itemIndex].tipo_corte)) {
       recalcItemValores(itens[itemIndex])
       setEditando({ ...editando, itens })
       return
@@ -588,6 +629,7 @@ export function Vendas() {
     onRemove: (index: number) => void,
   ) {
     const qtyCasados = parseQuantidadeCasados(item.peso_total_kg)
+    const qtyBandias = quantidadeBandiasItem(item)
     const qtyVisceras = parseIntegerInput(String(item.peso_total_kg || ''))
     const qtyLabel = labelQuantidadeCorte(item.tipo_corte)
     const valorLabel = labelValorUnitarioCorte(item.tipo_corte)
@@ -649,6 +691,71 @@ export function Vendas() {
             )}
             <p className={styles.casadoRegra}>{REGRA_CASADO}</p>
           </>
+        ) : isBanda(item.tipo_corte) ? (
+          <>
+            <Input
+              label={qtyLabel ?? 'Quantidade de bandas'}
+              mask="integer"
+              value={qtyBandias > 0 ? String(qtyBandias) : ''}
+              onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+            />
+            {qtyBandias > 0 && (
+              <div className={styles.casadoPecas}>
+                <span className={styles.casadoPecasTitulo}>
+                  Peso de cada banda (kg)
+                </span>
+                {Array.from({ length: qtyBandias }, (_, bandaIndex) => {
+                  const diIdx = indiceComposicaoBanda(
+                    qtyBandias,
+                    bandaIndex,
+                    'dianteiro',
+                  )
+                  const trIdx = indiceComposicaoBanda(
+                    qtyBandias,
+                    bandaIndex,
+                    'traseiro',
+                  )
+                  const comps = item.composicoes || []
+
+                  return (
+                    <div key={bandaIndex} className={styles.bandaRow}>
+                      <span className={styles.bandaRowLabel}>
+                        Banda {bandaIndex + 1}
+                      </span>
+                      <Input
+                        label="Dianteiro"
+                        mask="decimal"
+                        value={comps[diIdx]?.peso_kg ?? ''}
+                        onChange={(e) =>
+                          onUpdateComposicao(index, diIdx, e.target.value)
+                        }
+                      />
+                      <Input
+                        label="Traseiro"
+                        mask="decimal"
+                        value={comps[trIdx]?.peso_kg ?? ''}
+                        onChange={(e) =>
+                          onUpdateComposicao(index, trIdx, e.target.value)
+                        }
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+            <Input
+              label={valorLabel}
+              mask="decimal"
+              value={item.valor_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+            />
+            {qtyBandias > 0 && (
+              <p className={styles.casadoHint}>
+                {formatResumoBanda(qtyBandias, item.composicoes)}
+              </p>
+            )}
+            <p className={styles.casadoRegra}>{REGRA_BD}</p>
+          </>
         ) : isViscera(item.tipo_corte) ? (
           <>
             <Input
@@ -686,29 +793,18 @@ export function Vendas() {
               onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
             />
 
-            {!isBanda(item.tipo_corte) && (
-              <Input
-                label={qtyLabel ?? 'Peso total KG'}
-                type="number"
-                value={item.peso_total_kg ?? ''}
-                onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
-              />
-            )}
+            <Input
+              label={qtyLabel ?? 'Peso total KG'}
+              type="number"
+              value={item.peso_total_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+            />
           </>
         )}
 
-        {isBanda(item.tipo_corte) &&
-          item.composicoes.map((c: any, i: number) => (
-            <Input
-              key={i}
-              label={c.tipo_corte}
-              type="number"
-              value={c.peso_kg ?? ''}
-              onChange={(e) => onUpdateComposicao(index, i, e.target.value)}
-            />
-          ))}
-
-        {!isViscera(item.tipo_corte) && (
+        {!isViscera(item.tipo_corte) &&
+          !isBanda(item.tipo_corte) &&
+          !isCasado(item.tipo_corte) && (
           <Input
             label="Valor total da peça (R$)"
             type="number"
@@ -717,6 +813,18 @@ export function Vendas() {
             value={item.valor_total ?? ''}
             onChange={(e) => onUpdate(index, 'valor_total', e.target.value)}
           />
+        )}
+
+        {(isBanda(item.tipo_corte) || isCasado(item.tipo_corte)) && (
+          <div className={styles.resumoItem}>
+            <span className={styles.resumoLabel}>Valor total</span>
+            <strong className={styles.resumoValorHighlight}>
+              R${' '}
+              {Number(item.valor_total || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}
+            </strong>
+          </div>
         )}
 
         {isViscera(item.tipo_corte) && (
@@ -774,9 +882,11 @@ export function Vendas() {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
-            : isViscera(i.tipo_corte)
-              ? parseIntegerInput(String(i.peso_total_kg || ''))
-              : Number(i.peso_total_kg || 0),
+            : isBanda(i.tipo_corte)
+              ? quantidadeBandiasItem(i)
+              : isViscera(i.tipo_corte)
+                ? parseIntegerInput(String(i.peso_total_kg || ''))
+                : Number(i.peso_total_kg || 0),
           valor_kg: isViscera(i.tipo_corte)
             ? parseCurrencyInput(String(i.valor_kg || ''))
             : parseValorUnitario(i.valor_kg),
@@ -891,6 +1001,12 @@ export function Vendas() {
               <span>
                 {isCasado(item.tipo_corte)
                   ? `${Number(item.peso_total_kg || 0)} × ${item.tipo_corte} · ${pesoTotalComposicao(item.composicoes || []).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
+                  : isBanda(item.tipo_corte)
+                    ? formatResumoBanda(
+                        Number(item.peso_total_kg || 0) ||
+                          quantidadeBandiasItem(item),
+                        item.composicoes,
+                      ) + ` × R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
                   : isViscera(item.tipo_corte)
                     ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
                     : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
@@ -1125,6 +1241,19 @@ export function Vendas() {
                           Number(item.peso_total_kg || 0),
                           item.composicoes,
                           item.tipo_corte,
+                        )}
+                      </p>
+                      <p>
+                        {pesoTotalComposicao(item.composicoes || []).toFixed(2)}{' '}
+                        kg × R$ {Number(item.valor_kg).toFixed(2)}/kg
+                      </p>
+                    </>
+                  ) : isBanda(item.tipo_corte) ? (
+                    <>
+                      <p>
+                        {formatResumoBanda(
+                          quantidadeBandiasItem(item),
+                          item.composicoes,
                         )}
                       </p>
                       <p>

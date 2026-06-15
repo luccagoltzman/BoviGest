@@ -27,7 +27,7 @@ export const CORTE_CASADO_LEGADO = 'Boi/Vaca casado'
 /** Corte BD (banda) é a soma de dianteiro + traseiro */
 export const CORTE_BD = 'BD (banda)'
 export const REGRA_BD =
-  'BD (banda) = Dianteiro + Traseiro (a soma dos dois é igual à BD)'
+  'BD (banda) = Dianteiro + Traseiro por banda. Informe a quantidade e o peso (kg) de cada peça.'
 
 /** 1 casado = 2 dianteiros + 2 traseiros */
 export const PECAS_POR_LADO_CASADO = 2
