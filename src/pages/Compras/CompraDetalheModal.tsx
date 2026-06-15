@@ -3,6 +3,7 @@ import toast from 'react-hot-toast'
 import { Wallet, FileText } from 'lucide-react'
 import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
+import { opcoesTipoGado } from '@/constants/tiposGado'
 import { comprasService } from '@/services/compras.service'
 import {
   pagamentosComprasService,
@@ -895,8 +896,9 @@ export function CompraDetalheModal({
             disabled
           />
 
-          <Input
-            label="Tipo gado"
+          <Select
+            label="Tipo de gado"
+            options={opcoesTipoGado(editar.tipo_gado)}
             value={editar.tipo_gado || ''}
             onChange={(e) =>
               setEditar({ ...editar, tipo_gado: e.target.value })

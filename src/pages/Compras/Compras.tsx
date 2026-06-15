@@ -15,6 +15,7 @@ import {
 import { fornecedoresService } from '@/services/fornecedores.service'
 import { comprasService } from '@/services/compras.service'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
+import { opcoesTipoGado } from '@/constants/tiposGado'
 import {
   criarParcelasDraft,
   somaValoresParcelas,
@@ -660,8 +661,9 @@ export function Compras() {
             disabled
           />
 
-          <Input
-            label="Tipo gado"
+          <Select
+            label="Tipo de gado"
+            options={opcoesTipoGado(form.tipo_gado)}
             value={form.tipo_gado}
             onChange={(e) =>
               setForm({
