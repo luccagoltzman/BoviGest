@@ -1,7 +1,7 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { preparePdfLogo } from '@/utils/pdfLogo'
-import { isCorteCasado } from '@/utils/corteComposicao'
+import { isCorteCasado, pesoTotalComposicao } from '@/utils/corteComposicao'
 
 interface Composicao {
   tipo_corte: string
@@ -126,8 +126,12 @@ function formatCorteItem(item: MovimentacaoItem) {
 
 function formatPesoItem(item: MovimentacaoItem) {
   if (isCorteCasado(item.tipo_corte)) {
+    const peso = pesoTotalComposicao(item.composicoes)
     const qty = Number(item.peso_total_kg || 0)
-    return `${qty} casado${qty !== 1 ? 's' : ''}`
+    if (peso > 0) {
+      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} casado${qty !== 1 ? 's' : ''})` : ''}`
+    }
+    return qty > 0 ? `${qty} casado${qty !== 1 ? 's' : ''}` : '0 kg'
   }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
@@ -137,9 +141,6 @@ function formatPesoItem(item: MovimentacaoItem) {
 
 function formatValorUnitarioItem(item: MovimentacaoItem) {
   const valor = Number(item.valor_kg || 0)
-  if (isCorteCasado(item.tipo_corte)) {
-    return `${formatCurrency(valor)}/casado`
-  }
   if (isViscera(item.tipo_corte)) {
     return `${formatCurrency(valor)}/un`
   }

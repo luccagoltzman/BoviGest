@@ -26,6 +26,7 @@ import {
   labelQuantidadeCorte,
   labelValorUnitarioCorte,
   normalizeCorteEstoque,
+  pesoTotalComposicao,
   syncComposicoesCasado,
 } from '@/utils/corteComposicao'
 import {
@@ -122,7 +123,9 @@ export function Vendas() {
     if (isCasado(item.tipo_corte)) {
       const qty = parseQuantidadeCasados(item.peso_total_kg)
       item.composicoes = syncComposicoesCasado(qty, item.composicoes)
-      item.valor_total = qty * parseValorUnitario(item.valor_kg)
+      const pesoTotal = pesoTotalComposicao(item.composicoes)
+      const valorKg = parseValorUnitario(item.valor_kg)
+      item.valor_total = pesoTotal * valorKg
       return
     }
 
@@ -235,6 +238,7 @@ export function Vendas() {
     itens[itemIndex].composicoes[compIndex].peso_kg = value
 
     if (isCasado(itens[itemIndex].tipo_corte)) {
+      recalcItemValores(itens[itemIndex])
       setForm({ ...form, itens })
       return
     }
@@ -525,6 +529,7 @@ export function Vendas() {
     itens[itemIndex].composicoes[compIndex].peso_kg = value
 
     if (isCasado(itens[itemIndex].tipo_corte)) {
+      recalcItemValores(itens[itemIndex])
       setEditando({ ...editando, itens })
       return
     }
@@ -608,7 +613,7 @@ export function Vendas() {
             )}
             <Input
               label={valorLabel}
-              mask="currency"
+              type="number"
               value={item.valor_kg ?? ''}
               onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
             />
@@ -812,7 +817,7 @@ export function Vendas() {
               <strong>{item.tipo_corte}</strong>
               <span>
                 {isCasado(item.tipo_corte)
-                  ? `${Number(item.peso_total_kg || 0)} casado(s) × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                  ? `${pesoTotalComposicao(item.composicoes || []).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
                   : isViscera(item.tipo_corte)
                     ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
                     : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
@@ -1043,7 +1048,8 @@ export function Vendas() {
                         )}
                       </p>
                       <p>
-                        Valor/casado: R$ {Number(item.valor_kg).toFixed(2)}
+                        {pesoTotalComposicao(item.composicoes || []).toFixed(2)}{' '}
+                        kg × R$ {Number(item.valor_kg).toFixed(2)}/kg
                       </p>
                     </>
                   ) : (

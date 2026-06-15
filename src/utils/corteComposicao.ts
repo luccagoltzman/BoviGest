@@ -96,6 +96,11 @@ export function getComposicaoResumo(composicoes: ComposicaoItem[] = []) {
   return { dianteiro, traseiro }
 }
 
+/** Soma o peso (kg) de todas as peças da composição */
+export function pesoTotalComposicao(composicoes: ComposicaoItem[] = []) {
+  return composicoes.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+}
+
 export function formatResumoCasado(
   quantidadeCasados: number,
   composicoes: ComposicaoItem[] = [],
@@ -104,8 +109,12 @@ export function formatResumoCasado(
   let resumo = `${quantidadeCasados} casado${quantidadeCasados !== 1 ? 's' : ''} · ${pecas} diant. + ${pecas} tras.`
 
   const { dianteiro, traseiro } = getComposicaoResumo(composicoes)
+  const pesoTotal = dianteiro + traseiro
   if (dianteiro > 0 || traseiro > 0) {
     resumo += ` · ${dianteiro.toFixed(2)} kg diant. + ${traseiro.toFixed(2)} kg tras.`
+    if (pesoTotal > 0) {
+      resumo += ` (${pesoTotal.toFixed(2)} kg total)`
+    }
   }
 
   return resumo
@@ -119,7 +128,6 @@ export function labelQuantidadeCorte(tipo: string) {
 }
 
 export function labelValorUnitarioCorte(tipo: string) {
-  if (isCorteCasado(tipo)) return 'Valor por casado (R$)'
   if (isVisceraCorte(tipo)) return 'Valor por unidade'
   return 'Valor por KG'
 }
