@@ -108,50 +108,8 @@ function pdfText(value: string) {
     .replace(/\u00D7/g, 'x')
 }
 
-function formatCorteItemCompact(item: MovimentacaoItem) {
-  const corte = item.tipo_corte || '-'
-
-  if (
-    (isCorteCasado(item.tipo_corte) || isCorteBanda(item.tipo_corte)) &&
-    item.composicoes?.length
-  ) {
-    const dianteiros = item.composicoes.filter((c) =>
-      c.tipo_corte.toLowerCase().includes('diant'),
-    )
-    const traseiros = item.composicoes.filter((c) =>
-      c.tipo_corte.toLowerCase().includes('tras'),
-    )
-    const partes: string[] = []
-
-    if (dianteiros.length > 0) {
-      const peso = dianteiros.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
-      partes.push(
-        `Diant.: ${peso.toFixed(2)} kg (${dianteiros.length} pec.)`,
-      )
-    }
-    if (traseiros.length > 0) {
-      const peso = traseiros.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
-      partes.push(
-        `Tras.: ${peso.toFixed(2)} kg (${traseiros.length} pec.)`,
-      )
-    }
-
-    if (partes.length) return `${corte}\n${partes.join(' · ')}`
-  }
-
-  const comp = getBandaComposicao(item)
-  if (comp && !isCorteCasado(item.tipo_corte)) {
-    const partes: string[] = []
-    if (comp.dianteiro > 0) partes.push(`Diant.: ${comp.dianteiro.toFixed(2)} kg`)
-    if (comp.traseiro > 0) partes.push(`Tras.: ${comp.traseiro.toFixed(2)} kg`)
-    if (partes.length) return `${corte}\n${partes.join(' · ')}`
-  }
-
-  return corte
-}
-
 function formatCorteItem(item: MovimentacaoItem) {
-  let corte = item.tipo_corte || '—'
+  let corte = item.tipo_corte || '-'
 
   if (isCorteCasado(item.tipo_corte) && item.composicoes?.length) {
     const linhas = item.composicoes
@@ -164,7 +122,24 @@ function formatCorteItem(item: MovimentacaoItem) {
           })} kg`,
       )
     if (linhas.length) corte += `\n${linhas.join('\n')}`
-    return corte
+    return pdfText(corte)
+  }
+
+  if (isCorteBanda(item.tipo_corte) && item.composicoes?.length) {
+    const numbered = item.composicoes.some((c) => /\d/.test(c.tipo_corte))
+    if (numbered) {
+      const linhas = item.composicoes
+        .filter((c) => Number(c.peso_kg || 0) > 0)
+        .map(
+          (c) =>
+            `${c.tipo_corte}: ${Number(c.peso_kg || 0).toLocaleString('pt-BR', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })} kg`,
+        )
+      if (linhas.length) corte += `\n${linhas.join('\n')}`
+      return pdfText(corte)
+    }
   }
 
   const comp = getBandaComposicao(item)
@@ -180,7 +155,7 @@ function formatCorteItem(item: MovimentacaoItem) {
     if (partes.length) corte += `\n${partes.join(' · ')}`
   }
 
-  return corte
+  return pdfText(corte)
 }
 
 function formatPesoItem(item: MovimentacaoItem) {
@@ -237,11 +212,7 @@ function buildHistoricoDetalhadoRows(
   debitoAnterior = 0,
   debitoObs = '',
   debitoReferencia = '',
-  options?: { compactCorte?: boolean },
 ): HistoricoDetalhadoRow[] {
-  const formatCorte = options?.compactCorte
-    ? formatCorteItemCompact
-    : formatCorteItem
   const empty = '-'
   const rows: HistoricoDetalhadoRow[] = []
 
@@ -266,7 +237,7 @@ function buildHistoricoDetalhadoRows(
       rows.push({
         data: formatDate(m.data_movimentacao),
         tipo: 'Venda',
-        corte: item ? formatCorte(item) : 'Sem itens',
+        corte: item ? formatCorteItem(item) : 'Sem itens',
         peso: item ? pdfText(formatPesoItem(item)) : empty,
         valorUnitario: item ? pdfText(formatValorUnitarioItem(item)) : empty,
         valor: formatCurrency(
@@ -426,7 +397,6 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
     input.debitoAnterior,
     input.debitoAnteriorObservacao,
     input.debitoAnteriorReferencia,
-    { compactCorte: true },
   )
 
   const tableWidth = pageWidth - margin * 2
@@ -440,7 +410,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
         ? historicoRows.map((row) => [
             row.data,
             row.tipo,
-            pdfText(row.corte),
+            row.corte,
             row.peso,
             row.valorUnitario,
             row.valor,
@@ -483,6 +453,11 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
       if (data.column.index === 0) {
         data.cell.styles.overflow = 'ellipsize'
         data.cell.styles.minCellHeight = 6
+      }
+
+      if (data.column.index === 2 && String(raw).includes('\n')) {
+        data.cell.styles.fontSize = 8
+        data.cell.styles.cellPadding = 2
       }
 
       if (data.column.index === 1) {
