@@ -107,8 +107,19 @@ export function parseIntegerInput(value: string) {
 
 export function parseDecimalInput(value: string) {
   if (!value) return 0
-  const normalized = value.replace(/\./g, '').replace(',', '.')
-  const num = Number(normalized)
+
+  const trimmed = String(value).trim()
+  if (!trimmed) return 0
+
+  // Formato BR: 23,50 ou 1.234,56
+  if (trimmed.includes(',')) {
+    const normalized = trimmed.replace(/\./g, '').replace(',', '.')
+    const num = Number(normalized)
+    return Number.isFinite(num) ? num : 0
+  }
+
+  // Formato com ponto decimal: 23.50
+  const num = Number(trimmed)
   return Number.isFinite(num) ? num : 0
 }
 

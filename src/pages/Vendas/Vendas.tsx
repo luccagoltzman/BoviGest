@@ -30,7 +30,6 @@ import {
   syncComposicoesCasado,
 } from '@/utils/corteComposicao'
 import {
-  parseCurrencyInput,
   parseDecimalInput,
   parseIntegerInput,
 } from '@/utils/masks'
@@ -109,8 +108,10 @@ export function Vendas() {
 
   function parseValorUnitario(value: unknown) {
     if (value === null || value === undefined || value === '') return 0
-    if (typeof value === 'number') return value
-    return parseCurrencyInput(String(value))
+    if (typeof value === 'number') {
+      return Number.isFinite(value) ? value : 0
+    }
+    return parseDecimalInput(String(value))
   }
 
   function parseQuantidadeCasados(value: unknown) {
@@ -129,8 +130,8 @@ export function Vendas() {
       return
     }
 
-    const peso = Number(item.peso_total_kg || 0)
-    const valorKg = Number(item.valor_kg || 0)
+    const peso = parseDecimalInput(String(item.peso_total_kg || ''))
+    const valorKg = parseValorUnitario(item.valor_kg)
     item.valor_total = Number.isNaN(peso * valorKg) ? 0 : peso * valorKg
   }
 
@@ -248,8 +249,7 @@ export function Vendas() {
       0
     )
     itens[itemIndex].peso_total_kg = String(total)
-    const valorKg = Number(itens[itemIndex].valor_kg || 0)
-    itens[itemIndex].valor_total = total * valorKg
+    itens[itemIndex].valor_total = total * parseValorUnitario(itens[itemIndex].valor_kg)
     setForm({ ...form, itens })
   }
 
@@ -263,20 +263,17 @@ export function Vendas() {
   function calcularPesoTotal(itens: any[]) {
     return itens.reduce((acc: number, item: any) => {
       if (isCasado(item.tipo_corte)) {
-        const pesoCasado = (item.composicoes || []).reduce(
-          (soma: number, c: any) => soma + Number(c.peso_kg || 0),
-          0,
-        )
-        return acc + pesoCasado
+        return acc + pesoTotalComposicao(item.composicoes || [])
       }
       if (isBanda(item.tipo_corte)) {
         const pesoBanda = (item.composicoes || []).reduce(
-          (soma: number, c: any) => soma + Number(c.peso_kg || 0),
+          (soma: number, c: any) =>
+            soma + parseDecimalInput(String(c.peso_kg || '')),
           0,
         )
         return acc + pesoBanda
       }
-      return acc + Number(item.peso_total_kg || 0)
+      return acc + parseDecimalInput(String(item.peso_total_kg || ''))
     }, 0)
   }
 
@@ -540,7 +537,7 @@ export function Vendas() {
     )
     itens[itemIndex].peso_total_kg = String(total)
     itens[itemIndex].valor_total =
-      total * Number(itens[itemIndex].valor_kg || 0)
+      total * parseValorUnitario(itens[itemIndex].valor_kg)
     setEditando({ ...editando, itens })
   }
 
@@ -613,7 +610,7 @@ export function Vendas() {
             )}
             <Input
               label={valorLabel}
-              type="number"
+              mask="decimal"
               value={item.valor_kg ?? ''}
               onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
             />
@@ -627,7 +624,7 @@ export function Vendas() {
         ) : (
           <Input
             label={valorLabel}
-            type="number"
+            mask="decimal"
             value={item.valor_kg ?? ''}
             onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
           />

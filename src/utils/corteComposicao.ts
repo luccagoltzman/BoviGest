@@ -2,6 +2,7 @@ import {
   CORTE_CASADO,
   PECAS_POR_LADO_CASADO,
 } from '@/constants/cortes'
+import { parseDecimalInput } from '@/utils/masks'
 
 export type ComposicaoItem = {
   tipo_corte: string
@@ -85,20 +86,25 @@ export function buildComposicoesBandaVazia(): ComposicaoItem[] {
   ]
 }
 
+function parseKg(value: number | string) {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : 0
+  return parseDecimalInput(String(value))
+}
+
 export function getComposicaoResumo(composicoes: ComposicaoItem[] = []) {
   const dianteiro = composicoes
     .filter((c) => c.tipo_corte.toLowerCase().includes('diant'))
-    .reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+    .reduce((acc, c) => acc + parseKg(c.peso_kg), 0)
   const traseiro = composicoes
     .filter((c) => c.tipo_corte.toLowerCase().includes('tras'))
-    .reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+    .reduce((acc, c) => acc + parseKg(c.peso_kg), 0)
 
   return { dianteiro, traseiro }
 }
 
 /** Soma o peso (kg) de todas as peças da composição */
 export function pesoTotalComposicao(composicoes: ComposicaoItem[] = []) {
-  return composicoes.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+  return composicoes.reduce((acc, c) => acc + parseKg(c.peso_kg), 0)
 }
 
 export function formatResumoCasado(
