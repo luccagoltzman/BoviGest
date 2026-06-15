@@ -1,6 +1,15 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { preparePdfLogo } from '@/utils/pdfLogo'
+import {
+  PDF_COLORS,
+  drawKpiRow,
+  drawPageFooters,
+  drawPdfHeader,
+  drawPdfTopBar,
+  drawSectionSubtitle,
+  drawSectionTitle,
+} from '@/utils/pdfTheme'
 import { isCorteBanda, isCorteCasado, pesoTotalComposicao } from '@/utils/corteComposicao'
 
 interface Composicao {
@@ -91,6 +100,56 @@ function isViscera(tipo: string) {
   return (tipo || '').toLowerCase() === 'visceras'
 }
 
+function pdfText(value: string) {
+  return value
+    .replace(/\u2212/g, '-')
+    .replace(/\u2013/g, '-')
+    .replace(/\u2014/g, '-')
+    .replace(/\u00D7/g, 'x')
+}
+
+function formatCorteItemCompact(item: MovimentacaoItem) {
+  const corte = item.tipo_corte || '-'
+
+  if (
+    (isCorteCasado(item.tipo_corte) || isCorteBanda(item.tipo_corte)) &&
+    item.composicoes?.length
+  ) {
+    const dianteiros = item.composicoes.filter((c) =>
+      c.tipo_corte.toLowerCase().includes('diant'),
+    )
+    const traseiros = item.composicoes.filter((c) =>
+      c.tipo_corte.toLowerCase().includes('tras'),
+    )
+    const partes: string[] = []
+
+    if (dianteiros.length > 0) {
+      const peso = dianteiros.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+      partes.push(
+        `Diant.: ${peso.toFixed(2)} kg (${dianteiros.length} pec.)`,
+      )
+    }
+    if (traseiros.length > 0) {
+      const peso = traseiros.reduce((acc, c) => acc + Number(c.peso_kg || 0), 0)
+      partes.push(
+        `Tras.: ${peso.toFixed(2)} kg (${traseiros.length} pec.)`,
+      )
+    }
+
+    if (partes.length) return `${corte}\n${partes.join(' · ')}`
+  }
+
+  const comp = getBandaComposicao(item)
+  if (comp && !isCorteCasado(item.tipo_corte)) {
+    const partes: string[] = []
+    if (comp.dianteiro > 0) partes.push(`Diant.: ${comp.dianteiro.toFixed(2)} kg`)
+    if (comp.traseiro > 0) partes.push(`Tras.: ${comp.traseiro.toFixed(2)} kg`)
+    if (partes.length) return `${corte}\n${partes.join(' · ')}`
+  }
+
+  return corte
+}
+
 function formatCorteItem(item: MovimentacaoItem) {
   let corte = item.tipo_corte || '—'
 
@@ -178,16 +237,21 @@ function buildHistoricoDetalhadoRows(
   debitoAnterior = 0,
   debitoObs = '',
   debitoReferencia = '',
+  options?: { compactCorte?: boolean },
 ): HistoricoDetalhadoRow[] {
+  const formatCorte = options?.compactCorte
+    ? formatCorteItemCompact
+    : formatCorteItem
+  const empty = '-'
   const rows: HistoricoDetalhadoRow[] = []
 
   if (debitoAnterior > 0) {
     rows.push({
-      data: debitoReferencia ? formatDate(debitoReferencia) : '—',
+      data: debitoReferencia ? formatDate(debitoReferencia) : empty,
       tipo: 'Débito anterior',
       corte: debitoObs || 'Vendas fora do sistema',
-      peso: '—',
-      valorUnitario: '—',
+      peso: empty,
+      valorUnitario: empty,
       valor: formatCurrency(debitoAnterior),
       sortTs: debitoReferencia
         ? new Date(debitoReferencia).getTime()
@@ -202,9 +266,9 @@ function buildHistoricoDetalhadoRows(
       rows.push({
         data: formatDate(m.data_movimentacao),
         tipo: 'Venda',
-        corte: item ? formatCorteItem(item) : 'Sem itens',
-        peso: item ? formatPesoItem(item) : '—',
-        valorUnitario: item ? formatValorUnitarioItem(item) : '—',
+        corte: item ? formatCorte(item) : 'Sem itens',
+        peso: item ? pdfText(formatPesoItem(item)) : empty,
+        valorUnitario: item ? pdfText(formatValorUnitarioItem(item)) : empty,
         valor: formatCurrency(
           Number(item?.valor_total ?? m.valor_total ?? 0),
         ),
@@ -221,10 +285,10 @@ function buildHistoricoDetalhadoRows(
     rows.push({
       data: formatDate(r.data_recebimento),
       tipo: 'Recebimento',
-      corte: detalhe || '—',
-      peso: '—',
-      valorUnitario: '—',
-      valor: `− ${formatCurrency(Number(r.valor))}`,
+      corte: detalhe || empty,
+      peso: empty,
+      valorUnitario: empty,
+      valor: formatCurrency(-Number(r.valor)),
       sortTs: new Date(r.data_recebimento).getTime(),
     })
   })
@@ -238,88 +302,55 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 14
   const pageWidth = doc.internal.pageSize.getWidth()
-  let y = margin
+
+  drawPdfTopBar(doc, pageWidth)
 
   const logo = await preparePdfLogo(input.logoUrl)
-  if (logo) {
-    doc.addImage(
-      logo.dataUrl,
-      logo.format,
-      pageWidth - margin - logo.widthMm,
-      y,
-      logo.widthMm,
-      logo.heightMm,
-    )
-  }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('Extrato do cliente', margin, y + 6)
-
-  y += logo ? Math.max(12, logo.heightMm + 4) : 8
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(10)
-  doc.setTextColor(60, 60, 60)
-  doc.text(`Cliente: ${input.clienteNome}`, margin, y)
-
-  y += 5
-  doc.text(
-    `Período: ${formatDate(input.startDate)} — ${formatDate(input.endDate)}`,
+  let y = drawPdfHeader(doc, {
     margin,
-    y,
-  )
-
-  y += 5
-  doc.text(
-    `Gerado em: ${new Date().toLocaleString('pt-BR')}`,
-    margin,
-    y,
-  )
-
-  doc.setTextColor(0, 0, 0)
-  y += 10
-
-  autoTable(doc, {
-    startY: y,
-    head: [['Débito anterior', 'Compras no período', 'Total recebido', 'Saldo devedor']],
-    body: [[
-      formatCurrency(input.debitoAnterior ?? 0),
-      formatCurrency(input.totalVendasPeriodo),
-      formatCurrency(input.totalRecebido),
-      formatCurrency(input.saldo),
-    ]],
-    theme: 'grid',
-    headStyles: { fillColor: [37, 111, 62], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 10, cellPadding: 3 },
-    margin: { left: margin, right: margin },
+    pageWidth,
+    title: 'Extrato do cliente',
+    clienteNome: input.clienteNome,
+    periodo: `${formatDate(input.startDate)} - ${formatDate(input.endDate)}`,
+    geradoEm: new Date().toLocaleString('pt-BR'),
+    logo,
   })
 
-  y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
-    ?.finalY ?? y + 20
-  y += 8
+  y = drawKpiRow(doc, margin, pageWidth, y, [
+    {
+      label: 'DÉBITO ANTERIOR',
+      value: formatCurrency(input.debitoAnterior ?? 0),
+    },
+    {
+      label: 'COMPRAS NO PERÍODO',
+      value: formatCurrency(input.totalVendasPeriodo),
+    },
+    {
+      label: 'TOTAL RECEBIDO',
+      value: formatCurrency(input.totalRecebido),
+    },
+    {
+      label: 'SALDO DEVEDOR',
+      value: formatCurrency(input.saldo),
+      highlight: true,
+    },
+  ])
+
+  y += 10
 
   const cortesEntries = Object.entries(input.resumoCortes)
   if (cortesEntries.length > 0) {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.text('Cortes no período', margin, y)
-    y += 4
+    drawSectionTitle(doc, margin, y, 'Cortes no período')
+    y += 9
 
     autoTable(doc, {
       startY: y,
+      tableWidth: pageWidth - margin * 2,
       head: [['Corte', 'Peças', 'Peso (kg)', 'Valor']],
       body: cortesEntries.map(([corte, dados]) => {
         let corteLabel = corte
-        if (dados.isCasado) {
-          const partes: string[] = []
-          if (dados.composicao.dianteiro > 0) {
-            partes.push(`Diant. ${dados.composicao.dianteiro.toFixed(1)} kg`)
-          }
-          if (dados.composicao.traseiro > 0) {
-            partes.push(`Tras. ${dados.composicao.traseiro.toFixed(1)} kg`)
-          }
-          if (partes.length) corteLabel += `\n${partes.join(' · ')}`
-        } else if (dados.isBanda) {
+        if (dados.isCasado || dados.isBanda) {
           const partes: string[] = []
           if (dados.composicao.dianteiro > 0) {
             partes.push(`Diant. ${dados.composicao.dianteiro.toFixed(1)} kg`)
@@ -329,48 +360,64 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
           }
           if (partes.length) corteLabel += `\n${partes.join(' · ')}`
         }
+        const pesoTotal =
+          dados.composicao.dianteiro + dados.composicao.traseiro
         return [
-          corteLabel,
-          dados.isCasado
-            ? String(dados.quantidade)
-            : String(dados.quantidade),
-          dados.isCasado
-            ? `${dados.composicao.dianteiro + dados.composicao.traseiro > 0 ? (dados.composicao.dianteiro + dados.composicao.traseiro).toFixed(2) : '—'}`
+          pdfText(corteLabel),
+          String(dados.quantidade),
+          dados.isCasado && pesoTotal > 0
+            ? pesoTotal.toFixed(2)
             : dados.peso.toFixed(2),
           formatCurrency(dados.valor),
         ]
       }),
       theme: 'striped',
-      headStyles: { fillColor: [37, 111, 62], textColor: 255, fontStyle: 'bold' },
-      styles: { fontSize: 9, cellPadding: 2.5, overflow: 'linebreak' },
+      styles: {
+        fontSize: 9,
+        cellPadding: 2.8,
+        textColor: PDF_COLORS.text,
+        lineColor: PDF_COLORS.border,
+        lineWidth: 0.1,
+        overflow: 'linebreak',
+        valign: 'top',
+      },
+      headStyles: {
+        fillColor: PDF_COLORS.primary,
+        textColor: PDF_COLORS.white,
+        fontStyle: 'bold',
+        fontSize: 8.5,
+      },
+      alternateRowStyles: {
+        fillColor: PDF_COLORS.stripe,
+      },
       columnStyles: {
-        0: { cellWidth: 70 },
-        1: { halign: 'center', cellWidth: 20 },
-        2: { halign: 'right', cellWidth: 30 },
-        3: { halign: 'right', cellWidth: 35 },
+        0: { cellWidth: (pageWidth - margin * 2) * 0.42 },
+        1: { halign: 'center', cellWidth: (pageWidth - margin * 2) * 0.12 },
+        2: { halign: 'right', cellWidth: (pageWidth - margin * 2) * 0.18 },
+        3: { halign: 'right', cellWidth: (pageWidth - margin * 2) * 0.28 },
       },
       margin: { left: margin, right: margin },
+      didParseCell(data) {
+        if (data.section === 'body' && data.column.index === 3) {
+          data.cell.styles.fontStyle = 'bold'
+        }
+      },
     })
 
     y = (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
       ?.finalY ?? y + 20
-    y += 8
+    y += 10
   }
 
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(11)
-  doc.text('Histórico detalhado', margin, y)
-  y += 4
-
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8.5)
-  doc.setTextColor(80, 80, 80)
-  doc.text(
-    'Cada peça da venda é listada em uma linha com peso, valor unitário e total.',
+  drawSectionTitle(doc, margin, y, 'Histórico detalhado')
+  y += 10
+  y = drawSectionSubtitle(
+    doc,
     margin,
     y,
+    pageWidth - margin * 2,
+    'Cada peça da venda é listada em uma linha com peso, valor unitário e total.',
   )
-  doc.setTextColor(0, 0, 0)
   y += 5
 
   const historicoRows = buildHistoricoDetalhadoRows(
@@ -379,35 +426,91 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
     input.debitoAnterior,
     input.debitoAnteriorObservacao,
     input.debitoAnteriorReferencia,
+    { compactCorte: true },
   )
+
+  const tableWidth = pageWidth - margin * 2
 
   autoTable(doc, {
     startY: y,
+    tableWidth,
     head: [['Data', 'Tipo', 'Corte', 'Peso', 'Valor unit.', 'Total']],
     body:
       historicoRows.length > 0
         ? historicoRows.map((row) => [
             row.data,
             row.tipo,
-            row.corte,
+            pdfText(row.corte),
             row.peso,
             row.valorUnitario,
             row.valor,
           ])
-        : [['—', '—', 'Nenhum registro no período.', '—', '—', '—']],
+        : [['-', '-', 'Nenhum registro no período.', '-', '-', '-']],
     theme: 'striped',
-    headStyles: { fillColor: [37, 111, 62], textColor: 255, fontStyle: 'bold' },
-    styles: { fontSize: 8.5, cellPadding: 2.5, overflow: 'linebreak' },
+    styles: {
+      fontSize: 8.5,
+      cellPadding: 2.5,
+      textColor: PDF_COLORS.text,
+      lineColor: PDF_COLORS.border,
+      lineWidth: 0.1,
+      overflow: 'linebreak',
+      valign: 'top',
+    },
+    headStyles: {
+      fillColor: PDF_COLORS.primary,
+      textColor: PDF_COLORS.white,
+      fontStyle: 'bold',
+      fontSize: 8.5,
+      cellPadding: 3,
+    },
+    alternateRowStyles: {
+      fillColor: PDF_COLORS.stripe,
+    },
     columnStyles: {
-      0: { cellWidth: 20 },
-      1: { cellWidth: 22 },
-      2: { cellWidth: 52 },
-      3: { halign: 'right', cellWidth: 22 },
-      4: { halign: 'right', cellWidth: 28 },
-      5: { halign: 'right', cellWidth: 28 },
+      0: { cellWidth: tableWidth * 0.11, halign: 'left', overflow: 'ellipsize' },
+      1: { cellWidth: tableWidth * 0.14, halign: 'left' },
+      2: { cellWidth: tableWidth * 0.3 },
+      3: { cellWidth: tableWidth * 0.17, halign: 'right' },
+      4: { cellWidth: tableWidth * 0.14, halign: 'right' },
+      5: { cellWidth: tableWidth * 0.14, halign: 'right' },
     },
     margin: { left: margin, right: margin },
+    didParseCell(data) {
+      if (data.section !== 'body') return
+
+      const raw = String(data.cell.raw ?? '')
+
+      if (data.column.index === 0) {
+        data.cell.styles.overflow = 'ellipsize'
+        data.cell.styles.minCellHeight = 6
+      }
+
+      if (data.column.index === 1) {
+        if (raw === 'Recebimento') {
+          data.cell.styles.textColor = PDF_COLORS.recebimento
+          data.cell.styles.fontStyle = 'bold'
+        } else if (raw === 'Venda') {
+          data.cell.styles.textColor = PDF_COLORS.primaryDark
+          data.cell.styles.fontStyle = 'bold'
+        } else if (raw === 'Débito anterior') {
+          data.cell.styles.fontStyle = 'italic'
+          data.cell.styles.textColor = PDF_COLORS.textMuted
+        }
+      }
+
+      if (data.column.index === 5) {
+        const row = historicoRows[data.row.index]
+        if (row?.tipo === 'Recebimento') {
+          data.cell.styles.textColor = PDF_COLORS.recebimento
+          data.cell.styles.fontStyle = 'normal'
+        } else {
+          data.cell.styles.fontStyle = 'bold'
+        }
+      }
+    },
   })
+
+  drawPageFooters(doc, margin, pageWidth)
 
   const filename = `extrato-${sanitizeFilename(input.clienteNome) || 'cliente'}-${input.endDate.slice(0, 10)}.pdf`
   doc.save(filename)
