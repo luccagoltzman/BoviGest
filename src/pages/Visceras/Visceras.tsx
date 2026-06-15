@@ -69,7 +69,7 @@ export function Visceras() {
     },
     {
       key: 'quantidade',
-      header: 'Quantidade',
+      header: 'Unidades',
     },
     {
       key: 'created_at',
@@ -120,7 +120,7 @@ export function Visceras() {
         value: r.tipo === 1 ? 'Entrada' : 'Saída',
       },
       {
-        label: 'Quantidade',
+        label: 'Unidades',
         value: r.quantidade,
       },
       {
@@ -144,7 +144,7 @@ export function Visceras() {
       <div className={styles.topCards}>
         <div>
           <h1>{estoque}</h1>
-          <small>Vísceras disponíveis</small>
+          <small>Unidades disponíveis</small>
         </div>
 
 

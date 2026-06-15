@@ -3,6 +3,7 @@ import { Modal, Input, Button, Select } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './ViscerasModal.module.scss'
 import { viscerasService } from '@/services/visceras.service'
+import { parseIntegerInput } from '@/utils/masks'
 
 interface ModalVisceraProps {
   open: boolean
@@ -61,7 +62,7 @@ export function ViscerasModal({
 
       const payload = {
         tipo: Number(form.tipo),
-        quantidade: Number(form.quantidade),
+        quantidade: parseIntegerInput(form.quantidade),
         observacao: form.observacao,
       }
 
@@ -106,8 +107,8 @@ export function ViscerasModal({
         />
 
       <Input
-        label="Quantidade"
-        type="number"
+        label="Quantidade (unidades)"
+        mask="integer"
         value={form.quantidade}
         onChange={(e) =>
           setForm({

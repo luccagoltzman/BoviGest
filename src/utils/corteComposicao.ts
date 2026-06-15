@@ -2,7 +2,7 @@ import {
   CORTE_CASADO,
   PECAS_POR_LADO_CASADO,
 } from '@/constants/cortes'
-import { parseDecimalInput } from '@/utils/masks'
+import { parseCurrencyInput, parseDecimalInput, parseIntegerInput } from '@/utils/masks'
 
 export type ComposicaoItem = {
   tipo_corte: string
@@ -140,6 +140,23 @@ export function labelValorUnitarioCorte(tipo: string) {
 
 export function corteUsesQuantidade(tipo: string) {
   return isCorteCasado(tipo) || isVisceraCorte(tipo)
+}
+
+export function calcularValorTotalViscera(
+  quantidade: unknown,
+  valorUnidade: unknown,
+) {
+  const qty =
+    typeof quantidade === 'number'
+      ? quantidade
+      : parseIntegerInput(String(quantidade ?? ''))
+  const valor =
+    typeof valorUnidade === 'number'
+      ? valorUnidade
+      : parseCurrencyInput(String(valorUnidade ?? '')) ||
+        parseDecimalInput(String(valorUnidade ?? ''))
+
+  return qty * valor
 }
 
 export function normalizeTipoCorte(tipo: string) {

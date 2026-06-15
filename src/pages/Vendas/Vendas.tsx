@@ -19,6 +19,7 @@ import { TIPOS_CORTE, REGRA_CASADO } from '@/constants/cortes'
 import {
   buildComposicoesBandaVazia,
   buildComposicoesCasadoVazia,
+  calcularValorTotalViscera,
   formatResumoCasado,
   isCorteBanda,
   isCorteCasado,
@@ -30,6 +31,7 @@ import {
   syncComposicoesCasado,
 } from '@/utils/corteComposicao'
 import {
+  parseCurrencyInput,
   parseDecimalInput,
   parseIntegerInput,
 } from '@/utils/masks'
@@ -127,6 +129,15 @@ export function Vendas() {
       const pesoTotal = pesoTotalComposicao(item.composicoes)
       const valorKg = parseValorUnitario(item.valor_kg)
       item.valor_total = pesoTotal * valorKg
+      return
+    }
+
+    if (isViscera(item.tipo_corte)) {
+      const valorUnidade = parseCurrencyInput(String(item.valor_kg || ''))
+      item.valor_total = calcularValorTotalViscera(
+        item.peso_total_kg,
+        valorUnidade,
+      )
       return
     }
 
@@ -262,6 +273,7 @@ export function Vendas() {
 
   function calcularPesoTotal(itens: any[]) {
     return itens.reduce((acc: number, item: any) => {
+      if (isViscera(item.tipo_corte)) return acc
       if (isCasado(item.tipo_corte)) {
         return acc + pesoTotalComposicao(item.composicoes || [])
       }
@@ -275,6 +287,17 @@ export function Vendas() {
       }
       return acc + parseDecimalInput(String(item.peso_total_kg || ''))
     }, 0)
+  }
+
+  function calcularUnidadesVisceras(itens: any[]) {
+    return itens.reduce((acc: number, item: any) => {
+      if (!isViscera(item.tipo_corte)) return acc
+      return acc + parseIntegerInput(String(item.peso_total_kg || ''))
+    }, 0)
+  }
+
+  function vendaApenasVisceras(itens: any[]) {
+    return itens.length > 0 && itens.every((item) => isViscera(item.tipo_corte))
   }
 
   const formatKg = (value: number) =>
@@ -308,8 +331,12 @@ export function Vendas() {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
-            : Number(i.peso_total_kg || 0),
-          valor_kg: parseValorUnitario(i.valor_kg),
+            : isViscera(i.tipo_corte)
+              ? parseIntegerInput(String(i.peso_total_kg || ''))
+              : Number(i.peso_total_kg || 0),
+          valor_kg: isViscera(i.tipo_corte)
+            ? parseCurrencyInput(String(i.valor_kg || ''))
+            : parseValorUnitario(i.valor_kg),
           valor_total: Number(i.valor_total || 0),
           composicoes: (i.composicoes || []).map((c: any) => ({
             tipo_corte: c.tipo_corte,
@@ -561,6 +588,7 @@ export function Vendas() {
     onRemove: (index: number) => void,
   ) {
     const qtyCasados = parseQuantidadeCasados(item.peso_total_kg)
+    const qtyVisceras = parseIntegerInput(String(item.peso_total_kg || ''))
     const qtyLabel = labelQuantidadeCorte(item.tipo_corte)
     const valorLabel = labelValorUnitarioCorte(item.tipo_corte)
 
@@ -621,22 +649,52 @@ export function Vendas() {
             )}
             <p className={styles.casadoRegra}>{REGRA_CASADO}</p>
           </>
+        ) : isViscera(item.tipo_corte) ? (
+          <>
+            <Input
+              label="Quantidade (unidades)"
+              mask="integer"
+              value={item.peso_total_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+            />
+            <Input
+              label="Valor por unidade (R$)"
+              mask="currency"
+              value={item.valor_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+            />
+            {qtyVisceras > 0 && (
+              <p className={styles.casadoHint}>
+                {qtyVisceras} un × R${' '}
+                {parseCurrencyInput(String(item.valor_kg || '')).toLocaleString(
+                  'pt-BR',
+                  { minimumFractionDigits: 2 },
+                )}{' '}
+                = R${' '}
+                {Number(item.valor_total || 0).toLocaleString('pt-BR', {
+                  minimumFractionDigits: 2,
+                })}
+              </p>
+            )}
+          </>
         ) : (
-          <Input
-            label={valorLabel}
-            mask="decimal"
-            value={item.valor_kg ?? ''}
-            onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
-          />
-        )}
+          <>
+            <Input
+              label={valorLabel}
+              mask="decimal"
+              value={item.valor_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+            />
 
-        {!isBanda(item.tipo_corte) && !isCasado(item.tipo_corte) && (
-          <Input
-            label={qtyLabel ?? 'Peso total KG'}
-            type="number"
-            value={item.peso_total_kg ?? ''}
-            onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
-          />
+            {!isBanda(item.tipo_corte) && (
+              <Input
+                label={qtyLabel ?? 'Peso total KG'}
+                type="number"
+                value={item.peso_total_kg ?? ''}
+                onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+              />
+            )}
+          </>
         )}
 
         {isBanda(item.tipo_corte) &&
@@ -650,14 +708,28 @@ export function Vendas() {
             />
           ))}
 
-        <Input
-          label="Valor total da peça (R$)"
-          type="number"
-          min="0"
-          step="0.01"
-          value={item.valor_total ?? ''}
-          onChange={(e) => onUpdate(index, 'valor_total', e.target.value)}
-        />
+        {!isViscera(item.tipo_corte) && (
+          <Input
+            label="Valor total da peça (R$)"
+            type="number"
+            min="0"
+            step="0.01"
+            value={item.valor_total ?? ''}
+            onChange={(e) => onUpdate(index, 'valor_total', e.target.value)}
+          />
+        )}
+
+        {isViscera(item.tipo_corte) && (
+          <div className={styles.resumoItem}>
+            <span className={styles.resumoLabel}>Valor total</span>
+            <strong className={styles.resumoValorHighlight}>
+              R${' '}
+              {Number(item.valor_total || 0).toLocaleString('pt-BR', {
+                minimumFractionDigits: 2,
+              })}
+            </strong>
+          </div>
+        )}
 
         <div className={styles.itemActions}>
           <Button
@@ -702,8 +774,12 @@ export function Vendas() {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
-            : Number(i.peso_total_kg || 0),
-          valor_kg: parseValorUnitario(i.valor_kg),
+            : isViscera(i.tipo_corte)
+              ? parseIntegerInput(String(i.peso_total_kg || ''))
+              : Number(i.peso_total_kg || 0),
+          valor_kg: isViscera(i.tipo_corte)
+            ? parseCurrencyInput(String(i.valor_kg || ''))
+            : parseValorUnitario(i.valor_kg),
           valor_total: Number(i.valor_total || 0),
           composicoes: (i.composicoes || []).map((c: any) => ({
             tipo_corte: c.tipo_corte,
@@ -953,9 +1029,15 @@ export function Vendas() {
 
         <div className={styles.resumoSalvar}>
           <div className={styles.resumoItem}>
-            <span className={styles.resumoLabel}>Peso total</span>
+            <span className={styles.resumoLabel}>
+              {vendaApenasVisceras(form.itens)
+                ? 'Total de unidades'
+                : 'Peso total'}
+            </span>
             <strong className={styles.resumoValor}>
-              {formatKg(pesoTotalGeral)}
+              {vendaApenasVisceras(form.itens)
+                ? `${calcularUnidadesVisceras(form.itens)} un`
+                : formatKg(pesoTotalGeral)}
             </strong>
           </div>
           <div className={styles.resumoItem}>
@@ -1149,9 +1231,15 @@ export function Vendas() {
 
             <div className={styles.resumoSalvar}>
               <div className={styles.resumoItem}>
-                <span className={styles.resumoLabel}>Peso total</span>
+                <span className={styles.resumoLabel}>
+                  {vendaApenasVisceras(editando.itens)
+                    ? 'Total de unidades'
+                    : 'Peso total'}
+                </span>
                 <strong className={styles.resumoValor}>
-                  {formatKg(calcularPesoTotal(editando.itens))}
+                  {vendaApenasVisceras(editando.itens)
+                    ? `${calcularUnidadesVisceras(editando.itens)} un`
+                    : formatKg(calcularPesoTotal(editando.itens))}
                 </strong>
               </div>
               <div className={styles.resumoItem}>
