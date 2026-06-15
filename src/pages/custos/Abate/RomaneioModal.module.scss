@@ -1,0 +1,164 @@
+@use 'styles/variables' as *;
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.hint {
+  margin: 0;
+  font-size: 0.85rem;
+  color: $color-text-muted;
+  line-height: 1.45;
+
+  kbd {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    border: 1px solid rgba($color-border, 0.9);
+    border-radius: 4px;
+    background: $color-surface-soft;
+    font-size: 0.78rem;
+    font-family: inherit;
+  }
+}
+
+.metaGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.85rem;
+}
+
+.tableToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tableWrap {
+  overflow: auto;
+  max-height: min(58vh, 560px);
+  border: 1px solid rgba($color-border, 0.85);
+  border-radius: $radius-sm;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+
+  th,
+  td {
+    padding: 0.3rem 0.25rem;
+    border-bottom: 1px solid rgba($color-border, 0.65);
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: $color-surface-soft;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-text-muted;
+    padding: 0.55rem 0.25rem;
+  }
+
+  tbody tr:hover td {
+    background: rgba($color-primary, 0.04);
+  }
+}
+
+.qtdCol {
+  width: 42px;
+  font-weight: 700;
+  color: $color-text-muted;
+}
+
+.cellInput,
+.cellInputTipo {
+  width: 100%;
+  min-width: 64px;
+  max-width: 84px;
+  margin: 0 auto;
+  display: block;
+  min-height: 2rem;
+  padding: 0.35rem 0.45rem;
+  border: 1px solid rgba($color-border, 0.9);
+  border-radius: $radius-sm;
+  background: $color-surface;
+  color: $color-text;
+  font-size: 0.88rem;
+  font-weight: 600;
+  text-align: center;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s,
+    background 0.15s;
+
+  &::placeholder {
+    color: rgba($color-text-muted, 0.55);
+    font-weight: 500;
+  }
+
+  &:hover {
+    border-color: rgba($color-primary, 0.45);
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $color-primary;
+    background: #fff;
+    box-shadow: 0 0 0 3px rgba($color-primary, 0.14);
+  }
+}
+
+.cellInputTipo {
+  max-width: 76px;
+  text-transform: uppercase;
+  font-weight: 700;
+  font-size: 0.8rem;
+}
+
+.totalCell {
+  font-weight: 800;
+  white-space: nowrap;
+  color: $color-primary;
+  min-width: 52px;
+}
+
+.totalsRow td {
+  background: rgba($color-primary, 0.1);
+  font-weight: 800;
+  border-bottom: none;
+  padding-top: 0.55rem;
+  padding-bottom: 0.55rem;
+}
+
+.totalsLabel {
+  text-align: right;
+  padding-right: 0.5rem !important;
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $color-text-muted;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  justify-content: flex-end;
+  padding-top: 0.25rem;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: $color-text-muted;
+}

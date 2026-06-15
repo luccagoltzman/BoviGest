@@ -24,6 +24,7 @@ import {
   gerarItemBandaModalAbate,
   viscerasDefaultValuesPorAbate,
 } from '@/utils/abateEstoque'
+import { RomaneioModal } from './RomaneioModal'
 import styles from './Abate.module.scss'
 
 interface AbateRow {
@@ -302,6 +303,7 @@ export function Abate() {
   const [estoqueInitialData, setEstoqueInitialData] = useState<any>(null)
   const [showViscerasModal, setShowViscerasModal] = useState(false)
   const [viscerasDefaultValues, setViscerasDefaultValues] = useState<any>(null)
+  const [romaneioAbate, setRomaneioAbate] = useState<AbateRow | null>(null)
 
   const parsedForm = useMemo(() => parseForm(form), [form])
 
@@ -477,6 +479,9 @@ export function Abate() {
           <Button variant="ghost" onClick={() => openEdit(r)}>
             Editar
           </Button>
+          <Button variant="ghost" onClick={() => setRomaneioAbate(r)}>
+            Romaneio
+          </Button>
         </div>
       ),
     },
@@ -583,8 +588,23 @@ export function Abate() {
         onClose={() => setDetalhe(null)}
         title="Detalhes do abate"
       >
-        {detalhe && <ModalDetails items={detalheItems(detalhe)} />}
+        {detalhe && (
+          <>
+            <ModalDetails items={detalheItems(detalhe)} />
+            <div className={styles.actions}>
+              <Button onClick={() => setRomaneioAbate(detalhe)}>
+                Emitir romaneio
+              </Button>
+            </div>
+          </>
+        )}
       </Modal>
+
+      <RomaneioModal
+        open={!!romaneioAbate}
+        abate={romaneioAbate}
+        onClose={() => setRomaneioAbate(null)}
+      />
 
       <Modal
         width="900px"
