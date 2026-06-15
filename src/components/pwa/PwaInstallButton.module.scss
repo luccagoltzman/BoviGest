@@ -1,0 +1,31 @@
+@use 'styles/variables' as *;
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  padding: 0.1rem 0;
+  border: none;
+  background: transparent;
+  color: $color-primary;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.2s;
+
+  &:hover:not(:disabled) {
+    color: $color-primary-dark;
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.65;
+    cursor: wait;
+  }
+}
+
+.icon {
+  flex-shrink: 0;
+}

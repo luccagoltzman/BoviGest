@@ -21,6 +21,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { AppLogo } from '@/components/AppLogo'
+import { PwaInstallButton } from '@/components/pwa'
 import { canAccessSettings, currentUserRole } from '@/config/access'
 import { SidebarPasture } from './SidebarPasture'
 import styles from './Sidebar.module.scss'
@@ -311,6 +312,7 @@ export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
           <span className={styles.footerLabel}>BoviGest</span>
           <span className={styles.footerHint}>Gestão de gado e carne</span>
         </div>
+        <PwaInstallButton onNavigate={onNavigate} />
         <SidebarPasture />
       </div>
     </aside>

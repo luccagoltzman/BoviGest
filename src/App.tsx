@@ -18,13 +18,14 @@ import { CustosOperacionais } from '@/pages/custos/CustosOperacionais'
 import { Login } from '@/pages/Login'
 import { Cadastro } from '@/pages/Cadastro'
 import { ProtectedRoute } from './ProtectedRoute'
+import { PwaInstallProvider, PwaManager } from '@/components/pwa'
 import { Toaster } from 'react-hot-toast'
 
 function App() {
   return (
-    <>
-      {/* Toaster global, aparece em qualquer página */}
+    <PwaInstallProvider>
       <Toaster position="top-right" reverseOrder={false} />
+      <PwaManager />
 
       <Routes>
         <Route path="/login" element={<Login />} />
@@ -56,7 +57,7 @@ function App() {
 
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
-    </>
+    </PwaInstallProvider>
   )
 }
 
