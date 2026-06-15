@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Input, Table, Modal, AddNewButton } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, AddNewButton, TouchTooltip, touchTooltipStyles, tableListStyles } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Fornecedores.module.scss'
 import { fornecedoresService } from '@/services/fornecedores.service'
@@ -113,40 +113,64 @@ export function Fornecedores() {
   const columns = [
     {
       key: 'nome',
-      header: 'Nome / Razão social',
+      header: 'Nome',
+      render: (r: FornecedorRow) => (
+        <span className={tableListStyles.nomeCell}>{r.nome || '—'}</span>
+      ),
     },
     {
       key: 'doc',
       header: 'CPF/CNPJ',
+      render: (r: FornecedorRow) => (
+        <span className={tableListStyles.docCell}>{r.doc || '—'}</span>
+      ),
     },
     {
       key: 'telefone',
       header: 'Telefone',
+      render: (r: FornecedorRow) => r.telefone || '—',
     },
     {
       key: 'cidade',
       header: 'Cidade',
-      render: (r: FornecedorRow) => r.cidade || '—',
+      render: (r: FornecedorRow) => (
+        <span className={tableListStyles.cidadeCell}>
+          {r.cidade ? `${r.cidade}${r.uf ? `/${r.uf}` : ''}` : '—'}
+        </span>
+      ),
     },
     {
       key: 'pix_chave',
       header: 'PIX',
-      render: (r: FornecedorRow) =>
-        r.pix_chave ? `${r.pix_tipo || 'PIX'}: ${r.pix_chave}` : '—',
+      render: (r: FornecedorRow) => {
+        if (!r.pix_chave) return '—'
+
+        return (
+          <TouchTooltip label={r.pix_tipo || 'PIX'}>
+            <div className={touchTooltipStyles.item}>
+              <strong>{r.pix_tipo || 'PIX'}</strong>
+              <span>{r.pix_chave}</span>
+            </div>
+          </TouchTooltip>
+        )
+      },
     },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: FornecedorRow) => (
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setEditarId(r.id)
-            setEditForm(fornecedorFormFromRow(r))
-          }}
-        >
-          Ver detalhes
-        </Button>
+        <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => {
+              setEditarId(r.id)
+              setEditForm(fornecedorFormFromRow(r))
+            }}
+          >
+            Detalhes
+          </Button>
+        </div>
       ),
     },
   ]

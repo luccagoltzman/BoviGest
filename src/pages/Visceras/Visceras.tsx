@@ -5,6 +5,7 @@ import {
   Table,
   Modal,
   ModalDetails,
+  tableListStyles,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { viscerasService } from '@/services/visceras.service'
@@ -83,22 +84,18 @@ export function Visceras() {
       key: 'acoes',
       header: 'Ações',
       render: (r: VisceraMovimentacao) => (
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-          }}
-        >
+        <div className={tableListStyles.acoesRow}>
           <Button
             variant="outline"
+            className={tableListStyles.acaoBtn}
             onClick={() => setDetalhe(r)}
           >
-            Ver detalhes
+            Detalhes
           </Button>
-
           <Button
             variant="ghost"
-            disabled={r.referencia_venda_id > 0 ? true : false}    
+            className={tableListStyles.acaoBtn}
+            disabled={r.referencia_venda_id > 0 ? true : false}
             onClick={() => {
               setDefaultValues(null)
               setEditing(r)

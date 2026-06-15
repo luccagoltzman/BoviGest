@@ -7,6 +7,7 @@ import {
   Table,
   Modal,
   ModalDetails,
+  tableListStyles,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { abatesService } from '@/services/abates.service'
@@ -472,14 +473,26 @@ export function Abate() {
       key: 'acoes',
       header: 'Ações',
       render: (r: AbateRow) => (
-        <div className={styles.tableActions}>
-          <Button variant="outline" onClick={() => setDetalhe(r)}>
+        <div className={tableListStyles.acoesRow}>
+          <Button
+            variant="outline"
+            className={tableListStyles.acaoBtn}
+            onClick={() => setDetalhe(r)}
+          >
             Ver
           </Button>
-          <Button variant="ghost" onClick={() => openEdit(r)}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => openEdit(r)}
+          >
             Editar
           </Button>
-          <Button variant="ghost" onClick={() => setRomaneioAbate(r)}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => setRomaneioAbate(r)}
+          >
             Romaneio
           </Button>
         </div>

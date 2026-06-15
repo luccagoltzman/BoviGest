@@ -6,6 +6,23 @@
   border: 1px solid rgba($color-border, 0.8);
   border-radius: $radius;
   background: $color-surface;
+
+  &.wrapCells {
+    .wrap {
+      overflow-x: visible;
+    }
+
+    .table {
+      table-layout: fixed;
+
+      th,
+      td {
+        white-space: normal;
+        word-break: break-word;
+        vertical-align: top;
+      }
+    }
+  }
 }
 
 .wrap {

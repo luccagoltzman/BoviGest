@@ -17,6 +17,8 @@ interface TableProps<T> {
   totalPages?: number
   total?: number
   onPageChange?: (page: number) => void
+  /** Permite quebra de linha nas células (evita rolagem horizontal). */
+  wrapCells?: boolean
 }
 
 function renderCell<T>(row: T, col: Column<T>) {
@@ -34,6 +36,7 @@ export function Table<T>({
   totalPages,
   total,
   onPageChange,
+  wrapCells = true,
 }: TableProps<T>) {
   if (loading) {
     return <p className={styles.empty}>Carregando...</p>
@@ -59,7 +62,11 @@ export function Table<T>({
     : data.length
 
   return (
-    <div className={styles.tableShell}>
+    <div
+      className={[styles.tableShell, wrapCells && styles.wrapCells]
+        .filter(Boolean)
+        .join(' ')}
+    >
       <div className={styles.wrap}>
         <table className={styles.table}>
           <thead>

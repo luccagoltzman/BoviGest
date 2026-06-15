@@ -1,4 +1,5 @@
 export { TouchTooltip, touchTooltipStyles } from './TouchTooltip'
+export { default as tableListStyles } from '@/styles/tableList.module.scss'
 export { Button } from './Button'
 export { Input } from './Input'
 export type { InputMask } from './Input'

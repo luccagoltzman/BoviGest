@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { Button, Card, Input, Table, Modal, AddNewButton } from '@/components/ui'
+import { Button, Card, Input, Table, Modal, AddNewButton, tableListStyles } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './Clientes.module.scss'
 import { clientesService } from '@/services/cliente.service'
 import { ClienteExtratoModal } from './ClienteExtratoModal'
+import { formatCurrencyFromNumber } from '@/utils/masks'
 import {
   ClienteFormFields,
   clienteFormFromRow,
@@ -152,38 +153,67 @@ export function Clientes() {
   const columns = [
     {
       key: 'nome',
-      header: 'Cliente',
-      render: (r: any) => (
-        <a
+      header: 'Nome',
+      render: (r: ClienteRow) => (
+        <span
+          className={tableListStyles.linkCell}
           onClick={() => setClienteExtrato(r)}
-          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          role="link"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') setClienteExtrato(r)
+          }}
         >
-          {r?.nome}
-        </a>
+          {r.nome || '—'}
+        </span>
       ),
     },
-    { key: 'doc', header: 'CPF/CNPJ' },
-    { key: 'telefone', header: 'Telefone / WhatsApp' },
+    {
+      key: 'doc',
+      header: 'CPF/CNPJ',
+      render: (r: ClienteRow) => (
+        <span className={tableListStyles.docCell}>{r.doc || '—'}</span>
+      ),
+    },
+    {
+      key: 'telefone',
+      header: 'Telefone',
+      render: (r: ClienteRow) => r.telefone || '—',
+    },
     {
       key: 'cidade',
       header: 'Cidade',
-      render: (r: ClienteRow) => r.cidade || '—',
+      render: (r: ClienteRow) => (
+        <span className={tableListStyles.cidadeCell}>
+          {r.cidade ? `${r.cidade}${r.uf ? `/${r.uf}` : ''}` : '—'}
+        </span>
+      ),
     },
-    { key: 'limite_credito', header: 'Limite de crédito' },
-    { key: 'status', header: 'Status' },
+    {
+      key: 'limite_credito',
+      header: 'Limite',
+      render: (r: ClienteRow) =>
+        formatCurrencyFromNumber(Number(r.limite_credito || 0)),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (r: ClienteRow) => r.status || '—',
+    },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: ClienteRow) => (
-        <div className={styles.actions}>
+        <div className={tableListStyles.acoesCell}>
           <Button
             variant="ghost"
+            className={tableListStyles.acaoBtn}
             onClick={() => {
               setEditarId(r.id)
               setEditar(clienteFormFromRow(r))
             }}
           >
-            Ver detalhes
+            Detalhes
           </Button>
         </div>
       ),

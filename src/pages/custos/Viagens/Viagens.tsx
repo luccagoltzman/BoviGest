@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Card, Input, Table } from '@/components/ui'
+import { Button, Card, Input, Table, tableListStyles } from '@/components/ui'
 
 import styles from './Viagens.module.scss'
 import { ModalViagem } from './ModalViagem'
@@ -84,14 +84,23 @@ export function Viagens() {
     {
       key: 'veiculo',
       header: 'Veículo',
+      render: (r: ViagemRow) => (
+        <span className={tableListStyles.textCell}>{r.veiculo || '—'}</span>
+      ),
     },
     {
       key: 'origem',
       header: 'Origem',
+      render: (r: ViagemRow) => (
+        <span className={tableListStyles.textCell}>{r.origem || '—'}</span>
+      ),
     },
     {
       key: 'destino',
       header: 'Destino',
+      render: (r: ViagemRow) => (
+        <span className={tableListStyles.textCell}>{r.destino || '—'}</span>
+      ),
     },
     {
       key: 'finalidade',
@@ -119,14 +128,10 @@ export function Viagens() {
       key: 'acoes',
       header: 'Ações',
       render: (r: ViagemRow) => (
-        <div
-          style={{
-            display: 'flex',
-            gap: 8,
-          }}
-        >
+        <div className={tableListStyles.acoesRow}>
           <Button
             variant="ghost"
+            className={tableListStyles.acaoBtn}
             onClick={() => {
               setEditar(r)
               setModalOpen(true)
@@ -134,8 +139,11 @@ export function Viagens() {
           >
             Editar
           </Button>
-
-          <Button variant="danger" onClick={() => handleDelete(r.id)}>
+          <Button
+            variant="danger"
+            className={tableListStyles.acaoBtn}
+            onClick={() => handleDelete(r.id)}
+          >
             Excluir
           </Button>
         </div>

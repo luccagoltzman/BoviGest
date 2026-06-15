@@ -7,6 +7,9 @@ import {
   Select,
   Autocomplete,
   AddNewButton,
+  TouchTooltip,
+  touchTooltipStyles,
+  tableListStyles,
 } from '@/components/ui'
 
 import { fornecedoresService } from '@/services/fornecedores.service'
@@ -379,7 +382,9 @@ export function Compras() {
     {
       key: 'fornecedor',
       header: 'Fornecedor',
-      render: (r: CompraRow) => r.fornecedor?.nome || '-',
+      render: (r: CompraRow) => (
+        <span className={tableListStyles.nomeCell}>{r.fornecedor?.nome || '-'}</span>
+      ),
     },
     {
       key: 'data',
@@ -411,17 +416,16 @@ export function Compras() {
         const d = r.detalhes_custo
 
         return (
-          <div>
-            <div>R$ {d.total.toFixed(2)}</div>
-            <small>
-              Gado: {d.subtotal.toFixed(2)} |
-              Imp: {d.imposto.toFixed(2)} |
-              GTA: {d.gta.toFixed(2)} |
-              Viagem: {d.viagem.toFixed(2)}
-            </small>
-          </div>
+          <TouchTooltip label={formatCurrency(d.total)}>
+            <div className={touchTooltipStyles.item}>
+              <span>Gado: {formatCurrency(d.subtotal)}</span>
+              <span>Imposto: {formatCurrency(d.imposto)}</span>
+              <span>GTA: {formatCurrency(d.gta)}</span>
+              <span>Viagem: {formatCurrency(d.viagem)}</span>
+            </div>
+          </TouchTooltip>
         )
-      }
+      },
     },
     {
       key: 'pagamento',
@@ -434,36 +438,39 @@ export function Compras() {
         }
 
         const detalhes = resumo.detalhes || []
+        const quitado = resumo.quitado
+        const resumoLabel = quitado
+          ? `${resumo.pagas}/${resumo.total} · Quitado`
+          : resumo.valorPendente != null && resumo.valorPendente > 0
+            ? `${resumo.pagas}/${resumo.total} · Falta ${formatCurrency(resumo.valorPendente)}`
+            : `${resumo.pagas}/${resumo.total} parcelas`
+
+        if (detalhes.length === 0) {
+          return (
+            <span className={quitado ? styles.statusPago : styles.statusPendente}>
+              {resumoLabel}
+            </span>
+          )
+        }
 
         return (
-          <div className={styles.pagamentoCell}>
-            {detalhes.length > 0 ? (
-              detalhes.map((p) => (
-                <div key={p.numero} className={styles.pagamentoLinha}>
-                  <span>
-                    {p.numero}/{p.total}:
-                  </span>
-                  <strong>{formatCurrency(p.valor)}</strong>
-                  <span>
-                    {p.status === 'pago' && p.data_pagamento
-                      ? ` · pago em ${formatDateBr(p.data_pagamento)}`
-                      : p.data_vencimento
-                        ? ` · vence ${formatDateBr(p.data_vencimento)}`
-                        : ''}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div>
-                {resumo.pagas}/{resumo.total} parcelas
+          <TouchTooltip label={resumoLabel}>
+            {detalhes.map((p) => (
+              <div key={p.numero} className={touchTooltipStyles.item}>
+                <strong>
+                  Parcela {p.numero}/{p.total}
+                </strong>
+                <span>{formatCurrency(p.valor)}</span>
+                <span>
+                  {p.status === 'pago' && p.data_pagamento
+                    ? `Pago em ${formatDateBr(p.data_pagamento)}`
+                    : p.data_vencimento
+                      ? `Vence em ${formatDateBr(p.data_vencimento)}`
+                      : 'Pendente'}
+                </span>
               </div>
-            )}
-            {resumo.valorPendente != null && resumo.valorPendente > 0 && (
-              <small className={styles.pagamentoPendente}>
-                Falta: {formatCurrency(resumo.valorPendente)}
-              </small>
-            )}
-          </div>
+            ))}
+          </TouchTooltip>
         )
       },
     },
@@ -471,21 +478,28 @@ export function Compras() {
       key: 'acoes',
       header: 'Ações',
       render: (r: CompraRow) => (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Button variant="outline" onClick={() => abrirDetalhe(r, 'pagamento')}>
+        <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="outline"
+            className={tableListStyles.acaoBtn}
+            onClick={() => abrirDetalhe(r, 'pagamento')}
+          >
             Pagamentos
           </Button>
-
-          <Button variant="ghost" onClick={() => abrirDetalhe(r, 'dados')}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => abrirDetalhe(r, 'dados')}
+          >
             Dados
           </Button>
-
           <Button
             disabled={loadingViagem}
             variant="ghost"
+            className={tableListStyles.acaoBtn}
             onClick={() => abrirViagem(r)}
           >
-            Ver viagem
+            Viagem
           </Button>
         </div>
       ),

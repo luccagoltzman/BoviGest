@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Button, Card, Input, Modal, Select, Table } from '@/components/ui'
+import { Button, Card, Input, Modal, Select, Table, tableListStyles } from '@/components/ui'
 import toast from 'react-hot-toast'
 import styles from './CustosOperacionais.module.scss'
 import { custosOperacionaisService } from '@/services/centroCusto.service'
@@ -160,26 +160,41 @@ export function CustosOperacionais() {
   const columns = [
     { key: 'data', header: 'Data' },
     { key: 'categoria', header: 'Categoria' },
-    { key: 'descricao', header: 'Descrição' },
+    {
+      key: 'descricao',
+      header: 'Descrição',
+      render: (r: CustoRow) => (
+        <span className={tableListStyles.descricaoCell}>{r.descricao}</span>
+      ),
+    },
     {
       key: 'valor',
       header: 'Valor',
       render: (r: CustoRow) => `R$ ${r.valor.toLocaleString('pt-BR')}`,
     },
-    { key: 'centro_custo', header: 'Centro de custo' },
+    {
+      key: 'centro_custo',
+      header: 'Centro',
+      render: (r: CustoRow) => (
+        <span className={tableListStyles.textCell}>{r.centro_custo}</span>
+      ),
+    },
     {
       key: 'acoes',
       header: 'Ações',
       render: (r: CustoRow) => (
-        <Button
-          variant="ghost"
-          onClick={() => {
-            setDetalhe(r)
-            setEditForm({ ...r })
-          }}
-        >
-          Ver detalhes
-        </Button>
+        <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => {
+              setDetalhe(r)
+              setEditForm({ ...r })
+            }}
+          >
+            Detalhes
+          </Button>
+        </div>
       ),
     },
   ]

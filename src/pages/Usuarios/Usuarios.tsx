@@ -8,6 +8,7 @@ import {
   Table,
   Modal,
   ModalDetails,
+  tableListStyles,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { APP_BASE_URL } from '@/config/app'
@@ -168,8 +169,20 @@ export function Usuarios() {
   }, [])
 
   const columns = [
-    { key: 'nome', header: 'Nome', render: (r: UsuarioEmpresa) => r.nome || '—' },
-    { key: 'email', header: 'E-mail', render: (r: UsuarioEmpresa) => r.email || '—' },
+    {
+      key: 'nome',
+      header: 'Nome',
+      render: (r: UsuarioEmpresa) => (
+        <span className={tableListStyles.nomeCell}>{r.nome || '—'}</span>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'E-mail',
+      render: (r: UsuarioEmpresa) => (
+        <span className={tableListStyles.textCell}>{r.email || '—'}</span>
+      ),
+    },
     {
       key: 'perfil',
       header: 'Perfil',
@@ -188,9 +201,15 @@ export function Usuarios() {
       key: 'acoes',
       header: 'Ações',
       render: (r: UsuarioEmpresa) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+        <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => setDetalhe(r)}
+          >
+            Detalhes
+          </Button>
+        </div>
       ),
     },
   ]

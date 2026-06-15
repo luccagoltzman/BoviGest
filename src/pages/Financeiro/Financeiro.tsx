@@ -7,6 +7,7 @@ import {
   Table,
   Modal,
   ModalDetails,
+  tableListStyles,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { pagamentosComprasService } from '@/services/pagamentosCompras.service'
@@ -306,7 +307,13 @@ export function Financeiro() {
   }, [filtered])
 
   const columns = [
-    { key: 'descricao', header: 'Descrição' },
+    {
+      key: 'descricao',
+      header: 'Descrição',
+      render: (r: ContaRow) => (
+        <span className={tableListStyles.descricaoCell}>{r.descricao}</span>
+      ),
+    },
     {
       key: 'tipo',
       header: 'Tipo',
@@ -331,9 +338,15 @@ export function Financeiro() {
       key: 'acoes',
       header: 'Ações',
       render: (r: ContaRow) => (
-        <Button variant="ghost" onClick={() => setDetalhe(r)}>
-          Ver detalhes
-        </Button>
+        <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => setDetalhe(r)}
+          >
+            Detalhes
+          </Button>
+        </div>
       ),
     },
   ]

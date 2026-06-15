@@ -1,0 +1,65 @@
+@use 'styles/variables' as *;
+
+.nomeCell,
+.textCell {
+  display: block;
+  max-width: 11rem;
+  line-height: 1.35;
+}
+
+.docCell {
+  display: block;
+  max-width: 9rem;
+  line-height: 1.35;
+  font-variant-numeric: tabular-nums;
+}
+
+.cidadeCell {
+  display: block;
+  max-width: 8rem;
+  line-height: 1.35;
+}
+
+.descricaoCell {
+  display: block;
+  max-width: 12rem;
+  line-height: 1.35;
+}
+
+.linkCell {
+  display: block;
+  max-width: 11rem;
+  line-height: 1.35;
+  color: $color-primary-dark;
+  cursor: pointer;
+  text-decoration: underline;
+  word-break: break-word;
+
+  &:hover {
+    color: $color-primary;
+  }
+}
+
+.acoesCell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.acoesRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.acaoBtn {
+  min-height: 2rem !important;
+  padding: 0.35rem 0.65rem !important;
+  font-size: 0.78rem !important;
+  border-radius: 8px !important;
+  white-space: normal;
+  line-height: 1.2;
+}

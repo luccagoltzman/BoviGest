@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 
-import { Button, Card, Input, Table, TouchTooltip, touchTooltipStyles } from '@/components/ui'
+import { Button, Card, Input, Table, TouchTooltip, touchTooltipStyles, tableListStyles } from '@/components/ui'
 import { estoqueService } from '@/services/estoque.service'
 import styles from './Processamento.module.scss'
 import toast from 'react-hot-toast'
@@ -120,7 +120,13 @@ export function Processamento() {
 
   const columns = [
     { key: 'data_movimentacao', header: 'Data' },
-    { key: 'lote', header: 'Lote' },
+    {
+      key: 'lote',
+      header: 'Lote',
+      render: (r: EstoqueRow) => (
+        <span className={tableListStyles.textCell}>{r.lote || '—'}</span>
+      ),
+    },
     {
       key: 'tipo_movimentacao',
       header: 'Tipo',
@@ -153,9 +159,10 @@ export function Processamento() {
       key: 'acoes',
       header: 'Ações',
       render: (r: EstoqueRow) => (
-        <div className={styles.actions}>
+        <div className={tableListStyles.acoesRow}>
           <Button
             variant="outline"
+            className={tableListStyles.acaoBtn}
             onClick={() => {
               setEditar(r)
               setOpenModal(true)
@@ -163,10 +170,14 @@ export function Processamento() {
           >
             Editar
           </Button>
-          <Button variant="danger" disabled={!!r.referencia_venda_id} onClick={() => handleDelete(r.id)}>
+          <Button
+            variant="danger"
+            className={tableListStyles.acaoBtn}
+            disabled={!!r.referencia_venda_id}
+            onClick={() => handleDelete(r.id)}
+          >
             Excluir
           </Button>
-
         </div>
       ),
     },

@@ -11,6 +11,7 @@ import {
   TouchTooltip,
   touchTooltipStyles,
   AddNewButton,
+  tableListStyles,
 } from '@/components/ui'
 
 import toast from 'react-hot-toast'
@@ -970,7 +971,8 @@ export function Vendas() {
       key: 'cliente',
       header: 'Cliente',
       render: (r: any) => (
-        <a
+        <span
+          className={tableListStyles.linkCell}
           onClick={() =>
             setClienteExtrato({
               cliente: r.cliente ?? {
@@ -979,10 +981,21 @@ export function Vendas() {
               },
             })
           }
-          style={{ cursor: 'pointer', textDecoration: 'underline' }}
+          role="link"
+          tabIndex={0}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              setClienteExtrato({
+                cliente: r.cliente ?? {
+                  id: r.cliente_id,
+                  nome: r.cliente?.nome ?? 'Cliente',
+                },
+              })
+            }
+          }}
         >
           {r.cliente?.nome}
-        </a>
+        </span>
       ),
     },
     {
@@ -1050,9 +1063,10 @@ export function Vendas() {
       key: 'acao',
       header: 'Ação',
       render: (r: any) => (
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className={tableListStyles.acoesRow}>
           <Button
             variant="ghost"
+            className={tableListStyles.acaoBtn}
             onClick={() =>
               setClienteExtrato({
                 cliente: r.cliente ?? {
@@ -1066,6 +1080,7 @@ export function Vendas() {
           </Button>
           <Button
             variant="outline"
+            className={tableListStyles.acaoBtn}
             onClick={() => {
               setMovimentacaoOriginal(structuredClone(r))
               setEditando(structuredClone(r))
@@ -1073,7 +1088,11 @@ export function Vendas() {
           >
             Editar
           </Button>
-          <Button variant="destructive" onClick={() => handleDelete(r.id)}>
+          <Button
+            variant="destructive"
+            className={tableListStyles.acaoBtn}
+            onClick={() => handleDelete(r.id)}
+          >
             Excluir
           </Button>
         </div>
