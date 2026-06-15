@@ -740,8 +740,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     {dados.isCasado ? (
                       <>
                         <span>
-                          <strong>{dados.quantidade}</strong> casado
-                          {dados.quantidade !== 1 ? 's' : ''}
+                          <strong>{dados.quantidade}</strong> un.
                         </span>
                         <span>
                           <strong>{formatCurrency(dados.valor)}</strong>
@@ -854,6 +853,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                               ? formatResumoCasado(
                                   Number(item.peso_total_kg || 0),
                                   item.composicoes,
+                                  item.tipo_corte,
                                 )
                               : `${item.tipo_corte} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
                             {comp && !casado && (

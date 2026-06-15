@@ -128,10 +128,11 @@ function formatPesoItem(item: MovimentacaoItem) {
   if (isCorteCasado(item.tipo_corte)) {
     const peso = pesoTotalComposicao(item.composicoes)
     const qty = Number(item.peso_total_kg || 0)
+    const tipo = item.tipo_corte || 'Casado'
     if (peso > 0) {
-      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} casado${qty !== 1 ? 's' : ''})` : ''}`
+      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} × ${tipo})` : ''}`
     }
-    return qty > 0 ? `${qty} casado${qty !== 1 ? 's' : ''}` : '0 kg'
+    return qty > 0 ? `${qty} × ${tipo}` : '0 kg'
   }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
@@ -317,7 +318,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
         return [
           corteLabel,
           dados.isCasado
-            ? `${dados.quantidade} casado${dados.quantidade !== 1 ? 's' : ''}`
+            ? String(dados.quantidade)
             : String(dados.quantidade),
           dados.isCasado
             ? `${dados.composicao.dianteiro + dados.composicao.traseiro > 0 ? (dados.composicao.dianteiro + dados.composicao.traseiro).toFixed(2) : '—'}`

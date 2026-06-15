@@ -644,7 +644,7 @@ export function Vendas() {
             />
             {qtyCasados > 0 && (
               <p className={styles.casadoHint}>
-                {formatResumoCasado(qtyCasados, item.composicoes)}
+                {formatResumoCasado(qtyCasados, item.composicoes, item.tipo_corte)}
               </p>
             )}
             <p className={styles.casadoRegra}>{REGRA_CASADO}</p>
@@ -890,7 +890,7 @@ export function Vendas() {
               <strong>{item.tipo_corte}</strong>
               <span>
                 {isCasado(item.tipo_corte)
-                  ? `${pesoTotalComposicao(item.composicoes || []).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
+                  ? `${Number(item.peso_total_kg || 0)} × ${item.tipo_corte} · ${pesoTotalComposicao(item.composicoes || []).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
                   : isViscera(item.tipo_corte)
                     ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
                     : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
@@ -1124,6 +1124,7 @@ export function Vendas() {
                         {formatResumoCasado(
                           Number(item.peso_total_kg || 0),
                           item.composicoes,
+                          item.tipo_corte,
                         )}
                       </p>
                       <p>

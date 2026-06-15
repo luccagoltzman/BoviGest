@@ -1,7 +1,4 @@
-import {
-  CORTE_CASADO,
-  PECAS_POR_LADO_CASADO,
-} from '@/constants/cortes'
+import { PECAS_POR_LADO_CASADO } from '@/constants/cortes'
 import { parseCurrencyInput, parseDecimalInput, parseIntegerInput } from '@/utils/masks'
 
 export type ComposicaoItem = {
@@ -110,9 +107,11 @@ export function pesoTotalComposicao(composicoes: ComposicaoItem[] = []) {
 export function formatResumoCasado(
   quantidadeCasados: number,
   composicoes: ComposicaoItem[] = [],
+  tipoCasado?: string,
 ) {
   const pecas = pecasPorLadoFromCasados(quantidadeCasados)
-  let resumo = `${quantidadeCasados} casado${quantidadeCasados !== 1 ? 's' : ''} · ${pecas} diant. + ${pecas} tras.`
+  const tipoLabel = (tipoCasado || 'Casado').trim()
+  let resumo = `${quantidadeCasados} × ${tipoLabel} · ${pecas} diant. + ${pecas} tras.`
 
   const { dianteiro, traseiro } = getComposicaoResumo(composicoes)
   const pesoTotal = dianteiro + traseiro
@@ -127,7 +126,7 @@ export function formatResumoCasado(
 }
 
 export function labelQuantidadeCorte(tipo: string) {
-  if (isCorteCasado(tipo)) return 'Quantidade de casados'
+  if (isCorteCasado(tipo)) return `Quantidade — ${tipo}`
   if (isVisceraCorte(tipo)) return 'Total de unidades'
   if (isCorteBanda(tipo)) return null
   return 'Peso total KG'
@@ -160,6 +159,5 @@ export function calcularValorTotalViscera(
 }
 
 export function normalizeTipoCorte(tipo: string) {
-  if (isCorteCasado(tipo)) return CORTE_CASADO
   return tipo
 }

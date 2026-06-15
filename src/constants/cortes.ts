@@ -1,26 +1,35 @@
 /**
  * Tipos de corte disponíveis.
  * BD (banda) = Dianteiro + Traseiro (a soma dos dois é igual à BD).
- * Boi/Vaca casado = 2 dianteiros + 2 traseiros por unidade (par boi + vaca).
+ * Casado (Boi, Vaca ou Bubalino) = 2 dianteiros + 2 traseiros por unidade.
  */
+export const CORTES_CASADOS = [
+  'Boi casado',
+  'Vaca casado',
+  'Bubalino casado',
+] as const
+
 export const TIPOS_CORTE = [
   'Dianteiro',
   'Traseiro',
   'Costela',
   'BD (banda)', // Dianteiro + Traseiro juntos
-  'Boi/Vaca casado',
+  ...CORTES_CASADOS,
   'Visceras',
 ] as const
 
 export type TipoCorte = (typeof TIPOS_CORTE)[number]
+export type CorteCasado = (typeof CORTES_CASADOS)[number]
+
+/** Registro legado — mantido para leitura de vendas antigas */
+export const CORTE_CASADO_LEGADO = 'Boi/Vaca casado'
 
 /** Corte BD (banda) é a soma de dianteiro + traseiro */
 export const CORTE_BD = 'BD (banda)'
 export const REGRA_BD =
   'BD (banda) = Dianteiro + Traseiro (a soma dos dois é igual à BD)'
 
-/** 1 casado (boi + vaca) = 2 dianteiros + 2 traseiros */
-export const CORTE_CASADO = 'Boi/Vaca casado'
+/** 1 casado = 2 dianteiros + 2 traseiros */
 export const PECAS_POR_LADO_CASADO = 2
 export const REGRA_CASADO =
-  'Boi/Vaca casado: cada unidade = 2 dianteiros + 2 traseiros. Informe o peso (kg) de cada peça.'
+  'Cada casado (Boi, Vaca ou Bubalino) = 2 dianteiros + 2 traseiros. Informe o peso (kg) de cada peça.'
