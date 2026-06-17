@@ -296,17 +296,105 @@ export const pagamentosComprasService = {
   async syncCompraQuitacao(compraId: number) {
     const user = getUser()
     const parcelas = await this.getByCompraId(compraId)
+    const valorTotal = await this.getValorTotalCompra(compraId)
+    const valorPago = parcelas
+      .filter((p) => p.status === 'pago')
+      .reduce((acc, p) => acc + Number(p.valor || 0), 0)
+
     const quitado =
-      parcelas.length > 0 && parcelas.every((p) => p.status === 'pago')
+      valorTotal > 0 && valorPago >= valorTotal - 0.02
 
     await supabase
       .from('compras')
       .update({
         pagamento_quitado: quitado,
+        qtd_parcelas: parcelas.length,
         updated_at: new Date().toISOString(),
       })
       .eq('id', compraId)
       .eq('empresa_id', user.empresa_id)
+  },
+
+  async getValorTotalCompra(compraId: number) {
+    const user = getUser()
+
+    const { data: compra, error } = await supabase
+      .from('compras')
+      .select('subtotal, valor_imposto, gta_valor, valor_total')
+      .eq('id', compraId)
+      .eq('empresa_id', user.empresa_id)
+      .single()
+
+    if (error || !compra) {
+      return 0
+    }
+
+    const { data: viagem } = await supabase
+      .from('viagens')
+      .select('custo_total')
+      .eq('referencia_id', compraId)
+      .eq('referencia_tipo', 'compra')
+      .maybeSingle()
+
+    const viagemValor = Number(viagem?.custo_total || 0)
+
+    if (viagemValor > 0) {
+      return (
+        Number(compra.subtotal || 0) +
+        Number(compra.valor_imposto || 0) +
+        Number(compra.gta_valor || 0) +
+        viagemValor
+      )
+    }
+
+    return Number(compra.valor_total || 0)
+  },
+
+  async adicionarParcelas(compraId: number, config: CompraParcelaConfig) {
+    const user = getUser()
+    const existentes = await this.getByCompraId(compraId)
+    const novas = gerarParcelasCompra(config)
+
+    if (!novas.length) return []
+
+    const maxNumero = existentes.reduce(
+      (max, parcela) => Math.max(max, parcela.numero_parcela),
+      0,
+    )
+    const novoTotal = existentes.length + novas.length
+    const contaDb = config.contaPagamento
+      ? contaPagamentoToDb(config.contaPagamento)
+      : {}
+
+    const rows = novas.map((parcela, index) => ({
+      empresa_id: user.empresa_id,
+      compra_id: compraId,
+      ...parcela,
+      numero_parcela: maxNumero + index + 1,
+      total_parcelas: novoTotal,
+      ...contaDb,
+    }))
+
+    const { data, error } = await supabase
+      .from('compras_parcelas')
+      .insert(rows)
+      .select('*')
+
+    if (error) throw error
+
+    if (existentes.length > 0) {
+      const { error: updateError } = await supabase
+        .from('compras_parcelas')
+        .update({ total_parcelas: novoTotal })
+        .eq('compra_id', compraId)
+        .eq('empresa_id', user.empresa_id)
+
+      if (updateError) throw updateError
+    }
+
+    await this.syncCompraQuitacao(compraId)
+
+    return (data || []) as CompraParcela[]
   },
 
   async deleteByCompra(compraId: number) {

@@ -23,6 +23,8 @@ import {
   valorProximaParcelaSugerida,
   redistribuirParcelasAposIndex,
   formatCurrency,
+  parcelasDraftValidas,
+  somaParcelasExcedeTotal,
   type ParcelaDraft,
 } from '@/utils/compraParcelas'
 import {
@@ -232,8 +234,10 @@ export function Compras() {
 
   const valorTotalCompra = useMemo(() => calcularTotal(form), [form])
 
-  const parcelasConferem =
-    Math.abs(somaParcelas - valorTotalCompra) < 0.02
+  const parcelasExcedemTotal = somaParcelasExcedeTotal(
+    pagamento.parcelas,
+    valorTotalCompra,
+  )
 
   useEffect(() => {
     const qtd = parseIntegerInput(pagamento.qtdParcelas || '1')
@@ -406,8 +410,8 @@ export function Compras() {
     parseDecimalInput(form.peso_total) > 0 &&
     parseCurrencyInput(form.valor_kg) > 0 &&
     pagamento.parcelas.length === parseIntegerInput(pagamento.qtdParcelas || '1') &&
-    pagamento.parcelas.every((p) => p.valor && p.data) &&
-    parcelasConferem
+    parcelasDraftValidas(pagamento.parcelas) &&
+    !parcelasExcedemTotal
 
   const columns = [
     {
@@ -879,7 +883,7 @@ export function Compras() {
                 <div
                   className={[
                     styles.parcelasTotal,
-                    !parcelasConferem && styles.parcelasTotalErro,
+                    parcelasExcedemTotal && styles.parcelasTotalErro,
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -888,8 +892,8 @@ export function Compras() {
                   {' · '}
                   Total da compra:{' '}
                   <strong>{formatCurrency(valorTotalCompra)}</strong>
-                  {!parcelasConferem && (
-                    <span> — ajuste os valores para fechar o total</span>
+                  {parcelasExcedemTotal && (
+                    <span> — a soma não pode ultrapassar o total</span>
                   )}
                 </div>
               </div>

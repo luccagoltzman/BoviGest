@@ -269,6 +269,65 @@
   color: #991b1b;
 }
 
+.somaBoxAviso {
+  background: #fffbeb;
+  color: #92400e;
+}
+
+.setupErroHint {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.setupAvisoHint {
+  margin: 0.5rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.setupActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.reconfigurarBar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed rgba($color-primary, 0.35);
+  border-radius: $radius;
+  background: rgba($color-primary, 0.04);
+
+  p {
+    margin: 0;
+    flex: 1;
+    min-width: 12rem;
+    font-size: 0.9rem;
+    color: $color-text-muted;
+  }
+}
+
+.adicionarParcelaBox {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px dashed rgba($color-primary, 0.28);
+  border-radius: $radius;
+  background: rgba($color-primary, 0.03);
+
+  > p {
+    margin: 0;
+    font-size: 0.9rem;
+    color: $color-text-muted;
+  }
+}
+
 .dadosForm {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -104,6 +104,36 @@ export function somaValoresParcelas(parcelas: ParcelaDraft[]) {
   )
 }
 
+export function conferemValoresParcelas(
+  parcelas: ParcelaDraft[],
+  valorTotal: number,
+  tolerancia = 0.02,
+) {
+  if (!parcelas.length || valorTotal <= 0) return false
+  if (!parcelas.every((p) => p.valor && p.data)) return false
+
+  const soma = somaValoresParcelas(parcelas)
+  return Math.abs(soma - valorTotal) < tolerancia
+}
+
+export function parcelasDraftValidas(parcelas: ParcelaDraft[]) {
+  if (!parcelas.length) return false
+
+  return parcelas.every((p) => {
+    const valor = parseCurrencyInput(p.valor || '')
+    return valor > 0 && Boolean(p.data?.trim())
+  })
+}
+
+export function somaParcelasExcedeTotal(
+  parcelas: ParcelaDraft[],
+  valorTotal: number,
+  tolerancia = 0.02,
+) {
+  if (valorTotal <= 0) return false
+  return somaValoresParcelas(parcelas) > valorTotal + tolerancia
+}
+
 /** Soma das parcelas de 0 até index (inclusive) */
 export function calcularRestanteAposParcelas(
   parcelas: ParcelaDraft[],
@@ -112,7 +142,7 @@ export function calcularRestanteAposParcelas(
 ) {
   const soma = parcelas
     .slice(0, ateIndexInclusive + 1)
-    .reduce((acc, p) => acc + Number(p.valor || 0), 0)
+    .reduce((acc, p) => acc + parseCurrencyInput(p.valor || ''), 0)
 
   return Math.round((valorTotal - soma) * 100) / 100
 }

@@ -11,11 +11,13 @@ import {
   type CompraParcela,
 } from '@/services/pagamentosCompras.service'
 import {
-  criarParcelasDraft,
   somaValoresParcelas,
   calcularRestanteAposParcelas,
   valorProximaParcelaSugerida,
   redistribuirParcelasAposIndex,
+  conferemValoresParcelas,
+  parcelasDraftValidas,
+  somaParcelasExcedeTotal,
   formatCurrency,
   type ParcelaDraft,
 } from '@/utils/compraParcelas'
@@ -57,6 +59,7 @@ export type CompraDetalheRow = {
   observacoes?: string
   status: string
   forma_pagamento?: string | null
+  qtd_parcelas?: number
   detalhes_custo?: { total: number }
 }
 
@@ -145,6 +148,43 @@ function calcularTotal(data: CompraDetalheRow) {
   )
 }
 
+function resolverValorTotalCompra(
+  row: CompraDetalheRow,
+  campos?: EditarCampos,
+): number {
+  const fromDetalhes = row.detalhes_custo?.total
+  if (fromDetalhes != null && Number(fromDetalhes) > 0) {
+    return Number(fromDetalhes)
+  }
+
+  if (row.valor_total != null && Number(row.valor_total) > 0) {
+    return Number(row.valor_total)
+  }
+
+  if (campos) {
+    return calcularTotal(dadosParaCalculo(row, campos))
+  }
+
+  return calcularTotal(row)
+}
+
+function criarSetupPagamentoInicial(row: CompraDetalheRow) {
+  const dataBase =
+    row.data?.slice(0, 10) || new Date().toISOString().slice(0, 10)
+
+  return {
+    qtdParcelas: '1',
+    formaPagamento: row.forma_pagamento || 'Pix',
+    parcelas: [
+      {
+        valor: '',
+        data: dataBase,
+        pago: false,
+      },
+    ] as ParcelaDraft[],
+  }
+}
+
 function statusParcelaLabel(parcela: CompraParcela) {
   if (parcela.status === 'pago') return 'Pago'
 
@@ -190,6 +230,14 @@ export function CompraDetalheModal({
   )
   const [setupContaPagamento, setSetupContaPagamento] =
     useState<ContaPagamentoData>(emptyContaPagamento())
+  const [reconfigurando, setReconfigurando] = useState(false)
+  const [adicionandoParcela, setAdicionandoParcela] = useState(false)
+  const [novaParcelaDraft, setNovaParcelaDraft] = useState<{
+    valor: string
+    data: string
+    formaPagamento: string
+    contaPagamento: ContaPagamentoData
+  } | null>(null)
 
   useEffect(() => {
     if (compra) {
@@ -202,9 +250,15 @@ export function CompraDetalheModal({
   useEffect(() => {
     if (!compra) return
 
-    const compraId = compra.id
-    const fornecedorId = compra.fornecedor_id
-    const formaPadrao = compra.forma_pagamento || 'Pix'
+    const compraAtual = compra
+    const compraId = compraAtual.id
+    const fornecedorId = compraAtual.fornecedor_id
+    const formaPadrao = compraAtual.forma_pagamento || 'Pix'
+
+    setReconfigurando(false)
+    setAdicionandoParcela(false)
+    setNovaParcelaDraft(null)
+    setSetupPagamento(criarSetupPagamentoInicial(compraAtual))
 
     async function carregar() {
       setLoadingParcelas(true)
@@ -219,6 +273,10 @@ export function CompraDetalheModal({
         setFornecedorConta(contaFornecedor)
         setSetupContaPagamento(contaFornecedor)
         setParcelas(lista)
+
+        if (lista.length === 0) {
+          setSetupPagamento(criarSetupPagamentoInicial(compraAtual))
+        }
 
         const hoje = new Date().toISOString().slice(0, 10)
         setParcelasDraft(
@@ -250,50 +308,52 @@ export function CompraDetalheModal({
     }
 
     carregar()
-  }, [compra])
+  }, [compra?.id])
 
-  const valorTotalCompra = editar
-    ? editar.detalhes_custo?.total ??
-      calcularTotal(dadosParaCalculo(editar, editarCampos))
-    : 0
+  const valorTotalCompra = useMemo(() => {
+    if (!editar) return 0
+    return resolverValorTotalCompra(editar, editarCampos)
+  }, [editar, editarCampos])
 
   const resumo = useMemo(() => {
     const pagas = parcelas.filter((p) => p.status === 'pago')
     const pendentes = parcelas.filter((p) => p.status !== 'pago')
 
+    const valorPago = pagas.reduce((acc, p) => acc + Number(p.valor || 0), 0)
+    const valorPendente = pendentes.reduce(
+      (acc, p) => acc + Number(p.valor || 0),
+      0,
+    )
+
     return {
-      valorPago: pagas.reduce((acc, p) => acc + Number(p.valor || 0), 0),
-      valorPendente: pendentes.reduce(
-        (acc, p) => acc + Number(p.valor || 0),
-        0,
-      ),
+      valorPago,
+      valorPendente,
       qtdPagas: pagas.length,
       qtdPendentes: pendentes.length,
+      saldoAberto: Math.max(0, valorTotalCompra - valorPago),
+      saldoNaoPlanejado: Math.max(
+        0,
+        valorTotalCompra - valorPago - valorPendente,
+      ),
     }
-  }, [parcelas])
+  }, [parcelas, valorTotalCompra])
 
   const somaSetup = somaValoresParcelas(setupPagamento.parcelas)
-  const setupConferem =
-    Math.abs(somaSetup - valorTotalCompra) < 0.02 &&
-    setupPagamento.parcelas.length > 0
+  const setupExcedeTotal = somaParcelasExcedeTotal(
+    setupPagamento.parcelas,
+    valorTotalCompra,
+  )
+  const setupCompleto = conferemValoresParcelas(
+    setupPagamento.parcelas,
+    valorTotalCompra,
+  )
+  const setupPodeSalvar =
+    parcelasDraftValidas(setupPagamento.parcelas) && !setupExcedeTotal
+  const saldoSetupNaoPlanejado = Math.max(0, valorTotalCompra - somaSetup)
 
-  useEffect(() => {
-    if (!editar || parcelas.length > 0) return
-
-    const qtd = parseIntegerInput(setupPagamento.qtdParcelas)
-    const dataBase = editar.data || new Date().toISOString().slice(0, 10)
-
-    if (
-      setupPagamento.parcelas.length === 0 &&
-      qtd >= 1 &&
-      valorTotalCompra > 0
-    ) {
-      setSetupPagamento((prev) => ({
-        ...prev,
-        parcelas: criarParcelasDraft(qtd, valorTotalCompra, dataBase),
-      }))
-    }
-  }, [editar, parcelas.length, valorTotalCompra, setupPagamento.qtdParcelas, setupPagamento.parcelas.length])
+  const podeReconfigurarParcelas =
+    parcelas.length > 0 && parcelas.every((p) => p.status !== 'pago')
+  const mostrarSetupParcelas = parcelas.length === 0 || reconfigurando
 
   async function recarregarParcelas() {
     if (!compra) return
@@ -360,32 +420,122 @@ export function CompraDetalheModal({
     }
   }
 
-  async function configurarParcelasIniciais() {
-    if (!compra || !setupConferem) return
+  async function salvarConfiguracaoParcelas() {
+    if (!compra || !setupPodeSalvar) return
 
     try {
       setSalvando(true)
 
-      await pagamentosComprasService.configurarParcelas(compra.id, {
+      const config = {
         parcelas: setupPagamento.parcelas,
         formaPagamento: setupPagamento.formaPagamento,
         contaPagamento: setupContaPagamento,
-      })
+      }
+
+      if (reconfigurando) {
+        await pagamentosComprasService.regenerarForCompra(compra.id, config)
+      } else {
+        await pagamentosComprasService.configurarParcelas(compra.id, config)
+      }
 
       await comprasService.update(compra.id, {
-        qtd_parcelas: setupPagamento.parcelas.length,
         forma_pagamento: setupPagamento.formaPagamento,
-        pagamento_quitado: setupPagamento.parcelas.every((p) => p.pago),
       })
+      await pagamentosComprasService.syncCompraQuitacao(compra.id)
 
-      toast.success('Parcelas configuradas')
+      toast.success(
+        reconfigurando ? 'Parcelas reconfiguradas' : 'Parcelas salvas',
+      )
+      setReconfigurando(false)
       await recarregarParcelas()
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Erro ao configurar parcelas'
+      const msg = e instanceof Error ? e.message : 'Erro ao salvar parcelas'
       toast.error(msg)
     } finally {
       setSalvando(false)
     }
+  }
+
+  function iniciarAdicaoParcela() {
+    const hoje = new Date().toISOString().slice(0, 10)
+    const forma =
+      compra?.forma_pagamento || parcelas[0]?.forma_pagamento || 'Pix'
+    const sugestao =
+      resumo.saldoNaoPlanejado > 0
+        ? formatCurrencyFromNumber(resumo.saldoNaoPlanejado)
+        : ''
+
+    setNovaParcelaDraft({
+      valor: sugestao,
+      data: hoje,
+      formaPagamento: forma,
+      contaPagamento: { ...fornecedorConta },
+    })
+    setAdicionandoParcela(true)
+  }
+
+  async function salvarNovaParcela() {
+    if (!compra || !novaParcelaDraft) return
+
+    const valor = parseCurrencyInput(novaParcelaDraft.valor)
+    if (valor <= 0 || !novaParcelaDraft.data) {
+      toast.error('Informe valor e data da parcela')
+      return
+    }
+
+    const somaFutura =
+      resumo.valorPago + resumo.valorPendente + valor
+
+    if (somaFutura > valorTotalCompra + 0.02) {
+      toast.error('A soma das parcelas não pode ultrapassar o total da compra')
+      return
+    }
+
+    try {
+      setSalvando(true)
+
+      await pagamentosComprasService.adicionarParcelas(compra.id, {
+        parcelas: [
+          {
+            valor: novaParcelaDraft.valor,
+            data: novaParcelaDraft.data,
+            pago: false,
+          },
+        ],
+        formaPagamento: novaParcelaDraft.formaPagamento,
+        contaPagamento: novaParcelaDraft.contaPagamento,
+      })
+
+      await comprasService.update(compra.id, {
+        forma_pagamento: novaParcelaDraft.formaPagamento,
+      })
+
+      toast.success('Parcela adicionada')
+      setAdicionandoParcela(false)
+      setNovaParcelaDraft(null)
+      await recarregarParcelas()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro ao adicionar parcela'
+      toast.error(msg)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  function iniciarReconfiguracaoParcelas() {
+    const forma =
+      compra?.forma_pagamento || parcelas[0]?.forma_pagamento || 'Pix'
+
+    setSetupPagamento({
+      qtdParcelas: String(parcelas.length),
+      formaPagamento: forma,
+      parcelas: parcelas.map((p) => ({
+        valor: formatCurrencyFromNumber(Number(p.valor)),
+        data: p.data_vencimento?.slice(0, 10) || '',
+        pago: false,
+      })),
+    })
+    setReconfigurando(true)
   }
 
   async function salvarDadosCompra() {
@@ -485,13 +635,35 @@ export function CompraDetalheModal({
     const qtd = parseIntegerInput(qtdParcelas)
     const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
 
+    setSetupPagamento((prev) => {
+      let parcelasLista = [...prev.parcelas]
+
+      if (qtd > parcelasLista.length) {
+        while (parcelasLista.length < qtd) {
+          parcelasLista.push({ valor: '', data: dataBase, pago: false })
+        }
+      } else if (qtd > 0 && qtd < parcelasLista.length) {
+        parcelasLista = parcelasLista.slice(0, qtd)
+      }
+
+      return {
+        ...prev,
+        qtdParcelas,
+        parcelas: parcelasLista,
+      }
+    })
+  }
+
+  function adicionarParcelaSetup() {
+    const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
+
     setSetupPagamento((prev) => ({
       ...prev,
-      qtdParcelas,
-      parcelas:
-        qtd > 0
-          ? criarParcelasDraft(qtd, valorTotalCompra, dataBase, prev.parcelas)
-          : prev.parcelas,
+      qtdParcelas: String(prev.parcelas.length + 1),
+      parcelas: [
+        ...prev.parcelas,
+        { valor: '', data: dataBase, pago: false },
+      ],
     }))
   }
 
@@ -549,8 +721,12 @@ export function CompraDetalheModal({
             </div>
             <div className={[styles.kpiCard, styles.kpiPendente].join(' ')}>
               <span className={styles.kpiLabel}>A pagar</span>
-              <strong>{formatCurrency(resumo.valorPendente)}</strong>
-              <small>{resumo.qtdPendentes} parcela(s)</small>
+              <strong>{formatCurrency(resumo.saldoAberto)}</strong>
+              <small>
+                {resumo.saldoNaoPlanejado > 0.02
+                  ? `${formatCurrency(resumo.saldoNaoPlanejado)} sem parcela definida`
+                  : `${resumo.qtdPendentes} parcela(s) planejada(s)`}
+              </small>
             </div>
           </div>
 
@@ -569,12 +745,17 @@ export function CompraDetalheModal({
 
           {loadingParcelas ? (
             <p className={styles.loadingText}>Carregando parcelas...</p>
-          ) : parcelas.length === 0 ? (
+          ) : mostrarSetupParcelas ? (
             <div className={styles.setupBox}>
-              <h3 className={styles.setupTitle}>Configurar pagamento</h3>
+              <h3 className={styles.setupTitle}>
+                {reconfigurando
+                  ? 'Reconfigurar pagamento'
+                  : 'Configurar pagamento'}
+              </h3>
               <p className={styles.setupHint}>
-                Esta compra ainda não tem parcelas. Defina valores e datas aqui
-                mesmo — sem precisar ir ao Financeiro.
+                {reconfigurando
+                  ? 'Ajuste quantidade, valores e datas. Parcelas já pagas impedem esta ação.'
+                  : 'Registre o que vai pagar agora — não precisa fechar o total de uma vez. Salve e volte depois para adicionar mais parcelas.'}
               </p>
 
               <div className={styles.setupFields}>
@@ -693,26 +874,73 @@ export function CompraDetalheModal({
                 ))}
               </div>
 
+              <Button
+                type="button"
+                variant="outline"
+                onClick={adicionarParcelaSetup}
+              >
+                + Adicionar parcela
+              </Button>
+
               <div
                 className={[
                   styles.somaBox,
-                  !setupConferem && styles.somaBoxErro,
+                  setupExcedeTotal && styles.somaBoxErro,
+                  !setupExcedeTotal &&
+                    !setupCompleto &&
+                    saldoSetupNaoPlanejado > 0.02 &&
+                    styles.somaBoxAviso,
                 ]
                   .filter(Boolean)
                   .join(' ')}
               >
                 Soma: <strong>{formatCurrency(somaSetup)}</strong> · Total:{' '}
                 <strong>{formatCurrency(valorTotalCompra)}</strong>
+                {setupExcedeTotal && (
+                  <p className={styles.setupErroHint}>
+                    A soma das parcelas ultrapassa o total da compra. Reduza os
+                    valores.
+                  </p>
+                )}
+                {!setupExcedeTotal && saldoSetupNaoPlanejado > 0.02 && (
+                  <p className={styles.setupAvisoHint}>
+                    Falta planejar {formatCurrency(saldoSetupNaoPlanejado)} — você
+                    pode salvar assim e adicionar mais parcelas depois.
+                  </p>
+                )}
               </div>
 
-              <Button
-                onClick={configurarParcelasIniciais}
-                disabled={!setupConferem || salvando}
-              >
-                Salvar parcelas
-              </Button>
+              <div className={styles.setupActions}>
+                {reconfigurando && (
+                  <Button
+                    variant="outline"
+                    onClick={() => setReconfigurando(false)}
+                    disabled={salvando}
+                  >
+                    Cancelar
+                  </Button>
+                )}
+                <Button
+                  onClick={salvarConfiguracaoParcelas}
+                  disabled={!setupPodeSalvar || salvando}
+                >
+                  {reconfigurando ? 'Salvar nova configuração' : 'Salvar parcelas'}
+                </Button>
+              </div>
             </div>
           ) : (
+            <>
+              {podeReconfigurarParcelas && (
+                <div className={styles.reconfigurarBar}>
+                  <p>
+                    Para substituir todas as parcelas pendentes de uma vez, use a
+                    reconfiguração.
+                  </p>
+                  <Button variant="outline" onClick={iniciarReconfiguracaoParcelas}>
+                    Reconfigurar parcelas
+                  </Button>
+                </div>
+              )}
             <div className={styles.parcelasLista}>
               {parcelas.map((parcela) => {
                 const draft = parcelasDraft[parcela.id]
@@ -862,6 +1090,98 @@ export function CompraDetalheModal({
                 )
               })}
             </div>
+
+            {resumo.saldoAberto > 0.02 && (
+              <div className={styles.adicionarParcelaBox}>
+                {!adicionandoParcela ? (
+                  <>
+                    <p>
+                      Ainda falta {formatCurrency(resumo.saldoAberto)} nesta compra.
+                      {resumo.saldoNaoPlanejado > 0.02 &&
+                        ` ${formatCurrency(resumo.saldoNaoPlanejado)} ainda não tem parcela.`}
+                    </p>
+                    <Button variant="outline" onClick={iniciarAdicaoParcela}>
+                      + Adicionar parcela
+                    </Button>
+                  </>
+                ) : (
+                  novaParcelaDraft && (
+                    <article className={styles.parcelaCard}>
+                      <header className={styles.parcelaCardHead}>
+                        <strong>Nova parcela</strong>
+                      </header>
+                      <div className={styles.parcelaCardGrid}>
+                        <Input
+                          label="Valor (R$)"
+                          mask="currency"
+                          value={novaParcelaDraft.valor}
+                          onChange={(e) =>
+                            setNovaParcelaDraft({
+                              ...novaParcelaDraft,
+                              valor: e.target.value,
+                            })
+                          }
+                        />
+                        <Input
+                          label="Vencimento"
+                          type="date"
+                          value={novaParcelaDraft.data}
+                          onChange={(e) =>
+                            setNovaParcelaDraft({
+                              ...novaParcelaDraft,
+                              data: e.target.value,
+                            })
+                          }
+                        />
+                        <Select
+                          label="Forma de pagamento"
+                          options={[...FORMAS_PAGAMENTO]}
+                          value={novaParcelaDraft.formaPagamento}
+                          onChange={(e) =>
+                            setNovaParcelaDraft({
+                              ...novaParcelaDraft,
+                              formaPagamento: e.target.value,
+                            })
+                          }
+                        />
+                      </div>
+                      <ContaPagamentoFields
+                        className={styles.contaPagamentoParcela}
+                        value={novaParcelaDraft.contaPagamento}
+                        onChange={(conta) =>
+                          setNovaParcelaDraft({
+                            ...novaParcelaDraft,
+                            contaPagamento: conta,
+                          })
+                        }
+                        onRestaurarFornecedor={() =>
+                          setNovaParcelaDraft({
+                            ...novaParcelaDraft,
+                            contaPagamento: { ...fornecedorConta },
+                          })
+                        }
+                      />
+                      <div className={styles.parcelaCardActions}>
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setAdicionandoParcela(false)
+                            setNovaParcelaDraft(null)
+                          }}
+                          disabled={salvando}
+                        >
+                          Cancelar
+                        </Button>
+                        <Button onClick={salvarNovaParcela} disabled={salvando}>
+                          Salvar parcela
+                        </Button>
+                      </div>
+                    </article>
+                  )
+                )}
+              </div>
+            )}
+            </>
           )}
         </div>
       )}

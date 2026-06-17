@@ -361,9 +361,6 @@ export const comprasService = {
 
     const formaPagamento = pagamento?.formaPagamento || 'Pix'
 
-    const pagamentoQuitado =
-      pagamento?.parcelas.every((p) => p.pago) ?? false
-
 
 
     const { data, error } = await supabase
@@ -382,7 +379,7 @@ export const comprasService = {
 
           forma_pagamento: formaPagamento,
 
-          pagamento_quitado: pagamentoQuitado,
+          pagamento_quitado: false,
 
         },
 
@@ -429,6 +426,7 @@ export const comprasService = {
 
 
       await pagamentosComprasService.createForCompra(data.id, parcelaConfig)
+      await pagamentosComprasService.syncCompraQuitacao(data.id)
 
     }
 
