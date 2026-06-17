@@ -16,7 +16,11 @@ export function isCorteCasado(tipo: string) {
 }
 
 export function isVisceraCorte(tipo: string) {
-  return (tipo || '').toLowerCase() === 'visceras'
+  const t = (tipo || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+  return t === 'visceras' || t === 'viscera' || t.includes('viscera')
 }
 
 export function isCorteComComposicao(tipo: string) {

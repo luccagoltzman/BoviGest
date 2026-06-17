@@ -10,7 +10,7 @@ import {
   drawSectionSubtitle,
   drawSectionTitle,
 } from '@/utils/pdfTheme'
-import { isCorteBanda, isCorteCasado, pesoTotalComposicao } from '@/utils/corteComposicao'
+import { isCorteBanda, isCorteCasado, isVisceraCorte, pesoTotalComposicao } from '@/utils/corteComposicao'
 
 interface Composicao {
   tipo_corte: string
@@ -47,6 +47,7 @@ interface ResumoCorte {
   valor: number
   isBanda: boolean
   isCasado?: boolean
+  isViscera?: boolean
   composicao: { dianteiro: number; traseiro: number }
 }
 
@@ -98,7 +99,7 @@ function getBandaComposicao(item: MovimentacaoItem) {
 }
 
 function isViscera(tipo: string) {
-  return (tipo || '').toLowerCase() === 'visceras'
+  return isVisceraCorte(tipo)
 }
 
 function pdfText(value: string) {
@@ -111,6 +112,10 @@ function pdfText(value: string) {
 
 function formatCorteItem(item: MovimentacaoItem) {
   let corte = item.tipo_corte || '-'
+
+  if (isViscera(item.tipo_corte)) {
+    return pdfText(corte)
+  }
 
   if (isCorteCasado(item.tipo_corte) && item.composicoes?.length) {
     const linhas = item.composicoes
@@ -320,10 +325,10 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
     autoTable(doc, {
       startY: y,
       tableWidth: pageWidth - margin * 2,
-      head: [['Corte', 'Peças', 'Peso (kg)', 'Valor']],
+      head: [['Corte', 'Quantidade', 'Peso / Un.', 'Valor']],
       body: cortesEntries.map(([corte, dados]) => {
         let corteLabel = corte
-        if (dados.isCasado || dados.isBanda) {
+        if ((dados.isCasado || dados.isBanda) && !dados.isViscera) {
           const partes: string[] = []
           if (dados.composicao.dianteiro > 0) {
             partes.push(`Diant. ${dados.composicao.dianteiro.toFixed(1)} kg`)
@@ -335,12 +340,26 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
         }
         const pesoTotal =
           dados.composicao.dianteiro + dados.composicao.traseiro
+
+        if (dados.isViscera) {
+          return [
+            pdfText(corteLabel),
+            `${dados.quantidade} un`,
+            '—',
+            formatCurrency(dados.valor),
+          ]
+        }
+
         return [
           pdfText(corteLabel),
-          String(dados.quantidade),
+          dados.isCasado
+            ? `${dados.quantidade} un`
+            : dados.isBanda
+              ? `${dados.quantidade} banda${dados.quantidade !== 1 ? 's' : ''}`
+              : `${dados.quantidade} peça${dados.quantidade !== 1 ? 's' : ''}`,
           dados.isCasado && pesoTotal > 0
-            ? pesoTotal.toFixed(2)
-            : dados.peso.toFixed(2),
+            ? `${pesoTotal.toFixed(2)} kg`
+            : `${dados.peso.toFixed(2)} kg`,
           formatCurrency(dados.valor),
         ]
       }),
@@ -389,7 +408,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
     margin,
     y,
     pageWidth - margin * 2,
-    'Cada peça da venda é listada em uma linha com peso, valor unitário e total.',
+    'Cada peça da venda é listada em uma linha com quantidade ou peso, valor unitário e total.',
   )
   y += 5
 
@@ -406,7 +425,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   autoTable(doc, {
     startY: y,
     tableWidth,
-    head: [['Data', 'Tipo', 'Corte', 'Peso', 'Valor unit.', 'Total']],
+    head: [['Data', 'Tipo', 'Corte', 'Peso / Un.', 'Valor unit.', 'Total']],
     body:
       historicoRows.length > 0
         ? historicoRows.map((row) => [

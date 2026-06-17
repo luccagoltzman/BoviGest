@@ -322,6 +322,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
         valor: number
         isBanda: boolean
         isCasado: boolean
+        isViscera: boolean
         composicao: { dianteiro: number; traseiro: number }
       }
     > = {}
@@ -331,6 +332,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
         const corte = item.tipo_corte || 'Sem corte'
         const isBandaCorte = isCorteBanda(corte)
         const isCasado = isCorteCasado(corte)
+        const isVisceraItem = isVisceraCorte(corte)
 
         if (!acc[corte]) {
           acc[corte] = {
@@ -338,12 +340,15 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
             peso: 0,
             valor: 0,
             isBanda: isBandaCorte,
-            isCasado,
+            isCasado: isCasado && !isVisceraItem,
+            isViscera: isVisceraItem,
             composicao: { dianteiro: 0, traseiro: 0 },
           }
         }
 
-        if (isCasado || isBandaCorte) {
+        if (isVisceraItem) {
+          acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
+        } else if (isCasado || isBandaCorte) {
           const numbered = (item.composicoes || []).some((c) =>
             /\d/.test(c.tipo_corte),
           )
@@ -644,7 +649,7 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                   <th>Data</th>
                   <th>Tipo</th>
                   <th>Corte / detalhe</th>
-                  <th>Peso</th>
+                  <th>Peso / Un.</th>
                   <th>Valor unit.</th>
                   <th>Total</th>
                 </tr>
@@ -748,7 +753,16 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     )}
                   </div>
                   <div className={styles.corteNumeros}>
-                    {dados.isCasado ? (
+                    {dados.isViscera ? (
+                      <>
+                        <span>
+                          <strong>{dados.quantidade}</strong> un.
+                        </span>
+                        <span>
+                          <strong>{formatCurrency(dados.valor)}</strong>
+                        </span>
+                      </>
+                    ) : dados.isCasado ? (
                       <>
                         <span>
                           <strong>{dados.quantidade}</strong> un.
