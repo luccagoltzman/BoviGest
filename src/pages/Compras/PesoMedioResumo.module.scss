@@ -1,0 +1,32 @@
+@use 'styles/variables' as *;
+
+.resumo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba($color-primary, 0.22);
+  border-radius: $radius-sm;
+  background: rgba($color-primary, 0.07);
+}
+
+.label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: $color-text-muted;
+}
+
+.valor {
+  font-size: 1.15rem;
+  color: $color-primary-dark;
+  letter-spacing: -0.02em;
+}
+
+.hint {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: $color-text-muted;
+  line-height: 1.4;
+}

@@ -132,6 +132,31 @@ export function parseCurrencyInput(value: string) {
   return parseDecimalInput(value)
 }
 
+export function calcularPesoMedioAnimal(
+  pesoTotal: string | number,
+  quantidadeAnimais: string | number,
+) {
+  const peso =
+    typeof pesoTotal === 'number'
+      ? pesoTotal
+      : parseDecimalInput(String(pesoTotal))
+  const qtd =
+    typeof quantidadeAnimais === 'number'
+      ? quantidadeAnimais
+      : parseIntegerInput(String(quantidadeAnimais))
+
+  if (peso <= 0 || qtd <= 0) return 0
+  return peso / qtd
+}
+
+export function formatWeightKg(value: number) {
+  if (!value || Number.isNaN(value)) return ''
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
 export function applyInputMask(mask: InputMask, value: string) {
   switch (mask) {
     case 'cpfCnpj':

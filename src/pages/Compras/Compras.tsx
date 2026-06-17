@@ -30,10 +30,12 @@ import {
   parseDecimalInput,
   parseIntegerInput,
   formatCurrencyFromNumber,
+  calcularPesoMedioAnimal,
+  formatWeightKg,
 } from '@/utils/masks'
-
-import { ModalViagem } from '../custos/Viagens/ModalViagem'
+import { PesoMedioResumo } from './PesoMedioResumo'
 import { CompraDetalheModal } from './CompraDetalheModal'
+import { ModalViagem } from '../custos/Viagens/ModalViagem'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
@@ -406,6 +408,14 @@ export function Compras() {
       render: (r: CompraRow) => `${Number(r.peso_total).toFixed(2)} KG`,
     },
     {
+      key: 'peso_medio',
+      header: 'Média kg',
+      render: (r: CompraRow) => {
+        const medio = calcularPesoMedioAnimal(r.peso_total, r.quantidade_animais)
+        return medio > 0 ? `${formatWeightKg(medio)} kg` : '—'
+      },
+    },
+    {
       key: 'valor_kg',
       header: 'R$/KG',
       render: (r: CompraRow) => `R$ ${Number(r.valor_kg).toFixed(2)}`,
@@ -591,6 +601,12 @@ export function Compras() {
                 peso_total: e.target.value,
               })
             }
+          />
+
+          <PesoMedioResumo
+            className={styles.pesoMedioResumo}
+            pesoTotal={form.peso_total}
+            quantidadeAnimais={form.quantidade_animais}
           />
 
           <Input

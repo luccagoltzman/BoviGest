@@ -27,6 +27,7 @@ import {
   formatDecimalInput,
 } from '@/utils/masks'
 import styles from './CompraDetalheModal.module.scss'
+import { PesoMedioResumo } from './PesoMedioResumo'
 
 export type CompraDetalheRow = {
   id: number
@@ -835,6 +836,12 @@ export function CompraDetalheModal({
             onChange={(e) =>
               setEditarCampos({ ...editarCampos, peso_total: e.target.value })
             }
+          />
+
+          <PesoMedioResumo
+            className={styles.pesoMedioResumo}
+            pesoTotal={editarCampos.peso_total}
+            quantidadeAnimais={editarCampos.quantidade_animais}
           />
 
           <Input
