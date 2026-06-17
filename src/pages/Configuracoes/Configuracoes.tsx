@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { LogoImage } from '@/components/AppLogo'
 import { Button, Card, Input } from '@/components/ui'
-import { canAccessSettings, currentUserRole } from '@/config/access'
+import { canAccessSettings, getCurrentUserRole } from '@/config/access'
 import { configuracoesService } from '@/services/configuracoes.service'
 import { sanitizeLogoUrl, uploadLogo } from '@/services/logo.service'
 import { persistThemeConfig } from '@/services/theme.service'
@@ -42,7 +42,7 @@ export function Configuracoes() {
 
   const [saved, setSaved] = useState(false)
 
-  const hasAccess = canAccessSettings(currentUserRole)
+  const hasAccess = canAccessSettings(getCurrentUserRole())
 
   const previewStyle = useMemo(
     () =>

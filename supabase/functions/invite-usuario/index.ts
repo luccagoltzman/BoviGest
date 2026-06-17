@@ -63,6 +63,12 @@ Deno.serve(async (req) => {
       return jsonError('Sem permissão para convidar usuários')
     }
 
+    if (perfil === 'master' && vinculo.perfil !== 'master') {
+      return jsonError(
+        'Apenas usuários Master podem autorizar o perfil Master.',
+      )
+    }
+
     const { data: existente } = await supabaseUser
       .from('usuarios_empresas')
       .select('id, status')

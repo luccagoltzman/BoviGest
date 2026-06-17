@@ -118,7 +118,12 @@ export function parseDecimalInput(value: string) {
     return Number.isFinite(num) ? num : 0
   }
 
-  // Formato com ponto decimal: 23.50
+  // Sem vírgula: 4.000 ou 1.234.567 usam ponto como milhar (máscara decimal BR)
+  if (/^\d{1,3}(\.\d{3})+$/.test(trimmed)) {
+    const num = Number(trimmed.replace(/\./g, ''))
+    return Number.isFinite(num) ? num : 0
+  }
+
   const num = Number(trimmed)
   return Number.isFinite(num) ? num : 0
 }

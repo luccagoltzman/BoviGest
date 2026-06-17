@@ -12,11 +12,12 @@ import {
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { APP_BASE_URL } from '@/config/app'
-import { currentUserRole } from '@/config/access'
+import { getCurrentUserRole } from '@/config/access'
 import { AuthService } from '@/services/auth.service'
 import {
   formatPerfil,
   formatUsuarioStatus,
+  canManageUsuario,
   isUsuarioAtivo,
   isUsuarioPendente,
   usuariosService,
@@ -50,15 +51,16 @@ export function Usuarios() {
   const [form, setForm] = useState(emptyForm)
 
   const currentUserId = AuthService.getCachedUser()?.id
+  const actorPerfil = getCurrentUserRole()
   const cadastroUrl = `${APP_BASE_URL}/cadastro`
 
   const perfilOptions = useMemo(() => {
     const options = PERFIS_DISPONIVEIS.map((p) => p.label)
-    if (currentUserRole === 'master') {
+    if (actorPerfil === 'master') {
       return ['Master', ...options]
     }
     return options
-  }, [])
+  }, [actorPerfil])
 
   function perfilLabelToValue(label: string): UserRole {
     if (label === 'Master') return 'master'
@@ -72,6 +74,10 @@ export function Usuarios() {
 
   function isSelf(usuario: UsuarioEmpresa) {
     return !!usuario.user_id && usuario.user_id === currentUserId
+  }
+
+  function isProtectedMaster(usuario: UsuarioEmpresa) {
+    return !canManageUsuario(usuario, actorPerfil)
   }
 
   async function carregarUsuarios() {
@@ -294,6 +300,11 @@ export function Usuarios() {
             {isSelf(detalhe) ? (
               <p className={styles.selfHint}>
                 Você não pode inativar ou excluir o próprio usuário.
+              </p>
+            ) : isProtectedMaster(detalhe) ? (
+              <p className={styles.selfHint}>
+                Usuários Master são protegidos. Apenas outro Master pode
+                inativar, excluir ou alterar este usuário.
               </p>
             ) : (
               <div className={styles.modalActions}>

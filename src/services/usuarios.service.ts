@@ -60,12 +60,47 @@ export function formatUsuarioStatus(status: number) {
   return status === 1 ? 'Ativo' : 'Inativo'
 }
 
+export function isMasterPerfil(perfil: string) {
+  return perfil === 'master'
+}
+
+export function canManageUsuario(
+  target: Pick<UsuarioEmpresa, 'perfil'>,
+  actorPerfil: UserRole | null | undefined,
+) {
+  if (isMasterPerfil(target.perfil) && actorPerfil !== 'master') {
+    return false
+  }
+  return true
+}
+
+const MASTER_PROTECTED_MSG =
+  'Usuários Master são protegidos e só podem ser gerenciados por outro Master.'
+
 function getUser() {
   const user = AuthService.getCachedUser()
   if (!user?.empresa_id) {
     throw new Error('Empresa não encontrada para o usuário logado')
   }
-  return user as AuthUser & { empresa_id: number }
+  if (!user.perfil) {
+    throw new Error('Perfil não encontrado. Faça login novamente.')
+  }
+  return user as AuthUser & { empresa_id: number; perfil: UserRole }
+}
+
+function assertCanManageUsuario(
+  alvo: Pick<UsuarioEmpresa, 'perfil'>,
+  actorPerfil: UserRole,
+) {
+  if (!canManageUsuario(alvo, actorPerfil)) {
+    throw new Error(MASTER_PROTECTED_MSG)
+  }
+}
+
+function assertCanAssignPerfil(perfil: UserRole, actorPerfil: UserRole) {
+  if (isMasterPerfil(perfil) && actorPerfil !== 'master') {
+    throw new Error('Apenas usuários Master podem autorizar o perfil Master.')
+  }
 }
 
 function assertNotSelf(targetUserId: string | null | undefined) {
@@ -147,6 +182,7 @@ export const usuariosService = {
 
     if (!email) throw new Error('Informe o e-mail')
 
+    assertCanAssignPerfil(payload.perfil, user.perfil)
     await assertEmailDisponivel(user.empresa_id, email)
 
     const { data, error } = await supabase
@@ -188,6 +224,7 @@ export const usuariosService = {
     }
 
     assertNotSelf(alvo.user_id)
+    assertCanManageUsuario(alvo, user.perfil)
 
     const { data, error } = await supabase
       .from('usuarios_empresas')
@@ -206,7 +243,7 @@ export const usuariosService = {
 
     const { data: alvo, error: fetchError } = await supabase
       .from('usuarios_empresas')
-      .select('user_id')
+      .select('user_id, perfil')
       .eq('id', id)
       .eq('empresa_id', user.empresa_id)
       .maybeSingle()
@@ -215,6 +252,7 @@ export const usuariosService = {
     if (!alvo) throw new Error('Usuário não encontrado')
 
     assertNotSelf(alvo.user_id)
+    assertCanManageUsuario(alvo, user.perfil)
 
     const { error } = await supabase
       .from('usuarios_empresas')

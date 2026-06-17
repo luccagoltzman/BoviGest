@@ -1,10 +1,11 @@
-import { usuariosService } from './usuarios.service'
+import { usuariosService, type UserRole } from './usuarios.service'
 import { supabase } from './supabase'
 
 export interface AuthUser {
   id: string
   email: string
   empresa_id: number | null
+  perfil: UserRole | null
 }
 
 const STORAGE_KEY = 'auth_user'
@@ -38,7 +39,7 @@ function persistUser(user: AuthUser) {
 async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
   let { data: vinculo, error } = await supabase
     .from('usuarios_empresas')
-    .select('empresa_id, status')
+    .select('empresa_id, status, perfil')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -53,7 +54,7 @@ async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
 
     const retry = await supabase
       .from('usuarios_empresas')
-      .select('empresa_id, status')
+      .select('empresa_id, status, perfil')
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -71,6 +72,7 @@ async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
     id: userId,
     email,
     empresa_id: vinculo.empresa_id,
+    perfil: vinculo.perfil as UserRole,
   }
 
   persistUser(user)
@@ -93,7 +95,8 @@ export const AuthService = {
     const cached = AuthService.getCachedUser()
     if (
       cached?.id === session.user.id &&
-      cached.empresa_id != null
+      cached.empresa_id != null &&
+      cached.perfil != null
     ) {
       return cached
     }

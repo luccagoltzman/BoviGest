@@ -22,7 +22,7 @@ import {
 } from 'lucide-react'
 import { AppLogo } from '@/components/AppLogo'
 import { PwaInstallButton } from '@/components/pwa'
-import { canAccessSettings, currentUserRole } from '@/config/access'
+import { canAccessSettings, getCurrentUserRole } from '@/config/access'
 import { SidebarPasture } from './SidebarPasture'
 import styles from './Sidebar.module.scss'
 
@@ -254,7 +254,7 @@ export function Sidebar({ isOpen, onNavigate }: SidebarProps) {
         (entry) =>
           entry.type !== 'link' ||
           !entry.requiresMaster ||
-          canAccessSettings(currentUserRole),
+          canAccessSettings(getCurrentUserRole()),
       ),
     }))
     .filter((section) => section.entries.length > 0)

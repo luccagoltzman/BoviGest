@@ -1,7 +1,12 @@
-export type UserRole = 'master' | 'administrador' | 'operador' | 'financeiro'
+import type { UserRole } from '@/services/usuarios.service'
+import { AuthService } from '@/services/auth.service'
 
-export const currentUserRole: UserRole = 'master'
+export type { UserRole }
 
-export function canAccessSettings(role: UserRole) {
+export function getCurrentUserRole(): UserRole | null {
+  return AuthService.getCachedUser()?.perfil ?? null
+}
+
+export function canAccessSettings(role: UserRole | null) {
   return role === 'master'
 }
