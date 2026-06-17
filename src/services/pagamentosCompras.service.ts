@@ -1,4 +1,5 @@
 import { gerarParcelasCompra, type CompraParcelaConfig } from '@/utils/compraParcelas'
+import { contaPagamentoToDb } from '@/utils/contaPagamento'
 import { AuthService } from './auth.service'
 import { supabase } from './supabase'
 
@@ -13,10 +14,26 @@ export type CompraParcela = {
   data_pagamento: string | null
   forma_pagamento: string | null
   status: 'pendente' | 'pago'
+  pagamento_banco?: string | null
+  pagamento_agencia?: string | null
+  pagamento_conta?: string | null
+  pagamento_tipo_conta?: string | null
+  pagamento_titular?: string | null
+  pagamento_pix_tipo?: string | null
+  pagamento_pix_chave?: string | null
   compra?: {
     id: number
     data: string
-    fornecedor?: { nome?: string } | null
+    fornecedor?: {
+      nome?: string
+      banco?: string | null
+      agencia?: string | null
+      conta?: string | null
+      tipo_conta?: string | null
+      titular_conta?: string | null
+      pix_tipo?: string | null
+      pix_chave?: string | null
+    } | null
   } | null
 }
 
@@ -49,10 +66,15 @@ export const pagamentosComprasService = {
 
     if (!parcelas.length) return []
 
+    const contaDb = config.contaPagamento
+      ? contaPagamentoToDb(config.contaPagamento)
+      : {}
+
     const rows = parcelas.map((parcela) => ({
       empresa_id: user.empresa_id,
       compra_id: compraId,
       ...parcela,
+      ...contaDb,
     }))
 
     const { data, error } = await supabase
@@ -118,7 +140,16 @@ export const pagamentosComprasService = {
         compra:compras (
           id,
           data,
-          fornecedor:fornecedores ( nome )
+          fornecedor:fornecedores (
+            nome,
+            banco,
+            agencia,
+            conta,
+            tipo_conta,
+            titular_conta,
+            pix_tipo,
+            pix_chave
+          )
         )
       `,
       )
@@ -167,6 +198,7 @@ export const pagamentosComprasService = {
       valor?: number
       data_vencimento?: string
       forma_pagamento?: string
+      contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
     },
   ) {
     const user = getUser()
@@ -185,6 +217,10 @@ export const pagamentosComprasService = {
 
     if (payload.forma_pagamento) {
       updateData.forma_pagamento = payload.forma_pagamento
+    }
+
+    if (payload.contaPagamento) {
+      Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
     }
 
     const { data, error } = await supabase
@@ -217,6 +253,7 @@ export const pagamentosComprasService = {
       data_pagamento?: string
       forma_pagamento?: string
       valor?: number
+      contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
     } = {},
   ) {
     const user = getUser()
@@ -235,6 +272,10 @@ export const pagamentosComprasService = {
 
     if (payload.valor !== undefined && payload.valor > 0) {
       updateData.valor = payload.valor
+    }
+
+    if (payload.contaPagamento) {
+      Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
     }
 
     const { data, error } = await supabase

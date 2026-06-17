@@ -47,6 +47,15 @@
   font-weight: 700;
 }
 
+.contaPagamentoParcela {
+  grid-column: 1 / -1;
+}
+
+.contaFornecedorResumo,
+.contaParcelaResumo {
+  width: 100%;
+}
+
 .pagamentoPainel {
   display: flex;
   flex-direction: column;

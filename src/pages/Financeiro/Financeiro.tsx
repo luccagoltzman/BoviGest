@@ -12,6 +12,13 @@ import {
 import type { DetailItem } from '@/components/ui'
 import { pagamentosComprasService } from '@/services/pagamentosCompras.service'
 import {
+  contaPagamentoFromFornecedor,
+  contaPagamentoFromParcela,
+  contaPagamentoTemDados,
+  contaPagamentoToDetailItems,
+  type ContaPagamentoData,
+} from '@/utils/contaPagamento'
+import {
   ArrowRight,
   BadgePercent,
   BarChart3,
@@ -35,6 +42,7 @@ interface ContaRow {
   formaPagamento?: string
   dataPagamento?: string
   parcelaId?: number
+  contaPagamento?: ContaPagamentoData
 }
 
 const mock: ContaRow[] = [
@@ -205,6 +213,13 @@ export function Financeiro() {
             parcela.total_parcelas > 1
               ? ` (parcela ${parcela.numero_parcela}/${parcela.total_parcelas})`
               : ''
+          const contaSalva = contaPagamentoFromParcela(parcela)
+          const contaFornecedor = contaPagamentoFromFornecedor(
+            parcela.compra?.fornecedor,
+          )
+          const contaPagamento = contaPagamentoTemDados(contaSalva)
+            ? contaSalva
+            : contaFornecedor
 
           return {
             id: `compra-parcela-${parcela.id}`,
@@ -216,6 +231,7 @@ export function Financeiro() {
             status: parcela.statusExibicao,
             formaPagamento: parcela.forma_pagamento || undefined,
             parcelaId: parcela.id,
+            contaPagamento,
           }
         }),
       )
@@ -362,6 +378,12 @@ export function Financeiro() {
     { label: 'Status', value: r.status },
     ...(r.formaPagamento
       ? [{ label: 'Forma de pagamento', value: r.formaPagamento }]
+      : []),
+    ...(r.contaPagamento
+      ? contaPagamentoToDetailItems(r.contaPagamento).map((item) => ({
+          label: item.label,
+          value: item.value,
+        }))
       : []),
   ]
 

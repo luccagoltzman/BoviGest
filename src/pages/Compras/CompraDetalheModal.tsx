@@ -5,6 +5,7 @@ import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
 import { comprasService } from '@/services/compras.service'
+import { fornecedoresService } from '@/services/fornecedores.service'
 import {
   pagamentosComprasService,
   type CompraParcela,
@@ -28,6 +29,15 @@ import {
 } from '@/utils/masks'
 import styles from './CompraDetalheModal.module.scss'
 import { PesoMedioResumo } from './PesoMedioResumo'
+import { ContaPagamentoFields } from './ContaPagamentoFields'
+import { ContaPagamentoResumo } from './ContaPagamentoResumo'
+import {
+  contaPagamentoFromFornecedor,
+  contaPagamentoFromParcela,
+  contaPagamentoTemDados,
+  emptyContaPagamento,
+  type ContaPagamentoData,
+} from '@/utils/contaPagamento'
 
 export type CompraDetalheRow = {
   id: number
@@ -57,6 +67,7 @@ type ParcelaDraftEdicao = {
   dataPagamento: string
   vencimento: string
   formaPagamento: string
+  contaPagamento: ContaPagamentoData
 }
 
 type EditarCampos = {
@@ -174,6 +185,11 @@ export function CompraDetalheModal({
     formaPagamento: 'Pix',
     parcelas: [] as ParcelaDraft[],
   })
+  const [fornecedorConta, setFornecedorConta] = useState<ContaPagamentoData>(
+    emptyContaPagamento(),
+  )
+  const [setupContaPagamento, setSetupContaPagamento] =
+    useState<ContaPagamentoData>(emptyContaPagamento())
 
   useEffect(() => {
     if (compra) {
@@ -187,27 +203,42 @@ export function CompraDetalheModal({
     if (!compra) return
 
     const compraId = compra.id
+    const fornecedorId = compra.fornecedor_id
     const formaPadrao = compra.forma_pagamento || 'Pix'
 
     async function carregar() {
       setLoadingParcelas(true)
 
       try {
-        const lista = await pagamentosComprasService.getByCompraId(compraId)
+        const [lista, fornecedor] = await Promise.all([
+          pagamentosComprasService.getByCompraId(compraId),
+          fornecedoresService.getById(fornecedorId).catch(() => null),
+        ])
+
+        const contaFornecedor = contaPagamentoFromFornecedor(fornecedor)
+        setFornecedorConta(contaFornecedor)
+        setSetupContaPagamento(contaFornecedor)
         setParcelas(lista)
 
         const hoje = new Date().toISOString().slice(0, 10)
         setParcelasDraft(
           Object.fromEntries(
-            lista.map((p) => [
-              p.id,
-              {
-                valor: formatCurrencyFromNumber(Number(p.valor)),
-                dataPagamento: hoje,
-                vencimento: p.data_vencimento?.slice(0, 10) || hoje,
-                formaPagamento: p.forma_pagamento || formaPadrao,
-              },
-            ]),
+            lista.map((p) => {
+              const contaSalva = contaPagamentoFromParcela(p)
+
+              return [
+                p.id,
+                {
+                  valor: formatCurrencyFromNumber(Number(p.valor)),
+                  dataPagamento: hoje,
+                  vencimento: p.data_vencimento?.slice(0, 10) || hoje,
+                  formaPagamento: p.forma_pagamento || formaPadrao,
+                  contaPagamento: contaPagamentoTemDados(contaSalva)
+                    ? contaSalva
+                    : contaFornecedor,
+                },
+              ]
+            }),
           ),
         )
       } catch {
@@ -283,12 +314,14 @@ export function CompraDetalheModal({
         valor: parseCurrencyInput(draft.valor),
         data_vencimento: draft.vencimento,
         forma_pagamento: draft.formaPagamento,
+        contaPagamento: draft.contaPagamento,
       })
 
       await pagamentosComprasService.marcarComoPago(parcela.id, {
         data_pagamento: draft.dataPagamento,
         valor: parseCurrencyInput(draft.valor),
         forma_pagamento: draft.formaPagamento,
+        contaPagamento: draft.contaPagamento,
       })
 
       toast.success(
@@ -314,6 +347,7 @@ export function CompraDetalheModal({
         valor: parseCurrencyInput(draft.valor),
         data_vencimento: draft.vencimento,
         forma_pagamento: draft.formaPagamento,
+        contaPagamento: draft.contaPagamento,
       })
 
       toast.success('Parcela atualizada')
@@ -335,6 +369,7 @@ export function CompraDetalheModal({
       await pagamentosComprasService.configurarParcelas(compra.id, {
         parcelas: setupPagamento.parcelas,
         formaPagamento: setupPagamento.formaPagamento,
+        contaPagamento: setupContaPagamento,
       })
 
       await comprasService.update(compra.id, {
@@ -401,6 +436,16 @@ export function CompraDetalheModal({
       const msg = e instanceof Error ? e.message : 'Erro ao excluir compra'
       toast.error(msg)
     }
+  }
+
+  function atualizarContaDraft(
+    parcelaId: number,
+    contaPagamento: ContaPagamentoData,
+  ) {
+    setParcelasDraft((prev) => ({
+      ...prev,
+      [parcelaId]: { ...prev[parcelaId], contaPagamento },
+    }))
   }
 
   function atualizarDraft(
@@ -509,6 +554,19 @@ export function CompraDetalheModal({
             </div>
           </div>
 
+          {!loadingParcelas && contaPagamentoTemDados(fornecedorConta) && (
+            <ContaPagamentoResumo
+              className={styles.contaFornecedorResumo}
+              titulo="Dados bancários do fornecedor"
+              hint={
+                parcelas.length > 0
+                  ? 'Referência para pagamento. Nas parcelas pendentes você pode alterar a conta se o pagamento for para outra pessoa.'
+                  : 'Preenchidos automaticamente do cadastro do fornecedor.'
+              }
+              value={fornecedorConta}
+            />
+          )}
+
           {loadingParcelas ? (
             <p className={styles.loadingText}>Carregando parcelas...</p>
           ) : parcelas.length === 0 ? (
@@ -538,6 +596,15 @@ export function CompraDetalheModal({
                   }
                 />
               </div>
+
+              <ContaPagamentoFields
+                className={styles.contaPagamentoParcela}
+                value={setupContaPagamento}
+                onChange={setSetupContaPagamento}
+                onRestaurarFornecedor={() =>
+                  setSetupContaPagamento({ ...fornecedorConta })
+                }
+              />
 
               <div className={styles.parcelasLista}>
                 {setupPagamento.parcelas.map((parcela, index) => (
@@ -687,20 +754,27 @@ export function CompraDetalheModal({
                     </header>
 
                     {pago ? (
-                      <dl className={styles.parcelaDetalhes}>
-                        <div>
-                          <dt>Valor pago</dt>
-                          <dd>{formatCurrency(Number(parcela.valor))}</dd>
-                        </div>
-                        <div>
-                          <dt>Pago em</dt>
-                          <dd>{formatDateBr(parcela.data_pagamento || '')}</dd>
-                        </div>
-                        <div>
-                          <dt>Forma</dt>
-                          <dd>{parcela.forma_pagamento || '—'}</dd>
-                        </div>
-                      </dl>
+                      <>
+                        <dl className={styles.parcelaDetalhes}>
+                          <div>
+                            <dt>Valor pago</dt>
+                            <dd>{formatCurrency(Number(parcela.valor))}</dd>
+                          </div>
+                          <div>
+                            <dt>Pago em</dt>
+                            <dd>{formatDateBr(parcela.data_pagamento || '')}</dd>
+                          </div>
+                          <div>
+                            <dt>Forma</dt>
+                            <dd>{parcela.forma_pagamento || '—'}</dd>
+                          </div>
+                        </dl>
+                        <ContaPagamentoResumo
+                          className={styles.contaParcelaResumo}
+                          titulo="Conta utilizada no pagamento"
+                          value={contaPagamentoFromParcela(parcela)}
+                        />
+                      </>
                     ) : (
                       draft && (
                         <>
@@ -754,6 +828,18 @@ export function CompraDetalheModal({
                               }
                             />
                           </div>
+                          <ContaPagamentoFields
+                            className={styles.contaPagamentoParcela}
+                            value={draft.contaPagamento}
+                            onChange={(conta) =>
+                              atualizarContaDraft(parcela.id, conta)
+                            }
+                            onRestaurarFornecedor={() =>
+                              atualizarContaDraft(parcela.id, {
+                                ...fornecedorConta,
+                              })
+                            }
+                          />
                           <div className={styles.parcelaCardActions}>
                             <Button
                               variant="outline"

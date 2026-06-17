@@ -33,6 +33,7 @@ function getUser() {
 export type PagamentoCompraInput = {
   formaPagamento: string
   parcelas: import('@/utils/compraParcelas').ParcelaDraft[]
+  contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
 }
 
 
@@ -422,6 +423,7 @@ export const comprasService = {
       const parcelaConfig: CompraParcelaConfig = {
         parcelas: pagamento.parcelas,
         formaPagamento,
+        contaPagamento: pagamento.contaPagamento,
       }
 
 
@@ -511,6 +513,7 @@ export const comprasService = {
       const parcelaConfig: CompraParcelaConfig = {
         parcelas: pagamento.parcelas,
         formaPagamento: pagamento.formaPagamento,
+        contaPagamento: pagamento.contaPagamento,
       }
 
 

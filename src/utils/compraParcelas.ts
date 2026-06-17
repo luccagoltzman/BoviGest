@@ -2,6 +2,7 @@ import {
   formatCurrencyFromNumber,
   parseCurrencyInput,
 } from '@/utils/masks'
+import type { ContaPagamentoData } from '@/utils/contaPagamento'
 
 export type CompraParcelaGerada = {
   numero_parcela: number
@@ -22,6 +23,7 @@ export type ParcelaDraft = {
 export type CompraParcelaConfig = {
   parcelas: ParcelaDraft[]
   formaPagamento: string
+  contaPagamento?: ContaPagamentoData
 }
 
 function addDays(isoDate: string, days: number) {

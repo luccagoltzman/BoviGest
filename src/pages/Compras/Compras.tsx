@@ -33,8 +33,14 @@ import {
   calcularPesoMedioAnimal,
   formatWeightKg,
 } from '@/utils/masks'
+import {
+  contaPagamentoFromFornecedor,
+  emptyContaPagamento,
+  type ContaPagamentoData,
+} from '@/utils/contaPagamento'
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { CompraDetalheModal } from './CompraDetalheModal'
+import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
 
 import styles from './Compras.module.scss'
@@ -126,7 +132,11 @@ export function Compras() {
     qtdParcelas: '1',
     formaPagamento: 'Pix',
     parcelas: [] as ParcelaDraft[],
+    contaPagamento: emptyContaPagamento(),
   })
+  const [fornecedorConta, setFornecedorConta] = useState<ContaPagamentoData>(
+    emptyContaPagamento(),
+  )
 
   const [viagemOpen, setViagemOpen] = useState(false)
   const [viagemInitial, setViagemInitial] = useState<any>(null)
@@ -134,20 +144,37 @@ export function Compras() {
 
   const [form, setForm] = useState(emptyCompraForm)
 
-  function resetPagamento(dataCompra = '', valorTotal = 0) {
-    const qtd = 1
-    setPagamento({
-      qtdParcelas: String(qtd),
-      formaPagamento: 'Pix',
-      parcelas: criarParcelasDraft(qtd, valorTotal, dataCompra),
-    })
+  async function carregarContaFornecedor(fornecedorId: string) {
+    if (!fornecedorId) {
+      const vazio = emptyContaPagamento()
+      setFornecedorConta(vazio)
+      setPagamento((prev) => ({ ...prev, contaPagamento: vazio }))
+      return
+    }
+
+    try {
+      const fornecedor = await fornecedoresService.getById(fornecedorId)
+      const conta = contaPagamentoFromFornecedor(fornecedor)
+      setFornecedorConta(conta)
+      setPagamento((prev) => ({ ...prev, contaPagamento: { ...conta } }))
+    } catch {
+      const vazio = emptyContaPagamento()
+      setFornecedorConta(vazio)
+      setPagamento((prev) => ({ ...prev, contaPagamento: vazio }))
+    }
   }
 
   function closeCreate() {
     setShowCreate(false)
     setForm(emptyCompraForm())
     setFornecedorBusca('')
-    resetPagamento()
+    setFornecedorConta(emptyContaPagamento())
+    setPagamento({
+      qtdParcelas: '1',
+      formaPagamento: 'Pix',
+      parcelas: [],
+      contaPagamento: emptyContaPagamento(),
+    })
   }
 
   function atualizarQtdParcelas(qtdRaw: string) {
@@ -334,6 +361,7 @@ export function Compras() {
         {
           formaPagamento: pagamento.formaPagamento,
           parcelas: pagamento.parcelas,
+          contaPagamento: pagamento.contaPagamento,
         },
       )
 
@@ -528,7 +556,7 @@ export function Compras() {
             label="Fornecedor"
             options={fornecedores.map((f) => f.nome)}
             value={fornecedorBusca}
-            onChange={(value) => {
+            onChange={async (value) => {
               setFornecedorBusca(value)
 
               const fornecedor = fornecedores.find((f) => f.nome === value)
@@ -537,6 +565,8 @@ export function Compras() {
                 ...form,
                 fornecedor_id: fornecedor?.id || '',
               })
+
+              await carregarContaFornecedor(fornecedor?.id || '')
             }}
           />
 
@@ -721,6 +751,20 @@ export function Compras() {
                   ...pagamento,
                   formaPagamento: e.target.value,
                 })
+              }
+            />
+
+            <ContaPagamentoFields
+              className={styles.contaPagamentoSection}
+              value={pagamento.contaPagamento}
+              onChange={(contaPagamento) =>
+                setPagamento((prev) => ({ ...prev, contaPagamento }))
+              }
+              onRestaurarFornecedor={() =>
+                setPagamento((prev) => ({
+                  ...prev,
+                  contaPagamento: { ...fornecedorConta },
+                }))
               }
             />
 
