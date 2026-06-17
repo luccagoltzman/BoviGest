@@ -16,6 +16,7 @@ export const TIPOS_CORTE = [
   'BD (banda)', // Dianteiro + Traseiro juntos
   ...CORTES_CASADOS,
   'Visceras',
+  'Retalho',
 ] as const
 
 export type TipoCorte = (typeof TIPOS_CORTE)[number]
@@ -33,3 +34,8 @@ export const REGRA_BD =
 export const PECAS_POR_LADO_CASADO = 2
 export const REGRA_CASADO =
   'Cada casado (Boi, Vaca ou Bubalino) = 2 dianteiros + 2 traseiros. Informe o peso (kg) de cada peça.'
+
+/** Carnes em excesso do processamento — venda por peso (kg) */
+export const CORTE_RETALHO = 'Retalho'
+export const REGRA_RETALHO =
+  'Retalho = excesso de carnes do boi. Informe o peso (kg) e o valor por kg.'

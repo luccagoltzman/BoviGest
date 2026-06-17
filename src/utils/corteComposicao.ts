@@ -23,6 +23,14 @@ export function isVisceraCorte(tipo: string) {
   return t === 'visceras' || t === 'viscera' || t.includes('viscera')
 }
 
+export function isRetalhoCorte(tipo: string) {
+  const t = (tipo || '')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+  return t === 'retalho' || t.includes('retalho')
+}
+
 export function isCorteComComposicao(tipo: string) {
   return isCorteBanda(tipo) || isCorteCasado(tipo)
 }

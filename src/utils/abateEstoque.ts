@@ -1,4 +1,5 @@
-import { CORTE_BD } from '@/constants/cortes'
+import { CORTE_BD, CORTE_RETALHO } from '@/constants/cortes'
+import { estoqueService } from '@/services/estoque.service'
 
 function round2(value: number) {
   return Math.round(value * 100) / 100
@@ -52,4 +53,38 @@ export function gerarItemBandaModalAbate(
       ],
     },
   ]
+}
+
+export async function criarEntradaRetalhoPorAbate(
+  abateId: number,
+  params: {
+    data_abate: string
+    lote: string
+    peso_retalho_kg: number
+  },
+) {
+  const peso = round2(Number(params.peso_retalho_kg) || 0)
+  if (peso <= 0) return
+
+  const lote = params.lote.trim() || `abate-${params.data_abate}`
+
+  const mov = await estoqueService.createMovimentacao({
+    lote,
+    tipo_movimentacao: 1,
+    data_movimentacao: params.data_abate,
+    observacoes: 'Entrada automática — retalho do abate',
+    peso_bruto_kg: peso,
+    peso_liquido_kg: peso,
+    referencia_abate_id: abateId,
+  })
+
+  await estoqueService.createMovimentacaoItem([
+    {
+      movimentacao_id: mov.id,
+      corte: CORTE_RETALHO,
+      peso_bruto_kg: peso,
+      peso_liquido_kg: peso,
+      quantidade_pecas: 1,
+    },
+  ])
 }

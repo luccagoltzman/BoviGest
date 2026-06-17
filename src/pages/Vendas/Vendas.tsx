@@ -16,7 +16,7 @@ import {
 
 import toast from 'react-hot-toast'
 import styles from './Vendas.module.scss'
-import { TIPOS_CORTE, REGRA_BD, REGRA_CASADO } from '@/constants/cortes'
+import { TIPOS_CORTE, REGRA_BD, REGRA_CASADO, REGRA_RETALHO } from '@/constants/cortes'
 import {
   buildComposicoesCasadoVazia,
   calcularValorTotalViscera,
@@ -26,6 +26,7 @@ import {
   isCorteBanda,
   isCorteCasado,
   isVisceraCorte,
+  isRetalhoCorte,
   labelQuantidadeCorte,
   labelValorUnitarioCorte,
   normalizeCorteEstoque,
@@ -153,6 +154,7 @@ export function Vendas() {
   const isBanda = isCorteBanda
   const isCasado = isCorteCasado
   const isViscera = isVisceraCorte
+  const isRetalho = isRetalhoCorte
 
   function parseValorUnitario(value: unknown) {
     if (value === null || value === undefined || value === '') return 0
@@ -917,6 +919,9 @@ export function Vendas() {
               value={item.peso_total_kg ?? ''}
               onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
             />
+            {isRetalho(item.tipo_corte) && (
+              <p className={styles.casadoRegra}>{REGRA_RETALHO}</p>
+            )}
           </>
         )}
 
