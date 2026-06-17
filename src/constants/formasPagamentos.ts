@@ -1,6 +1,7 @@
 export const FORMAS_PAGAMENTO = [
   'Dinheiro',
   'Pix',
+  'Depósito Bancário',
   'Cartão de Débito',
   'Cartão de Crédito',
   'Transferência Bancária',
