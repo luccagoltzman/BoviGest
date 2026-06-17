@@ -46,20 +46,30 @@ import {
 } from '@/services/cliente.service'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { estoqueService } from '@/services/estoque.service'
-import { viscerasService } from '@/services/visceras.service';
+import { viscerasService } from '@/services/visceras.service'
+import {
+  defaultPeriodoRetroativo,
+  formatDateBr,
+  formatDatasMovimentacaoLabel,
+  dataItemParaExibicao,
+  hojeIso,
+  resolverDataCabecalhoMovimentacao,
+  resolverDataItemVenda,
+  validarDataRetroativa,
+} from '@/utils/vendaDatas'
 
-const emptyItem = {
+const createEmptyItem = (dataVenda = hojeIso()) => ({
   tipo_corte: '',
   peso_total_kg: '',
   valor_kg: '',
-  composicoes: [],
-}
+  composicoes: [] as { tipo_corte: string; peso_kg: string }[],
+  data_movimentacao: dataVenda,
+})
 
 const emptyForm = () => ({
   cliente_id: '',
   observacao: '',
-  data_movimentacao: new Date().toISOString().split('T')[0],
-  itens: [{ ...emptyItem }],
+  itens: [createEmptyItem()],
   movimentacao_status: 'pendente',
 })
 
@@ -74,6 +84,8 @@ export function Vendas() {
   const [detalhe, setDetalhe] = useState<any>(null)
   const [clienteExtrato, setClienteExtrato] = useState<any>(null)
   const [showCreate, setShowCreate] = useState(false)
+  const [modoRetroativo, setModoRetroativo] = useState(false)
+  const [periodoRetroativo, setPeriodoRetroativo] = useState(defaultPeriodoRetroativo)
   const [form, setForm] = useState<any>(emptyForm())
 
   const [page, setPage] = useState(1)
@@ -88,6 +100,37 @@ export function Vendas() {
     setClienteBusca('')
     setTotalGeral(0)
     setPesoTotalGeral(0)
+  }
+
+  function desativarModoRetroativo() {
+    setModoRetroativo(false)
+    setForm((prev: any) => ({
+      ...prev,
+      itens: prev.itens.map((item: any) => ({
+        ...item,
+        data_movimentacao: hojeIso(),
+      })),
+    }))
+  }
+
+  function setModoRetroativoAtivo(ativo: boolean) {
+    if (!ativo) {
+      desativarModoRetroativo()
+      return
+    }
+
+    const periodo = defaultPeriodoRetroativo()
+    setModoRetroativo(true)
+    setPeriodoRetroativo(periodo)
+    setForm((prev: any) => ({
+      ...prev,
+      itens: (prev.itens?.length ? prev.itens : [createEmptyItem()]).map(
+        (item: any) => ({
+          ...item,
+          data_movimentacao: item.data_movimentacao || periodo.fim,
+        }),
+      ),
+    }))
   }
 
   useEffect(() => {
@@ -200,10 +243,16 @@ export function Vendas() {
   // ─── form (criar) ───────────────────────────────────────────
 
   function addItem() {
-    setForm((prev: any) => ({
-      ...prev,
-      itens: [...prev.itens, { ...emptyItem }],
-    }))
+    setForm((prev: any) => {
+      const dataPadrao =
+        prev.itens.at(-1)?.data_movimentacao ||
+        (modoRetroativo ? periodoRetroativo.fim : hojeIso())
+
+      return {
+        ...prev,
+        itens: [...prev.itens, createEmptyItem(dataPadrao)],
+      }
+    })
   }
 
   function removeItem(index: number) {
@@ -219,6 +268,7 @@ export function Vendas() {
       peso_total_kg: item.peso_total_kg ?? '',
       valor_kg: item.valor_kg ?? '',
       valor_total: item.valor_total ?? '',
+      data_movimentacao: item.data_movimentacao || hojeIso(),
       composicoes: (item.composicoes || []).map((c: any) => ({
         tipo_corte: c.tipo_corte,
         peso_kg: c.peso_kg ?? '',
@@ -340,7 +390,6 @@ export function Vendas() {
 
     if (temViscera && temNormal) {
       toast.error('Não é permitido misturar vísceras com outros cortes')
-      setLoadingSave(false)
       return
     }
     try {
@@ -350,12 +399,23 @@ export function Vendas() {
         return
       }
 
-      const payload = {
-        cliente_id: form.cliente_id,
-        observacao: form.observacao,
-        data_movimentacao: form.data_movimentacao,
-        movimentacao_status: form.movimentacao_status,
-        itens: form.itens.map((i: any) => ({
+      if (modoRetroativo) {
+        for (let index = 0; index < form.itens.length; index += 1) {
+          const item = form.itens[index]
+          const erroData = validarDataRetroativa(
+            resolverDataItemVenda(item, true),
+            periodoRetroativo.inicio,
+            periodoRetroativo.fim,
+          )
+          if (erroData) {
+            toast.error(`Peça ${index + 1}: ${erroData}`)
+            return
+          }
+        }
+      }
+
+      const itensPayload = form.itens.map((i: any) => {
+        const itemBase = {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
@@ -372,11 +432,28 @@ export function Vendas() {
             tipo_corte: c.tipo_corte,
             peso_kg: parseDecimalInput(String(c.peso_kg || '')),
           })),
-        })),
+        }
+
+        if (!modoRetroativo) return itemBase
+
+        return {
+          ...itemBase,
+          data_movimentacao: resolverDataItemVenda(i, true),
+        }
+      })
+
+      const payload = {
+        cliente_id: form.cliente_id,
+        observacao: form.observacao,
+        data_movimentacao: resolverDataCabecalhoMovimentacao(
+          itensPayload,
+          modoRetroativo,
+        ),
+        movimentacao_status: form.movimentacao_status,
+        itens: itensPayload,
         valor_total: totalGeral,
       }
 
-      toast.success('Movimentação criada')
       const venda = await movimentacoesClientesService.create(payload)
 
       const itensVisceras = form.itens.filter(
@@ -392,7 +469,7 @@ export function Vendas() {
           })
         }
       } else {
-        await gerarMovimentacaoEstoqueAutomatica(venda, form)
+        await gerarMovimentacaoEstoqueAutomatica(venda, form, modoRetroativo)
       }
 
       setForm(emptyForm())
@@ -400,12 +477,17 @@ export function Vendas() {
       setTotalGeral(0)
       setPesoTotalGeral(0)
       setShowCreate(false)
-      carregarMovimentacoes()
-      setLoadingSave(false)
-    } catch {
-      setLoadingSave(false)
 
+      carregarMovimentacoes()
+      toast.success(
+        modoRetroativo
+          ? 'Movimentação salva com as datas informadas em cada peça.'
+          : 'Movimentação criada',
+      )
+    } catch {
       toast.error('Erro ao salvar')
+    } finally {
+      setLoadingSave(false)
     }
   }
 
@@ -435,88 +517,101 @@ export function Vendas() {
     return Object.values(mapa)
   }
 
-  async function gerarMovimentacaoEstoqueAutomatica(venda: any, form: any) {
+  async function gerarMovimentacaoEstoqueAutomatica(
+    venda: any,
+    form: any,
+    usarDatasPorPeca: boolean,
+  ) {
     const itensNormais = form.itens.filter(
-      (item: any) => !isViscera(item.tipo_corte)
+      (item: any) => !isViscera(item.tipo_corte),
     )
 
-    let totalPeso = 0
+    const itensPorData = new Map<string, any[]>()
 
-    const itensSaida = itensNormais.flatMap((item: any) => {
-      const banda = isBanda(item.tipo_corte)
-      const casado = isCasado(item.tipo_corte)
+    for (const item of itensNormais) {
+      const data = resolverDataItemVenda(item, usarDatasPorPeca)
+      const grupo = itensPorData.get(data) ?? []
+      grupo.push(item)
+      itensPorData.set(data, grupo)
+    }
 
-      if (casado) {
-        const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+    for (const [dataMovimentacao, itensGrupo] of itensPorData) {
+      let totalPeso = 0
 
-        return (item.composicoes || []).map((c: any) => {
-          const peso = parseDecimalInput(String(c.peso_kg || ''))
-          totalPeso += peso
+      const itensSaida = itensGrupo.flatMap((item: any) => {
+        const banda = isBanda(item.tipo_corte)
+        const casado = isCasado(item.tipo_corte)
 
-          return {
-            corte: normalizeCorteEstoque(c.tipo_corte),
+        if (casado) {
+          const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+
+          return (item.composicoes || []).map((c: any) => {
+            const peso = parseDecimalInput(String(c.peso_kg || ''))
+            totalPeso += peso
+
+            return {
+              corte: normalizeCorteEstoque(c.tipo_corte),
+              peso_bruto_kg: peso,
+              peso_liquido_kg: peso,
+              quantidade_pecas: 1,
+              agrupamento_id: agrupamentoId,
+            }
+          })
+        }
+
+        if (banda) {
+          const baseAgrup = item.agrupamento_id || crypto.randomUUID()
+
+          return (item.composicoes || []).map((c: any) => {
+            const peso = parseDecimalInput(String(c.peso_kg || ''))
+            totalPeso += peso
+            const match = String(c.tipo_corte || '').match(/(\d+)\s*$/)
+            const suffix = match ? match[1] : '1'
+
+            return {
+              corte: normalizeCorteEstoque(c.tipo_corte),
+              peso_bruto_kg: peso,
+              peso_liquido_kg: peso,
+              quantidade_pecas: 1,
+              agrupamento_id: `${baseAgrup}-b${suffix}`,
+            }
+          })
+        }
+
+        const peso = Number(item.peso_total_kg || 0)
+
+        totalPeso += peso
+
+        return [
+          {
+            corte: item.tipo_corte,
             peso_bruto_kg: peso,
             peso_liquido_kg: peso,
-            quantidade_pecas: 1,
-            agrupamento_id: agrupamentoId,
-          }
-        })
-      }
+            agrupamento_id: null,
+          },
+        ]
+      })
 
-      if (banda) {
-        const baseAgrup = item.agrupamento_id || crypto.randomUUID()
+      if (!itensSaida.length) continue
 
-        return (item.composicoes || []).map((c: any) => {
-          const peso = parseDecimalInput(String(c.peso_kg || ''))
-          totalPeso += peso
-          const match = String(c.tipo_corte || '').match(/(\d+)\s*$/)
-          const suffix = match ? match[1] : '1'
+      const itensAgrupados = agruparItens(itensSaida)
+      const mov = await estoqueService.createMovimentacao({
+        lote: `venda-${venda.id}`,
+        tipo_movimentacao: 0,
+        data_movimentacao: dataMovimentacao,
+        observacoes: `Saída automática venda ${venda.id}`,
+        peso_bruto_kg: totalPeso,
+        peso_liquido_kg: totalPeso,
+        venda_id: venda.id,
+      })
 
-          return {
-            corte: normalizeCorteEstoque(c.tipo_corte),
-            peso_bruto_kg: peso,
-            peso_liquido_kg: peso,
-            quantidade_pecas: 1,
-            agrupamento_id: `${baseAgrup}-b${suffix}`,
-          }
-        })
-      }
-
-      const peso = Number(item.peso_total_kg || 0)
-
-      totalPeso += peso
-
-      return [
-        {
-          corte: item.tipo_corte,
-          peso_bruto_kg: peso,
-          peso_liquido_kg: peso,
-          agrupamento_id: null,
-        },
-      ]
-    })
-
-    if (!itensSaida.length) return
-
-    const itensAgrupados = agruparItens(itensSaida)
-    const mov = await estoqueService.createMovimentacao({
-      lote: `venda-${venda.id}`,
-      tipo_movimentacao: 0,
-      data_movimentacao: form.data_movimentacao,
-      observacoes: `Saída automática venda ${venda.id}`,
-      peso_bruto_kg: totalPeso,
-      peso_liquido_kg: totalPeso,
-      venda_id: venda.id,
-    })
-
-    await estoqueService.createMovimentacaoItem(
-      itensAgrupados.map((i: any) => ({
-        ...i,
-        movimentacao_id: mov.id,
-      }))
-    )
-          setLoadingSave(false)
-
+      await estoqueService.createMovimentacaoItem(
+        itensAgrupados.map((i: any) => ({
+          ...i,
+          movimentacao_id: mov.id,
+        })),
+      )
+    }
   }
   function calcularTotalEdit(itens: any[]) {
     return itens.reduce(
@@ -528,7 +623,10 @@ export function Vendas() {
   function addEditItem() {
     setEditando((prev: any) => ({
       ...prev,
-      itens: [...prev.itens, { ...emptyItem }],
+      itens: [
+        ...prev.itens,
+        createEmptyItem(prev.itens.at(-1)?.data_movimentacao || hojeIso()),
+      ],
     }))
   }
 
@@ -628,6 +726,11 @@ export function Vendas() {
     onUpdateComposicao: (itemIndex: number, compIndex: number, value: any) => void,
     onCopy: (index: number) => void,
     onRemove: (index: number) => void,
+    opcoes?: {
+      mostrarDataPeca?: boolean
+      periodoInicio?: string
+      periodoFim?: string
+    },
   ) {
     const qtyCasados = parseQuantidadeCasados(item.peso_total_kg)
     const qtyBandias = quantidadeBandiasItem(item)
@@ -637,6 +740,20 @@ export function Vendas() {
 
     return (
       <Card className={styles.form} key={index}>
+        {opcoes?.mostrarDataPeca && (
+          <Input
+            label="Data desta peça"
+            type="date"
+            className={styles.itemDataField}
+            value={item.data_movimentacao || hojeIso()}
+            min={opcoes.periodoInicio}
+            max={opcoes.periodoFim || hojeIso()}
+            onChange={(e) =>
+              onUpdate(index, 'data_movimentacao', e.target.value)
+            }
+          />
+        )}
+
         <div className={styles.selectWrap}>
           <label>Corte</label>
           <select
@@ -874,12 +991,8 @@ export function Vendas() {
     try {
       setLoadingSave(true)
 
-      const payload = {
-        cliente_id: editando.cliente_id,
-        observacao: editando.observacao,
-        data_movimentacao: editando.data_movimentacao,
-        movimentacao_status: editando.movimentacao_status,
-        itens: editando.itens.map((i: any) => ({
+      const itensPayload = editando.itens.map((i: any) => {
+        const itemBase = {
           tipo_corte: i.tipo_corte,
           peso_total_kg: isCasado(i.tipo_corte)
             ? parseQuantidadeCasados(i.peso_total_kg)
@@ -896,7 +1009,28 @@ export function Vendas() {
             tipo_corte: c.tipo_corte,
             peso_kg: parseDecimalInput(String(c.peso_kg || '')),
           })),
-        })),
+        }
+
+        if (!i.data_movimentacao) return itemBase
+
+        return {
+          ...itemBase,
+          data_movimentacao:
+            i.data_movimentacao?.slice(0, 10) || editando.data_movimentacao,
+        }
+      })
+
+      const usaDatasPorPeca = editando.itens.some((item: any) => !!item.data_movimentacao)
+
+      const payload = {
+        cliente_id: editando.cliente_id,
+        observacao: editando.observacao,
+        data_movimentacao: resolverDataCabecalhoMovimentacao(
+          itensPayload,
+          usaDatasPorPeca,
+        ),
+        movimentacao_status: editando.movimentacao_status,
+        itens: itensPayload,
         valor_total: calcularTotalEdit(editando.itens),
       }
 
@@ -933,7 +1067,14 @@ export function Vendas() {
             })
           }
         } else {
-          await gerarMovimentacaoEstoqueAutomatica(editando, editando)
+          const usaDatasPorPeca = editando.itens.some(
+            (item: any) => !!item.data_movimentacao,
+          )
+          await gerarMovimentacaoEstoqueAutomatica(
+            editando,
+            editando,
+            usaDatasPorPeca,
+          )
         }
 
       }
@@ -1001,7 +1142,8 @@ export function Vendas() {
     {
       key: 'data',
       header: 'Data',
-      render: (r: any) => r.data_movimentacao,
+      render: (r: any) =>
+        formatDatasMovimentacaoLabel(r.itens, r.data_movimentacao),
     },
     {
       key: 'detalhes',
@@ -1082,8 +1224,14 @@ export function Vendas() {
             variant="outline"
             className={tableListStyles.acaoBtn}
             onClick={() => {
-              setMovimentacaoOriginal(structuredClone(r))
-              setEditando(structuredClone(r))
+              const copia = structuredClone(r)
+              copia.itens = (copia.itens ?? []).map((item: any) => ({
+                ...item,
+                data_movimentacao:
+                  item.data_movimentacao?.slice(0, 10) || copia.data_movimentacao,
+              }))
+              setMovimentacaoOriginal(structuredClone(copia))
+              setEditando(copia)
             }}
           >
             Editar
@@ -1105,8 +1253,66 @@ export function Vendas() {
     <div className={styles.page}>
       <h1 className="page-title">Movimentações</h1>
 
+      <label className={styles.retroativoSwitch}>
+        <span className={styles.retroativoSwitchLabel}>Vendas retroativas</span>
+        <input
+          type="checkbox"
+          className={styles.retroativoSwitchInput}
+          checked={modoRetroativo}
+          onChange={(e) => setModoRetroativoAtivo(e.target.checked)}
+        />
+        <span
+          className={[
+            styles.retroativoSwitchTrack,
+            modoRetroativo && styles.retroativoSwitchTrackOn,
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          aria-hidden
+        />
+        <span className={styles.retroativoSwitchState}>
+          {modoRetroativo ? 'Ligado' : 'Desligado'}
+        </span>
+      </label>
+
       {showCreate && (
       <Card className={styles.card} title="Nova movimentação">
+        {modoRetroativo && (
+          <div className={styles.retroativoPainel}>
+            <p className={styles.retroativoHint}>
+              Informe o período permitido e escolha a data em cada peça abaixo.
+              Todas as peças são salvas em uma única movimentação.
+            </p>
+            <div className={styles.retroativoCampos}>
+              <Input
+                label="Período — de"
+                type="date"
+                value={periodoRetroativo.inicio}
+                max={periodoRetroativo.fim || hojeIso()}
+                onChange={(e) =>
+                  setPeriodoRetroativo({
+                    ...periodoRetroativo,
+                    inicio: e.target.value,
+                  })
+                }
+              />
+              <Input
+                label="Período — até"
+                type="date"
+                value={periodoRetroativo.fim}
+                min={periodoRetroativo.inicio}
+                max={hojeIso()}
+                onChange={(e) =>
+                  setPeriodoRetroativo({
+                    ...periodoRetroativo,
+                    fim: e.target.value,
+                  })
+                }
+              />
+            </div>
+          </div>
+        )}
+
         <div className={styles.formSimples}>
           <Autocomplete
             label="Cliente"
@@ -1117,14 +1323,11 @@ export function Vendas() {
             onChange={selecionarClientePorLabel}
           />
 
-          <Input
-            label="Data movimentação"
-            type="date"
-            value={form.data_movimentacao}
-            onChange={(e) =>
-              setForm({ ...form, data_movimentacao: e.target.value })
-            }
-          />
+          {!modoRetroativo && (
+            <p className={styles.dataHojeHint}>
+              Data da venda: <strong>{formatDateBr(hojeIso())}</strong> (hoje)
+            </p>
+          )}
 
           <div className={styles.selectWrap}>
             <label>Status</label>
@@ -1150,6 +1353,13 @@ export function Vendas() {
             updateComposicao,
             copyItem,
             removeItem,
+            modoRetroativo
+              ? {
+                  mostrarDataPeca: true,
+                  periodoInicio: periodoRetroativo.inicio,
+                  periodoFim: periodoRetroativo.fim,
+                }
+              : undefined,
           ),
         )}
 
@@ -1189,7 +1399,7 @@ export function Vendas() {
             disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
             onClick={handleCreate}
           >
-            Salvar movimentação
+            {modoRetroativo ? 'Salvar movimentação' : 'Salvar movimentação'}
           </Button>
           <Button variant="ghost" onClick={closeCreate}>
             Cancelar
@@ -1236,7 +1446,10 @@ export function Vendas() {
                 },
                 {
                   label: 'Data',
-                  value: detalhe.data_movimentacao,
+                  value: formatDatasMovimentacaoLabel(
+                    detalhe.itens,
+                    detalhe.data_movimentacao,
+                  ),
                 },
                 {
                   label: 'Total',
@@ -1253,6 +1466,9 @@ export function Vendas() {
               {detalhe.itens?.map((item: any, idx: number) => (
                 <div key={idx} className={styles.itemCard}>
                   <strong>{item.tipo_corte}</strong>
+                  {item.data_movimentacao && (
+                    <p>Data: {dataItemParaExibicao(item, detalhe.data_movimentacao)}</p>
+                  )}
                   {isCasado(item.tipo_corte) ? (
                     <>
                       <p>
@@ -1311,7 +1527,14 @@ export function Vendas() {
             <div className={styles.modalActions}>
               <Button
                 onClick={() => {
-                  setEditando(detalhe)
+                  const copia = structuredClone(detalhe)
+                  copia.itens = (copia.itens ?? []).map((item: any) => ({
+                    ...item,
+                    data_movimentacao:
+                      item.data_movimentacao?.slice(0, 10) ||
+                      copia.data_movimentacao,
+                  }))
+                  setEditando(copia)
                   setDetalhe(null)
                 }}
               >
@@ -1329,14 +1552,26 @@ export function Vendas() {
       >
         {editando && (
           <div className={styles.modalContent}>
-            <Input
-              label="Data movimentação"
-              type="date"
-              value={editando.data_movimentacao ?? ''}
-              onChange={(e) =>
-                setEditando({ ...editando, data_movimentacao: e.target.value })
-              }
-            />
+            {editando.itens?.some((item: any) => item.data_movimentacao) ? (
+              <p className={styles.dataHojeHint}>
+                Datas por peça:{' '}
+                <strong>
+                  {formatDatasMovimentacaoLabel(
+                    editando.itens,
+                    editando.data_movimentacao,
+                  )}
+                </strong>
+              </p>
+            ) : (
+              <Input
+                label="Data movimentação"
+                type="date"
+                value={editando.data_movimentacao ?? ''}
+                onChange={(e) =>
+                  setEditando({ ...editando, data_movimentacao: e.target.value })
+                }
+              />
+            )}
             <div className={styles.selectWrap}>
               <label>Status</label>
               <select
@@ -1372,6 +1607,9 @@ export function Vendas() {
                   updateEditComposicao,
                   copyEditItem,
                   removeEditItem,
+                  editando.itens.some((i: any) => i.data_movimentacao)
+                    ? { mostrarDataPeca: true }
+                    : undefined,
                 ),
               )}
             </div>

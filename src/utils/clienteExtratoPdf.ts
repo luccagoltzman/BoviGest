@@ -22,6 +22,7 @@ interface MovimentacaoItem {
   peso_total_kg: number
   valor_kg?: number
   valor_total?: number
+  data_movimentacao?: string
   composicoes?: Composicao[]
 }
 
@@ -234,8 +235,9 @@ function buildHistoricoDetalhadoRows(
     const itens = m.itens?.length ? m.itens : [null]
 
     itens.forEach((item) => {
+      const dataItem = item?.data_movimentacao || m.data_movimentacao
       rows.push({
-        data: formatDate(m.data_movimentacao),
+        data: formatDate(dataItem),
         tipo: 'Venda',
         corte: item ? formatCorteItem(item) : 'Sem itens',
         peso: item ? pdfText(formatPesoItem(item)) : empty,
@@ -243,7 +245,7 @@ function buildHistoricoDetalhadoRows(
         valor: formatCurrency(
           Number(item?.valor_total ?? m.valor_total ?? 0),
         ),
-        sortTs: new Date(m.data_movimentacao).getTime(),
+        sortTs: new Date(dataItem).getTime(),
       })
     })
   })
