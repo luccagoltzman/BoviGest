@@ -17,7 +17,8 @@ export const movimentacoesClientesService = {
     limit = 10,
     search = '',
     startDate = '',
-    endDate = ''
+    endDate = '',
+    clienteId = '',
   ) {
     const from = (page - 1) * limit
     const to = from + limit - 1
@@ -33,6 +34,7 @@ export const movimentacoesClientesService = {
           cliente:clientes(
             id,
             nome,
+            nome_empresa,
             telefone
           ),
           itens:movimentacao_itens(
@@ -42,7 +44,7 @@ export const movimentacoesClientesService = {
         `,
           {
             count: 'exact',
-          }
+          },
         )
         .eq('empresa_id', user.empresa_id)
         .order('created_at', {
@@ -50,11 +52,35 @@ export const movimentacoesClientesService = {
         })
         .range(from, to)
 
-      if (search) {
-        query = query.or(`
-          observacao.ilike.%${search}%,
-          cliente.nome.ilike.%${search}%
-        `)
+      if (clienteId) {
+        query = query.eq('cliente_id', clienteId)
+      } else if (search.trim()) {
+        const termo = search.trim()
+        const { data: clientesMatch, error: clientesError } = await supabase
+          .from('clientes')
+          .select('id')
+          .eq('empresa_id', user.empresa_id)
+          .or(
+            `nome.ilike.%${termo}%,nome_empresa.ilike.%${termo}%,doc.ilike.%${termo}%`,
+          )
+
+        if (clientesError) {
+          throw clientesError
+        }
+
+        const ids = (clientesMatch || []).map((c) => c.id)
+
+        if (!ids.length) {
+          return {
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          }
+        }
+
+        query = query.in('cliente_id', ids)
       }
 
       if (startDate) {

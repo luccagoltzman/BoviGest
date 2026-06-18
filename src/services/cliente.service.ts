@@ -16,9 +16,14 @@ export type ClienteOption = {
 }
 
 export function formatClienteOptionLabel(cliente: ClienteOption) {
-  const empresa = cliente.nome_empresa?.trim()
-  if (empresa) return `${cliente.nome} · ${empresa}`
-  return cliente.nome
+  const nome = cliente.nome?.trim() || ''
+  const empresa = cliente.nome_empresa?.trim() || ''
+
+  if (empresa && empresa.toLowerCase() !== nome.toLowerCase()) {
+    return `${nome} · ${empresa}`
+  }
+
+  return nome || empresa
 }
 
 export const clientesService = {

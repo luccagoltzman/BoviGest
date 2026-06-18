@@ -14,6 +14,7 @@ import {
 
 import { fornecedoresService } from '@/services/fornecedores.service'
 import { comprasService } from '@/services/compras.service'
+import { pagamentosComprasService } from '@/services/pagamentosCompras.service'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
 import {
@@ -370,6 +371,11 @@ export function Compras() {
       )
 
       toast.success('Compra cadastrada com sucesso')
+
+      const avisoConta = pagamentosComprasService.consumeAvisoContaPagamento()
+      if (avisoConta) {
+        toast(avisoConta, { duration: 8000, icon: '⚠️' })
+      }
 
       closeCreate()
       setLoadingSave(false)

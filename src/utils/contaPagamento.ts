@@ -82,6 +82,39 @@ export function contaPagamentoToDb(conta: ContaPagamentoData) {
   }
 }
 
+export const PAGAMENTO_CONTA_DB_KEYS = [
+  'pagamento_banco',
+  'pagamento_agencia',
+  'pagamento_conta',
+  'pagamento_tipo_conta',
+  'pagamento_titular',
+  'pagamento_pix_tipo',
+  'pagamento_pix_chave',
+] as const
+
+export function stripContaPagamentoDbFields<T extends Record<string, unknown>>(
+  row: T,
+): T {
+  const copy = { ...row }
+  for (const key of PAGAMENTO_CONTA_DB_KEYS) {
+    delete copy[key]
+  }
+  return copy
+}
+
+export function isMissingContaPagamentoColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+
+  const record = error as { code?: string; message?: string }
+  return (
+    record.code === 'PGRST204' &&
+    Boolean(record.message?.includes('pagamento_'))
+  )
+}
+
+export const AVISO_SQL_CONTA_PAGAMENTO =
+  'Pagamento salvo, mas os dados bancários não foram gravados. Execute o script supabase/compras-parcelas-conta-pagamento.sql no Supabase.'
+
 export function contaPagamentoTemDados(conta: ContaPagamentoData) {
   return Boolean(
     conta.banco.trim() ||

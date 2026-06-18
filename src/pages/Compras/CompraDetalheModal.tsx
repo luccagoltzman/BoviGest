@@ -197,6 +197,13 @@ function statusParcelaLabel(parcela: CompraParcela) {
   return 'Pendente'
 }
 
+function mostrarAvisoContaPagamentoSeNecessario() {
+  const aviso = pagamentosComprasService.consumeAvisoContaPagamento()
+  if (aviso) {
+    toast(aviso, { duration: 8000, icon: '⚠️' })
+  }
+}
+
 export function CompraDetalheModal({
   compra,
   initialTab = 'pagamento',
@@ -288,7 +295,10 @@ export function CompraDetalheModal({
                 p.id,
                 {
                   valor: formatCurrencyFromNumber(Number(p.valor)),
-                  dataPagamento: hoje,
+                  dataPagamento:
+                    p.data_pagamento?.slice(0, 10) ||
+                    p.data_vencimento?.slice(0, 10) ||
+                    hoje,
                   vencimento: p.data_vencimento?.slice(0, 10) || hoje,
                   formaPagamento: p.forma_pagamento || formaPadrao,
                   contaPagamento: contaPagamentoTemDados(contaSalva)
@@ -387,6 +397,7 @@ export function CompraDetalheModal({
       toast.success(
         `Pagamento registrado: ${formatCurrency(parseCurrencyInput(draft.valor))} em ${formatDateBr(draft.dataPagamento)}`,
       )
+      mostrarAvisoContaPagamentoSeNecessario()
       await recarregarParcelas()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erro ao registrar pagamento'
@@ -396,24 +407,102 @@ export function CompraDetalheModal({
     }
   }
 
-  async function salvarParcelaPendente(parcela: CompraParcela) {
+  async function salvarParcela(parcela: CompraParcela) {
     const draft = parcelasDraft[parcela.id]
     if (!draft) return
+
+    const valor = parseCurrencyInput(draft.valor)
+    if (valor <= 0) {
+      toast.error('Informe um valor válido')
+      return
+    }
 
     try {
       setSalvando(true)
 
-      await pagamentosComprasService.atualizarPendente(parcela.id, {
-        valor: parseCurrencyInput(draft.valor),
-        data_vencimento: draft.vencimento,
-        forma_pagamento: draft.formaPagamento,
-        contaPagamento: draft.contaPagamento,
-      })
+      if (parcela.status === 'pago') {
+        await pagamentosComprasService.atualizarParcela(parcela.id, {
+          valor,
+          data_pagamento: draft.dataPagamento,
+          forma_pagamento: draft.formaPagamento,
+          contaPagamento: draft.contaPagamento,
+        })
+        toast.success('Pagamento atualizado')
+      } else {
+        await pagamentosComprasService.atualizarParcela(parcela.id, {
+          valor,
+          data_vencimento: draft.vencimento,
+          forma_pagamento: draft.formaPagamento,
+          contaPagamento: draft.contaPagamento,
+        })
+        toast.success('Parcela atualizada')
+      }
 
-      toast.success('Parcela atualizada')
+      mostrarAvisoContaPagamentoSeNecessario()
       await recarregarParcelas()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erro ao salvar parcela'
+      toast.error(msg)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function reverterParcelaParaPendente(parcela: CompraParcela) {
+    const draft = parcelasDraft[parcela.id]
+    if (!draft) return
+
+    if (
+      !confirm(
+        'Marcar esta parcela como pendente novamente? O pagamento registrado será desfeito.',
+      )
+    ) {
+      return
+    }
+
+    try {
+      setSalvando(true)
+
+      await pagamentosComprasService.atualizarParcela(parcela.id, {
+        valor: parseCurrencyInput(draft.valor),
+        data_vencimento: draft.vencimento || draft.dataPagamento,
+        forma_pagamento: draft.formaPagamento,
+        contaPagamento: draft.contaPagamento,
+        status: 'pendente',
+      })
+
+      toast.success('Parcela marcada como pendente')
+      mostrarAvisoContaPagamentoSeNecessario()
+      await recarregarParcelas()
+    } catch (e: unknown) {
+      const msg =
+        e instanceof Error ? e.message : 'Erro ao reverter parcela'
+      toast.error(msg)
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  async function excluirParcela(parcela: CompraParcela) {
+    if (
+      !confirm(
+        parcela.status === 'pago'
+          ? 'Excluir este pagamento registrado? Esta ação não pode ser desfeita.'
+          : 'Excluir esta parcela?',
+      )
+    ) {
+      return
+    }
+
+    try {
+      setSalvando(true)
+      await pagamentosComprasService.excluirParcela(parcela.id)
+      toast.success(
+        parcela.status === 'pago' ? 'Pagamento excluído' : 'Parcela excluída',
+      )
+      await recarregarParcelas()
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro ao excluir parcela'
       toast.error(msg)
     } finally {
       setSalvando(false)
@@ -446,6 +535,7 @@ export function CompraDetalheModal({
       toast.success(
         reconfigurando ? 'Parcelas reconfiguradas' : 'Parcelas salvas',
       )
+      mostrarAvisoContaPagamentoSeNecessario()
       setReconfigurando(false)
       await recarregarParcelas()
     } catch (e: unknown) {
@@ -511,6 +601,7 @@ export function CompraDetalheModal({
       })
 
       toast.success('Parcela adicionada')
+      mostrarAvisoContaPagamentoSeNecessario()
       setAdicionandoParcela(false)
       setNovaParcelaDraft(null)
       await recarregarParcelas()
@@ -966,6 +1057,11 @@ export function CompraDetalheModal({
                             Vence em {formatDateBr(draft.vencimento)}
                           </span>
                         )}
+                        {pago && parcela.data_pagamento && (
+                          <span className={styles.vencimentoLabel}>
+                            Pago em {formatDateBr(parcela.data_pagamento)}
+                          </span>
+                        )}
                       </div>
                       <span
                         className={[
@@ -981,44 +1077,18 @@ export function CompraDetalheModal({
                       </span>
                     </header>
 
-                    {pago ? (
+                    {draft && (
                       <>
-                        <dl className={styles.parcelaDetalhes}>
-                          <div>
-                            <dt>Valor pago</dt>
-                            <dd>{formatCurrency(Number(parcela.valor))}</dd>
-                          </div>
-                          <div>
-                            <dt>Pago em</dt>
-                            <dd>{formatDateBr(parcela.data_pagamento || '')}</dd>
-                          </div>
-                          <div>
-                            <dt>Forma</dt>
-                            <dd>{parcela.forma_pagamento || '—'}</dd>
-                          </div>
-                        </dl>
-                        <ContaPagamentoResumo
-                          className={styles.contaParcelaResumo}
-                          titulo="Conta utilizada no pagamento"
-                          value={contaPagamentoFromParcela(parcela)}
-                        />
-                      </>
-                    ) : (
-                      draft && (
-                        <>
-                          <div className={styles.parcelaCardGrid}>
-                            <Input
-                              label="Valor (R$)"
-                              mask="currency"
-                              value={draft.valor}
-                              onChange={(e) =>
-                                atualizarDraft(
-                                  parcela.id,
-                                  'valor',
-                                  e.target.value,
-                                )
-                              }
-                            />
+                        <div className={styles.parcelaCardGrid}>
+                          <Input
+                            label="Valor (R$)"
+                            mask="currency"
+                            value={draft.valor}
+                            onChange={(e) =>
+                              atualizarDraft(parcela.id, 'valor', e.target.value)
+                            }
+                          />
+                          {!pago && (
                             <Input
                               label="Vencimento"
                               type="date"
@@ -1031,60 +1101,78 @@ export function CompraDetalheModal({
                                 )
                               }
                             />
-                            <Select
-                              label="Forma de pagamento"
-                              options={[...FORMAS_PAGAMENTO]}
-                              value={draft.formaPagamento}
-                              onChange={(e) =>
-                                atualizarDraft(
-                                  parcela.id,
-                                  'formaPagamento',
-                                  e.target.value,
-                                )
-                              }
-                            />
-                            <Input
-                              label="Data do pagamento"
-                              type="date"
-                              value={draft.dataPagamento}
-                              onChange={(e) =>
-                                atualizarDraft(
-                                  parcela.id,
-                                  'dataPagamento',
-                                  e.target.value,
-                                )
-                              }
-                            />
-                          </div>
-                          <ContaPagamentoFields
-                            className={styles.contaPagamentoParcela}
-                            value={draft.contaPagamento}
-                            onChange={(conta) =>
-                              atualizarContaDraft(parcela.id, conta)
-                            }
-                            onRestaurarFornecedor={() =>
-                              atualizarContaDraft(parcela.id, {
-                                ...fornecedorConta,
-                              })
+                          )}
+                          <Select
+                            label="Forma de pagamento"
+                            options={[...FORMAS_PAGAMENTO]}
+                            value={draft.formaPagamento}
+                            onChange={(e) =>
+                              atualizarDraft(
+                                parcela.id,
+                                'formaPagamento',
+                                e.target.value,
+                              )
                             }
                           />
-                          <div className={styles.parcelaCardActions}>
-                            <Button
-                              variant="outline"
-                              onClick={() => salvarParcelaPendente(parcela)}
-                              disabled={salvando}
-                            >
-                              Salvar alterações
-                            </Button>
+                          <Input
+                            label="Data do pagamento"
+                            type="date"
+                            value={draft.dataPagamento}
+                            onChange={(e) =>
+                              atualizarDraft(
+                                parcela.id,
+                                'dataPagamento',
+                                e.target.value,
+                              )
+                            }
+                          />
+                        </div>
+                        <ContaPagamentoFields
+                          className={styles.contaPagamentoParcela}
+                          value={draft.contaPagamento}
+                          onChange={(conta) =>
+                            atualizarContaDraft(parcela.id, conta)
+                          }
+                          onRestaurarFornecedor={() =>
+                            atualizarContaDraft(parcela.id, {
+                              ...fornecedorConta,
+                            })
+                          }
+                        />
+                        <div className={styles.parcelaCardActions}>
+                          <Button
+                            variant="outline"
+                            onClick={() => salvarParcela(parcela)}
+                            disabled={salvando}
+                          >
+                            Salvar alterações
+                          </Button>
+                          {!pago && (
                             <Button
                               onClick={() => registrarPagamento(parcela)}
                               disabled={salvando}
                             >
                               Registrar pagamento
                             </Button>
-                          </div>
-                        </>
-                      )
+                          )}
+                          {pago && (
+                            <Button
+                              variant="ghost"
+                              onClick={() => reverterParcelaParaPendente(parcela)}
+                              disabled={salvando}
+                            >
+                              Marcar como pendente
+                            </Button>
+                          )}
+                          <Button
+                            variant="destructive"
+                            onClick={() => excluirParcela(parcela)}
+                            disabled={salvando}
+                          >
+                            Excluir parcela
+                          </Button>
+                        </div>
+                      </>
                     )}
                   </article>
                 )

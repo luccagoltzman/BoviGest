@@ -889,11 +889,10 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                         return (
                           <span key={idx} className={styles.itemTag}>
                             {casado
-                              ? formatResumoCasado(
+                              ? `${item.tipo_corte}: ${formatResumoCasado(
                                   Number(item.peso_total_kg || 0),
                                   item.composicoes,
-                                  item.tipo_corte,
-                                )
+                                )}`
                               : banda
                                 ? formatResumoBanda(
                                     Number(item.peso_total_kg || 0) ||

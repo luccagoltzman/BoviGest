@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Copy, Trash2 } from 'lucide-react'
 import {
   Autocomplete,
@@ -76,8 +76,14 @@ const emptyForm = () => ({
 
 export function Vendas() {
   const [clientes, setClientes] = useState<ClienteOption[]>([])
+  const [clientesFiltro, setClientesFiltro] = useState<ClienteOption[]>([])
   const [historico, setHistorico] = useState<any[]>([])
   const [clienteBusca, setClienteBusca] = useState('')
+  const [filtroClienteLabel, setFiltroClienteLabel] = useState('')
+  const [filtroClienteId, setFiltroClienteId] = useState('')
+  const [filtroInicio, setFiltroInicio] = useState('')
+  const [filtroFim, setFiltroFim] = useState('')
+  const [loadingClientesFiltro, setLoadingClientesFiltro] = useState(false)
   const [loadingClientes, setLoadingClientes] = useState(false)
   const [totalGeral, setTotalGeral] = useState(0)
   const [pesoTotalGeral, setPesoTotalGeral] = useState(0)
@@ -143,8 +149,16 @@ export function Vendas() {
   }, [clienteBusca])
 
   useEffect(() => {
+    const timer = setTimeout(() => {
+      carregarClientesFiltro(filtroClienteLabel)
+    }, 300)
+
+    return () => clearTimeout(timer)
+  }, [filtroClienteLabel])
+
+  useEffect(() => {
     carregarMovimentacoes(page)
-  }, [page])
+  }, [page, filtroClienteId, filtroClienteLabel, filtroInicio, filtroFim])
 
   useEffect(() => {
     setTotalGeral(calcularTotal(form.itens))
@@ -219,6 +233,53 @@ export function Vendas() {
     }
   }
 
+  async function carregarClientesFiltro(search = '') {
+    setLoadingClientesFiltro(true)
+    try {
+      const data = await clientesService.getOptions(search)
+      setClientesFiltro(data || [])
+    } finally {
+      setLoadingClientesFiltro(false)
+    }
+  }
+
+  function selecionarFiltroCliente(label: string) {
+    setFiltroClienteLabel(label)
+    const cli = clientesFiltro.find((c) => formatClienteOptionLabel(c) === label)
+    setFiltroClienteId(cli?.id || '')
+    setPage(1)
+  }
+
+  function limparFiltrosHistorico() {
+    setFiltroClienteLabel('')
+    setFiltroClienteId('')
+    setFiltroInicio('')
+    setFiltroFim('')
+    setPage(1)
+  }
+
+  function abrirExtratoClienteFiltrado() {
+    if (!filtroClienteId) return
+
+    const cli = clientesFiltro.find((c) => c.id === filtroClienteId)
+
+    setClienteExtrato({
+      cliente: {
+        id: filtroClienteId,
+        nome: cli?.nome || filtroClienteLabel,
+      },
+    })
+  }
+
+  function clienteExtratoFromRow(r: any) {
+    return {
+      cliente: r.cliente ?? {
+        id: r.cliente_id,
+        nome: r.cliente?.nome ?? 'Cliente',
+      },
+    }
+  }
+
   function selecionarClientePorLabel(label: string) {
     setClienteBusca(label)
     const cli = clientes.find((c) => formatClienteOptionLabel(c) === label)
@@ -232,7 +293,14 @@ export function Vendas() {
     try {
       setLoading(true)
 
-      const data = await movimentacoesClientesService.getAll(currentPage, 10)
+      const data = await movimentacoesClientesService.getAll(
+        currentPage,
+        10,
+        filtroClienteId ? '' : filtroClienteLabel,
+        filtroInicio,
+        filtroFim,
+        filtroClienteId,
+      )
 
       setHistorico(data.data || [])
       setTotal(data.total || 0)
@@ -736,7 +804,6 @@ export function Vendas() {
   ) {
     const qtyCasados = parseQuantidadeCasados(item.peso_total_kg)
     const qtyBandias = quantidadeBandiasItem(item)
-    const qtyVisceras = parseIntegerInput(String(item.peso_total_kg || ''))
     const qtyLabel = labelQuantidadeCorte(item.tipo_corte)
     const valorLabel = labelValorUnitarioCorte(item.tipo_corte)
 
@@ -806,7 +873,7 @@ export function Vendas() {
             />
             {qtyCasados > 0 && (
               <p className={styles.casadoHint}>
-                {formatResumoCasado(qtyCasados, item.composicoes, item.tipo_corte)}
+                {formatResumoCasado(qtyCasados, item.composicoes)}
               </p>
             )}
             <p className={styles.casadoRegra}>{REGRA_CASADO}</p>
@@ -879,30 +946,17 @@ export function Vendas() {
         ) : isViscera(item.tipo_corte) ? (
           <>
             <Input
-              label="Quantidade (unidades)"
+              label="Unidades"
               mask="integer"
               value={item.peso_total_kg ?? ''}
               onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
             />
             <Input
-              label="Valor por unidade (R$)"
+              label="Valor por unidade"
               mask="currency"
               value={item.valor_kg ?? ''}
               onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
             />
-            {qtyVisceras > 0 && (
-              <p className={styles.casadoHint}>
-                {qtyVisceras} un × R${' '}
-                {parseCurrencyInput(String(item.valor_kg || '')).toLocaleString(
-                  'pt-BR',
-                  { minimumFractionDigits: 2 },
-                )}{' '}
-                = R${' '}
-                {Number(item.valor_total || 0).toLocaleString('pt-BR', {
-                  minimumFractionDigits: 2,
-                })}
-              </p>
-            )}
           </>
         ) : (
           <>
@@ -1098,7 +1152,7 @@ export function Vendas() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm('Excluir esta movimentação?')) return
+    if (!confirm('Excluir esta venda?')) return
     try {
       await movimentacoesClientesService.delete(id)
       await estoqueService.deleteByReferencia(id)
@@ -1112,151 +1166,136 @@ export function Vendas() {
 
   // ─── tabela ──────────────────────────────────────────────────
 
-  const columns = [
-    {
-      key: 'cliente',
-      header: 'Cliente',
-      render: (r: any) => (
-        <span
-          className={tableListStyles.linkCell}
-          onClick={() =>
-            setClienteExtrato({
-              cliente: r.cliente ?? {
-                id: r.cliente_id,
-                nome: r.cliente?.nome ?? 'Cliente',
-              },
-            })
-          }
-          role="link"
-          tabIndex={0}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' || e.key === ' ') {
-              setClienteExtrato({
-                cliente: r.cliente ?? {
-                  id: r.cliente_id,
-                  nome: r.cliente?.nome ?? 'Cliente',
-                },
-              })
-            }
-          }}
-        >
-          {r.cliente?.nome}
-        </span>
-      ),
-    },
-    {
-      key: 'data',
-      header: 'Data',
-      render: (r: any) =>
-        formatDatasMovimentacaoLabel(r.itens, r.data_movimentacao),
-    },
-    {
-      key: 'detalhes',
-      header: 'Itens',
-      render: (r: any) => (
-        <TouchTooltip label={`Ver itens (${r.itens?.length || 0})`}>
-          {r.itens?.map((item: any, index: number) => (
-            <div key={index} className={touchTooltipStyles.item}>
-              <strong>{item.tipo_corte}</strong>
-              <span>
-                {isCasado(item.tipo_corte)
-                  ? `${Number(item.peso_total_kg || 0)} × ${item.tipo_corte} · ${pesoTotalComposicao(item.composicoes || []).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
-                  : isBanda(item.tipo_corte)
-                    ? formatResumoBanda(
-                        Number(item.peso_total_kg || 0) ||
-                          quantidadeBandiasItem(item),
-                        item.composicoes,
-                      ) + ` × R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
-                  : isViscera(item.tipo_corte)
-                    ? `${Number(item.peso_total_kg || 0)} un × R$ ${Number(item.valor_kg || 0).toFixed(2)}`
-                    : `${Number(item.peso_total_kg || 0).toFixed(2)} kg × R$ ${Number(item.valor_kg || 0).toFixed(2)}`}
-              </span>
-              <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
-              {item.composicoes?.length > 0 && (
-                <div className={touchTooltipStyles.subitems}>
-                  {item.composicoes.map((c: any, i: number) => (
-                    <small key={i}>
-                      {c.tipo_corte}: {Number(c.peso_kg || 0).toFixed(2)} kg
-                    </small>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
-        </TouchTooltip>
-      ),
-    },
-    {
-      key: 'total',
-      header: 'Total',
-      render: (r: any) => `R$ ${Number(r.valor_total).toFixed(2)}`,
-    },
-    {
-      key: 'status',
-      header: 'Status',
-      render: (r: any) => (
-        <span
-          className={
-            r.movimentacao_status === 'finalizado'
-              ? styles.badgeFinalizado
-              : styles.badgePendente
-          }
-        >
-          {r.movimentacao_status === 'finalizado' ? 'Finalizado' : 'Pendente'}
-        </span>
-      ),
-    },
-    {
-      key: 'acao',
-      header: 'Ação',
-      render: (r: any) => (
-        <div className={tableListStyles.acoesRow}>
-          <Button
-            variant="ghost"
-            className={tableListStyles.acaoBtn}
-            onClick={() =>
-              setClienteExtrato({
-                cliente: r.cliente ?? {
-                  id: r.cliente_id,
-                  nome: r.cliente?.nome ?? 'Cliente',
-                },
-              })
-            }
-          >
-            Extrato
-          </Button>
-          <Button
-            variant="outline"
-            className={tableListStyles.acaoBtn}
-            onClick={() => {
-              const copia = structuredClone(r)
-              copia.itens = (copia.itens ?? []).map((item: any) => ({
-                ...item,
-                data_movimentacao:
-                  item.data_movimentacao?.slice(0, 10) || copia.data_movimentacao,
-              }))
-              setMovimentacaoOriginal(structuredClone(copia))
-              setEditando(copia)
+  const clienteFiltrado = Boolean(filtroClienteId || filtroClienteLabel.trim())
+  const temFiltrosHistorico = Boolean(
+    clienteFiltrado || filtroInicio || filtroFim,
+  )
+
+  const columns = useMemo(() => {
+    const cols: any[] = []
+
+    if (!clienteFiltrado) {
+      cols.push({
+        key: 'cliente',
+        header: 'Cliente',
+        render: (r: any) => (
+          <span
+            className={tableListStyles.linkCell}
+            onClick={() => setClienteExtrato(clienteExtratoFromRow(r))}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setClienteExtrato(clienteExtratoFromRow(r))
+              }
             }}
           >
-            Editar
-          </Button>
-          <Button
-            variant="destructive"
-            className={tableListStyles.acaoBtn}
-            onClick={() => handleDelete(r.id)}
+            {r.cliente?.nome}
+          </span>
+        ),
+      })
+    }
+
+    cols.push(
+      {
+        key: 'data',
+        header: 'Data',
+        render: (r: any) =>
+          formatDatasMovimentacaoLabel(r.itens, r.data_movimentacao),
+      },
+      {
+        key: 'detalhes',
+        header: 'Itens',
+        render: (r: any) => (
+          <TouchTooltip label={`Ver itens (${r.itens?.length || 0})`}>
+            {r.itens?.map((item: any, index: number) => (
+              <div key={index} className={touchTooltipStyles.item}>
+                <strong>{item.tipo_corte}</strong>
+                <span>
+                  {isCasado(item.tipo_corte)
+                    ? `${formatResumoCasado(Number(item.peso_total_kg || 0), item.composicoes)} · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
+                    : isBanda(item.tipo_corte)
+                      ? `${formatResumoBanda(quantidadeBandiasItem(item), item.composicoes)} · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
+                      : isViscera(item.tipo_corte)
+                        ? `${Number(item.peso_total_kg || 0)} un · R$ ${Number(item.valor_kg || 0).toFixed(2)}/un`
+                        : `${Number(item.peso_total_kg || 0).toFixed(2)} kg · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`}
+                </span>
+                <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
+              </div>
+            ))}
+          </TouchTooltip>
+        ),
+      },
+      {
+        key: 'total',
+        header: 'Total',
+        render: (r: any) => `R$ ${Number(r.valor_total).toFixed(2)}`,
+      },
+      {
+        key: 'status',
+        header: 'Status',
+        render: (r: any) => (
+          <span
+            className={
+              r.movimentacao_status === 'finalizado'
+                ? styles.badgeFinalizado
+                : styles.badgePendente
+            }
           >
-            Excluir
-          </Button>
-        </div>
-      ),
-    },
-  ]
+            {r.movimentacao_status === 'finalizado' ? 'Finalizado' : 'Pendente'}
+          </span>
+        ),
+      },
+      {
+        key: 'acao',
+        header: 'Ação',
+        render: (r: any) => (
+          <div className={tableListStyles.acoesRow}>
+            {!clienteFiltrado && (
+              <Button
+                variant="ghost"
+                className={tableListStyles.acaoBtn}
+                onClick={() => setClienteExtrato(clienteExtratoFromRow(r))}
+              >
+                Extrato
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className={tableListStyles.acaoBtn}
+              onClick={() => {
+                const copia = structuredClone(r)
+                copia.itens = (copia.itens ?? []).map((item: any) => ({
+                  ...item,
+                  data_movimentacao:
+                    item.data_movimentacao?.slice(0, 10) ||
+                    copia.data_movimentacao,
+                }))
+                setMovimentacaoOriginal(structuredClone(copia))
+                setEditando(copia)
+              }}
+            >
+              Editar
+            </Button>
+            <Button
+              variant="destructive"
+              className={tableListStyles.acaoBtn}
+              onClick={() => handleDelete(r.id)}
+            >
+              Excluir
+            </Button>
+          </div>
+        ),
+      },
+    )
+
+    return cols
+  }, [clienteFiltrado])
   // ─── render ──────────────────────────────────────────────────
 
   return (
     <div className={styles.page}>
-      <h1 className="page-title">Movimentações</h1>
+      <h1 className="page-title">Vendas</h1>
 
       <label className={styles.retroativoSwitch}>
         <span className={styles.retroativoSwitchLabel}>Vendas retroativas</span>
@@ -1281,12 +1320,12 @@ export function Vendas() {
       </label>
 
       {showCreate && (
-      <Card className={styles.card} title="Nova movimentação">
+      <Card className={styles.card} title="Nova venda">
         {modoRetroativo && (
           <div className={styles.retroativoPainel}>
             <p className={styles.retroativoHint}>
               Informe o período permitido e escolha a data em cada peça abaixo.
-              Todas as peças são salvas em uma única movimentação.
+              Todas as peças são salvas em uma única venda.
             </p>
             <div className={styles.retroativoCampos}>
               <Input
@@ -1321,7 +1360,7 @@ export function Vendas() {
         <div className={styles.formSimples}>
           <Autocomplete
             label="Cliente"
-            placeholder="Nome ou nome da empresa..."
+            placeholder="Buscar cliente..."
             loading={loadingClientes}
             options={clientes.map(formatClienteOptionLabel)}
             value={clienteBusca}
@@ -1404,7 +1443,7 @@ export function Vendas() {
             disabled={loadingSave || !form.cliente_id || form.itens.length === 0}
             onClick={handleCreate}
           >
-            {modoRetroativo ? 'Salvar movimentação' : 'Salvar movimentação'}
+            Salvar venda
           </Button>
           <Button variant="ghost" onClick={closeCreate}>
             Cancelar
@@ -1414,15 +1453,75 @@ export function Vendas() {
       )}
 
       <Card
-        title="Movimentações cadastradas"
+        title="Histórico"
         action={
           <AddNewButton
             open={showCreate}
             onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
-            label="Nova movimentação"
+            label="Nova venda"
           />
         }
       >
+        <div className={styles.historicoFiltros}>
+          <Autocomplete
+            label="Cliente"
+            placeholder="Filtrar por nome..."
+            loading={loadingClientesFiltro}
+            options={clientesFiltro.map(formatClienteOptionLabel)}
+            value={filtroClienteLabel}
+            onChange={selecionarFiltroCliente}
+          />
+          <Input
+            label="De"
+            type="date"
+            value={filtroInicio}
+            max={filtroFim || hojeIso()}
+            onChange={(e) => {
+              setFiltroInicio(e.target.value)
+              setPage(1)
+            }}
+          />
+          <Input
+            label="Até"
+            type="date"
+            value={filtroFim}
+            min={filtroInicio}
+            max={hojeIso()}
+            onChange={(e) => {
+              setFiltroFim(e.target.value)
+              setPage(1)
+            }}
+          />
+          {temFiltrosHistorico && (
+            <Button variant="ghost" onClick={limparFiltrosHistorico}>
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+
+        {clienteFiltrado && (
+          <div className={styles.historicoResumoCliente}>
+            <div>
+              <span className={styles.historicoResumoLabel}>Cliente</span>
+              <strong>{filtroClienteLabel}</strong>
+              {(filtroInicio || filtroFim) && (
+                <span className={styles.historicoResumoPeriodo}>
+                  {filtroInicio && filtroFim
+                    ? `${formatDateBr(filtroInicio)} a ${formatDateBr(filtroFim)}`
+                    : filtroInicio
+                      ? `a partir de ${formatDateBr(filtroInicio)}`
+                      : `até ${formatDateBr(filtroFim)}`}
+                </span>
+              )}
+            </div>
+            {filtroClienteId && (
+              <Button variant="outline" onClick={abrirExtratoClienteFiltrado}>
+                Ver extrato
+              </Button>
+            )}
+          </div>
+        )}
+
         <Table
           columns={columns}
           data={historico}
@@ -1432,14 +1531,14 @@ export function Vendas() {
           total={total}
           totalPages={totalPages}
           onPageChange={setPage}
-          emptyMessage="Nenhuma movimentação encontrada."
+          emptyMessage="Nenhuma venda encontrada."
         />
       </Card>
 
       <Modal
         open={!!detalhe}
         onClose={() => setDetalhe(null)}
-        title="Detalhes da movimentação"
+        title="Detalhes da venda"
       >
         {detalhe && (
           <div className={styles.modalContent}>
@@ -1472,59 +1571,23 @@ export function Vendas() {
                 <div key={idx} className={styles.itemCard}>
                   <strong>{item.tipo_corte}</strong>
                   {item.data_movimentacao && (
-                    <p>Data: {dataItemParaExibicao(item, detalhe.data_movimentacao)}</p>
+                    <p className={styles.itemMeta}>
+                      Data:{' '}
+                      {dataItemParaExibicao(item, detalhe.data_movimentacao)}
+                    </p>
                   )}
-                  {isCasado(item.tipo_corte) ? (
-                    <>
-                      <p>
-                        {formatResumoCasado(
-                          Number(item.peso_total_kg || 0),
-                          item.composicoes,
-                          item.tipo_corte,
-                        )}
-                      </p>
-                      <p>
-                        {pesoTotalComposicao(item.composicoes || []).toFixed(2)}{' '}
-                        kg × R$ {Number(item.valor_kg).toFixed(2)}/kg
-                      </p>
-                    </>
-                  ) : isBanda(item.tipo_corte) ? (
-                    <>
-                      <p>
-                        {formatResumoBanda(
-                          quantidadeBandiasItem(item),
-                          item.composicoes,
-                        )}
-                      </p>
-                      <p>
-                        {pesoTotalComposicao(item.composicoes || []).toFixed(2)}{' '}
-                        kg × R$ {Number(item.valor_kg).toFixed(2)}/kg
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        {isViscera(item.tipo_corte) ? 'Unidades' : 'Peso'}:{' '}
-                        {item.peso_total_kg}
-                        {isViscera(item.tipo_corte) ? '' : ' kg'}
-                      </p>
-                      <p>
-                        Valor/{isViscera(item.tipo_corte) ? 'un' : 'kg'}: R${' '}
-                        {Number(item.valor_kg).toFixed(2)}
-                      </p>
-                    </>
-                  )}
-                  <p>Total: R$ {Number(item.valor_total).toFixed(2)}</p>
-
-                  {item.composicoes?.length > 0 && (
-                    <div className={styles.composicoes}>
-                      {item.composicoes.map((c: any, i: number) => (
-                        <span key={i}>
-                          {c.tipo_corte}: {Number(c.peso_kg || 0).toFixed(2)} kg
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                  <p>
+                    {isCasado(item.tipo_corte)
+                      ? `${formatResumoCasado(Number(item.peso_total_kg || 0), item.composicoes)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
+                      : isBanda(item.tipo_corte)
+                        ? `${formatResumoBanda(quantidadeBandiasItem(item), item.composicoes)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
+                        : isViscera(item.tipo_corte)
+                          ? `${item.peso_total_kg} un · R$ ${Number(item.valor_kg).toFixed(2)}/un`
+                          : `${Number(item.peso_total_kg).toFixed(2)} kg · R$ ${Number(item.valor_kg).toFixed(2)}/kg`}
+                  </p>
+                  <p className={styles.itemTotal}>
+                    Total: R$ {Number(item.valor_total).toFixed(2)}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1553,7 +1616,7 @@ export function Vendas() {
       <Modal
         open={!!editando}
         onClose={() => setEditando(null)}
-        title="Editar movimentação"
+        title="Editar venda"
       >
         {editando && (
           <div className={styles.modalContent}>
@@ -1569,7 +1632,7 @@ export function Vendas() {
               </p>
             ) : (
               <Input
-                label="Data movimentação"
+                label="Data da venda"
                 type="date"
                 value={editando.data_movimentacao ?? ''}
                 onChange={(e) =>
@@ -1619,7 +1682,7 @@ export function Vendas() {
               )}
             </div>
 
-            <Button variant='outline' onClick={addEditItem}>+ Item</Button>
+            <Button variant='outline' onClick={addEditItem}>+ Peça</Button>
 
             <div className={styles.resumoSalvar}>
               <div className={styles.resumoItem}>

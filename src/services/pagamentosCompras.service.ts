@@ -1,5 +1,10 @@
 import { gerarParcelasCompra, type CompraParcelaConfig } from '@/utils/compraParcelas'
-import { contaPagamentoToDb } from '@/utils/contaPagamento'
+import {
+  contaPagamentoToDb,
+  stripContaPagamentoDbFields,
+  isMissingContaPagamentoColumnError,
+  AVISO_SQL_CONTA_PAGAMENTO,
+} from '@/utils/contaPagamento'
 import { AuthService } from './auth.service'
 import { supabase } from './supabase'
 
@@ -59,7 +64,87 @@ function statusExibicao(parcela: CompraParcela) {
   return 'Pendente'
 }
 
+let lastAvisoContaPagamento: string | null = null
+
+function registrarAvisoContaPagamento() {
+  lastAvisoContaPagamento = AVISO_SQL_CONTA_PAGAMENTO
+}
+
+async function insertParcelasRows(rows: Record<string, unknown>[]) {
+  const primeiro = await supabase
+    .from('compras_parcelas')
+    .insert(rows)
+    .select('*')
+
+  if (!primeiro.error) {
+    return (primeiro.data || []) as CompraParcela[]
+  }
+
+  if (isMissingContaPagamentoColumnError(primeiro.error)) {
+    const stripped = rows.map((row) => stripContaPagamentoDbFields(row))
+    const retry = await supabase
+      .from('compras_parcelas')
+      .insert(stripped)
+      .select('*')
+
+    if (retry.error) throw retry.error
+
+    registrarAvisoContaPagamento()
+    return (retry.data || []) as CompraParcela[]
+  }
+
+  throw primeiro.error
+}
+
+async function updateParcelaRow(
+  id: number,
+  empresaId: number,
+  updateData: Record<string, unknown>,
+  options?: { status?: string },
+) {
+  let query = supabase
+    .from('compras_parcelas')
+    .update(updateData)
+    .eq('id', id)
+    .eq('empresa_id', empresaId)
+
+  if (options?.status) {
+    query = query.eq('status', options.status)
+  }
+
+  const primeiro = await query.select('*').single()
+
+  if (!primeiro.error) {
+    return primeiro.data as CompraParcela
+  }
+
+  if (isMissingContaPagamentoColumnError(primeiro.error)) {
+    let retryQuery = supabase
+      .from('compras_parcelas')
+      .update(stripContaPagamentoDbFields(updateData))
+      .eq('id', id)
+      .eq('empresa_id', empresaId)
+
+    if (options?.status) {
+      retryQuery = retryQuery.eq('status', options.status)
+    }
+
+    const retry = await retryQuery.select('*').single()
+    if (retry.error) throw retry.error
+
+    registrarAvisoContaPagamento()
+    return retry.data as CompraParcela
+  }
+
+  throw primeiro.error
+}
+
 export const pagamentosComprasService = {
+  consumeAvisoContaPagamento() {
+    const aviso = lastAvisoContaPagamento
+    lastAvisoContaPagamento = null
+    return aviso
+  },
   async createForCompra(compraId: number, config: CompraParcelaConfig) {
     const user = getUser()
     const parcelas = gerarParcelasCompra(config)
@@ -77,14 +162,7 @@ export const pagamentosComprasService = {
       ...contaDb,
     }))
 
-    const { data, error } = await supabase
-      .from('compras_parcelas')
-      .insert(rows)
-      .select('*')
-
-    if (error) throw error
-
-    return (data || []) as CompraParcela[]
+    return insertParcelasRows(rows)
   },
 
   async getByCompraId(compraId: number) {
@@ -201,6 +279,20 @@ export const pagamentosComprasService = {
       contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
     },
   ) {
+    return this.atualizarParcela(id, payload)
+  },
+
+  async atualizarParcela(
+    id: number,
+    payload: {
+      valor?: number
+      data_vencimento?: string
+      data_pagamento?: string | null
+      forma_pagamento?: string
+      contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
+      status?: 'pendente' | 'pago'
+    },
+  ) {
     const user = getUser()
 
     const updateData: Record<string, unknown> = {
@@ -215,26 +307,30 @@ export const pagamentosComprasService = {
       updateData.data_vencimento = payload.data_vencimento
     }
 
+    if (payload.data_pagamento !== undefined) {
+      updateData.data_pagamento = payload.data_pagamento
+    }
+
     if (payload.forma_pagamento) {
       updateData.forma_pagamento = payload.forma_pagamento
+    }
+
+    if (payload.status) {
+      updateData.status = payload.status
+      if (payload.status === 'pendente') {
+        updateData.data_pagamento = null
+      }
     }
 
     if (payload.contaPagamento) {
       Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
     }
 
-    const { data, error } = await supabase
-      .from('compras_parcelas')
-      .update(updateData)
-      .eq('id', id)
-      .eq('empresa_id', user.empresa_id)
-      .eq('status', 'pendente')
-      .select('*')
-      .single()
+    const data = await updateParcelaRow(id, user.empresa_id!, updateData)
 
-    if (error) throw error
+    await this.syncCompraQuitacao(data.compra_id)
 
-    return data as CompraParcela
+    return data
   },
 
   async configurarParcelas(compraId: number, config: CompraParcelaConfig) {
@@ -278,19 +374,11 @@ export const pagamentosComprasService = {
       Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
     }
 
-    const { data, error } = await supabase
-      .from('compras_parcelas')
-      .update(updateData)
-      .eq('id', id)
-      .eq('empresa_id', user.empresa_id)
-      .select('*')
-      .single()
-
-    if (error) throw error
+    const data = await updateParcelaRow(id, user.empresa_id!, updateData)
 
     await this.syncCompraQuitacao(data.compra_id)
 
-    return data as CompraParcela
+    return data
   },
 
   async syncCompraQuitacao(compraId: number) {
@@ -375,12 +463,7 @@ export const pagamentosComprasService = {
       ...contaDb,
     }))
 
-    const { data, error } = await supabase
-      .from('compras_parcelas')
-      .insert(rows)
-      .select('*')
-
-    if (error) throw error
+    const data = await insertParcelasRows(rows)
 
     if (existentes.length > 0) {
       const { error: updateError } = await supabase
@@ -394,7 +477,7 @@ export const pagamentosComprasService = {
 
     await this.syncCompraQuitacao(compraId)
 
-    return (data || []) as CompraParcela[]
+    return data
   },
 
   async deleteByCompra(compraId: number) {
@@ -407,6 +490,52 @@ export const pagamentosComprasService = {
       .eq('empresa_id', user.empresa_id)
 
     if (error) throw error
+  },
+
+  async excluirParcela(id: number) {
+    const user = getUser()
+
+    const { data: parcela, error } = await supabase
+      .from('compras_parcelas')
+      .select('compra_id')
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
+      .single()
+
+    if (error || !parcela) {
+      throw error || new Error('Parcela não encontrada')
+    }
+
+    const compraId = parcela.compra_id
+
+    const { error: deleteError } = await supabase
+      .from('compras_parcelas')
+      .delete()
+      .eq('id', id)
+      .eq('empresa_id', user.empresa_id)
+
+    if (deleteError) throw deleteError
+
+    const restantes = await this.getByCompraId(compraId)
+    const novoTotal = restantes.length
+
+    if (novoTotal > 0) {
+      await Promise.all(
+        restantes.map((item, index) =>
+          supabase
+            .from('compras_parcelas')
+            .update({
+              numero_parcela: index + 1,
+              total_parcelas: novoTotal,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', item.id)
+            .eq('empresa_id', user.empresa_id),
+        ),
+      )
+    }
+
+    await this.syncCompraQuitacao(compraId)
   },
 
   async regenerarForCompra(compraId: number, config: CompraParcelaConfig) {

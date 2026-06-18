@@ -151,12 +151,8 @@ export function formatResumoBanda(
   let resumo = `${quantidadeBandias} banda${quantidadeBandias !== 1 ? 's' : ''}`
 
   const { dianteiro, traseiro } = getComposicaoResumo(composicoes)
-  const pesoTotal = dianteiro + traseiro
   if (dianteiro > 0 || traseiro > 0) {
     resumo += ` · ${dianteiro.toFixed(2)} kg diant. + ${traseiro.toFixed(2)} kg tras.`
-    if (pesoTotal > 0) {
-      resumo += ` (${pesoTotal.toFixed(2)} kg total)`
-    }
   }
 
   return resumo
@@ -195,29 +191,24 @@ export function pesoTotalComposicao(composicoes: ComposicaoItem[] = []) {
 export function formatResumoCasado(
   quantidadeCasados: number,
   composicoes: ComposicaoItem[] = [],
-  tipoCasado?: string,
+  _tipoCasado?: string,
 ) {
   const pecas = pecasPorLadoFromCasados(quantidadeCasados)
-  const tipoLabel = (tipoCasado || 'Casado').trim()
-  let resumo = `${quantidadeCasados} × ${tipoLabel} · ${pecas} diant. + ${pecas} tras.`
+  let resumo = `${quantidadeCasados} un. · ${pecas} diant. + ${pecas} tras.`
 
   const { dianteiro, traseiro } = getComposicaoResumo(composicoes)
-  const pesoTotal = dianteiro + traseiro
   if (dianteiro > 0 || traseiro > 0) {
     resumo += ` · ${dianteiro.toFixed(2)} kg diant. + ${traseiro.toFixed(2)} kg tras.`
-    if (pesoTotal > 0) {
-      resumo += ` (${pesoTotal.toFixed(2)} kg total)`
-    }
   }
 
   return resumo
 }
 
 export function labelQuantidadeCorte(tipo: string) {
-  if (isCorteCasado(tipo)) return `Quantidade — ${tipo}`
+  if (isCorteCasado(tipo)) return 'Quantidade'
   if (isCorteBanda(tipo)) return 'Quantidade de bandas'
-  if (isVisceraCorte(tipo)) return 'Total de unidades'
-  return 'Peso total KG'
+  if (isVisceraCorte(tipo)) return 'Unidades'
+  return 'Peso (kg)'
 }
 
 export function labelValorUnitarioCorte(tipo: string) {

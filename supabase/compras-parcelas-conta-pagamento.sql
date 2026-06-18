@@ -1,4 +1,5 @@
--- Conta bancária usada no pagamento de cada parcela de compra (rodar no Supabase SQL Editor)
+-- Conta bancária usada no pagamento de cada parcela de compra
+-- Seguro para rodar várias vezes (IF NOT EXISTS).
 
 alter table compras_parcelas add column if not exists pagamento_banco text;
 alter table compras_parcelas add column if not exists pagamento_agencia text;

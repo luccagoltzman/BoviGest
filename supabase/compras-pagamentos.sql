@@ -1,4 +1,5 @@
 -- Pagamentos parcelados de compras de gado (rodar no Supabase SQL Editor)
+-- Banco já configurado? Rode só supabase/compras-parcelas-conta-pagamento.sql
 
 alter table compras add column if not exists forma_pagamento text;
 alter table compras add column if not exists qtd_parcelas int default 1;
@@ -25,7 +26,18 @@ create index if not exists idx_compras_parcelas_compra on compras_parcelas (comp
 create index if not exists idx_compras_parcelas_vencimento on compras_parcelas (data_vencimento);
 create index if not exists idx_compras_parcelas_pagamento on compras_parcelas (data_pagamento);
 
+-- Dados bancários usados em cada pagamento de parcela
+alter table compras_parcelas add column if not exists pagamento_banco text;
+alter table compras_parcelas add column if not exists pagamento_agencia text;
+alter table compras_parcelas add column if not exists pagamento_conta text;
+alter table compras_parcelas add column if not exists pagamento_tipo_conta text;
+alter table compras_parcelas add column if not exists pagamento_titular text;
+alter table compras_parcelas add column if not exists pagamento_pix_tipo text;
+alter table compras_parcelas add column if not exists pagamento_pix_chave text;
+
 alter table compras_parcelas enable row level security;
+
+drop policy if exists "compras_parcelas_por_empresa" on compras_parcelas;
 
 create policy "compras_parcelas_por_empresa" on compras_parcelas for all using (
   empresa_id in (
