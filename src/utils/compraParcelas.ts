@@ -18,11 +18,13 @@ export type ParcelaDraft = {
   valor: string
   data: string
   pago: boolean
+  formaPagamento?: string
 }
 
 export type CompraParcelaConfig = {
   parcelas: ParcelaDraft[]
-  formaPagamento: string
+  /** Fallback legado quando a parcela não informa forma */
+  formaPagamento?: string
   contaPagamento?: ContaPagamentoData
 }
 
@@ -60,6 +62,7 @@ export function criarParcelasDraft(
   valorTotal: number,
   dataBase: string,
   anteriores: ParcelaDraft[] = [],
+  formaPadrao = 'Pix',
 ) {
   const datas = sugerirDatasParcelas(dataBase, qtd)
   const valores = sugerirValoresParcelas(valorTotal, qtd)
@@ -68,7 +71,24 @@ export function criarParcelasDraft(
     valor: anteriores[index]?.valor || valores[index] || '',
     data: anteriores[index]?.data || datas[index] || dataBase.slice(0, 10),
     pago: anteriores[index]?.pago ?? false,
+    formaPagamento:
+      anteriores[index]?.formaPagamento || formaPadrao,
   }))
+}
+
+/** Resumo para o campo forma_pagamento da compra */
+export function formaPagamentoResumoCompra(
+  parcelas: ParcelaDraft[],
+  fallback = 'Pix',
+) {
+  const formas = parcelas
+    .map((p) => (p.formaPagamento || fallback).trim())
+    .filter(Boolean)
+
+  if (!formas.length) return fallback
+
+  const unicas = [...new Set(formas)]
+  return unicas.length === 1 ? unicas[0] : 'Variado'
 }
 
 export function gerarParcelasCompra(
@@ -91,7 +111,8 @@ export function gerarParcelasCompra(
       valor,
       data_vencimento: data,
       data_pagamento: pago ? data : null,
-      forma_pagamento: config.formaPagamento,
+      forma_pagamento:
+        parcela.formaPagamento || config.formaPagamento || 'Pix',
       status: pago ? 'pago' : 'pendente',
     }
   })

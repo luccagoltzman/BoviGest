@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Wallet, FileText } from 'lucide-react'
+import { Wallet, FileText, Download } from 'lucide-react'
 import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
 import { comprasService } from '@/services/compras.service'
 import { fornecedoresService } from '@/services/fornecedores.service'
+import { getLogoUrl } from '@/services/theme.service'
 import {
   pagamentosComprasService,
   type CompraParcela,
@@ -19,6 +20,7 @@ import {
   parcelasDraftValidas,
   somaParcelasExcedeTotal,
   formatCurrency,
+  formaPagamentoResumoCompra,
   type ParcelaDraft,
 } from '@/utils/compraParcelas'
 import {
@@ -174,12 +176,12 @@ function criarSetupPagamentoInicial(row: CompraDetalheRow) {
 
   return {
     qtdParcelas: '1',
-    formaPagamento: row.forma_pagamento || 'Pix',
     parcelas: [
       {
         valor: '',
         data: dataBase,
         pago: false,
+        formaPagamento: row.forma_pagamento || 'Pix',
       },
     ] as ParcelaDraft[],
   }
@@ -229,7 +231,6 @@ export function CompraDetalheModal({
 
   const [setupPagamento, setSetupPagamento] = useState({
     qtdParcelas: '1',
-    formaPagamento: 'Pix',
     parcelas: [] as ParcelaDraft[],
   })
   const [fornecedorConta, setFornecedorConta] = useState<ContaPagamentoData>(
@@ -245,6 +246,8 @@ export function CompraDetalheModal({
     formaPagamento: string
     contaPagamento: ContaPagamentoData
   } | null>(null)
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [fornecedorDetalhe, setFornecedorDetalhe] = useState<any>(null)
 
   useEffect(() => {
     if (compra) {
@@ -278,6 +281,7 @@ export function CompraDetalheModal({
 
         const contaFornecedor = contaPagamentoFromFornecedor(fornecedor)
         setFornecedorConta(contaFornecedor)
+        setFornecedorDetalhe(fornecedor)
         setSetupContaPagamento(contaFornecedor)
         setParcelas(lista)
 
@@ -364,6 +368,55 @@ export function CompraDetalheModal({
   const podeReconfigurarParcelas =
     parcelas.length > 0 && parcelas.every((p) => p.status !== 'pago')
   const mostrarSetupParcelas = parcelas.length === 0 || reconfigurando
+
+  async function exportarPdfPagamento() {
+    if (!compra || !editar) return
+
+    try {
+      setDownloadingPdf(true)
+
+      const subtotal = calcularSubtotal(dadosParaCalculo(editar, editarCampos))
+      const imposto = calcularImposto(dadosParaCalculo(editar, editarCampos))
+      const gta = Number(
+        dadosParaCalculo(editar, editarCampos).gta_valor || 0,
+      )
+      const total = resolverValorTotalCompra(editar, editarCampos)
+      const viagem = Math.max(0, total - subtotal - imposto - gta)
+
+      const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
+
+      await gerarCompraPagamentoPdf({
+        compra: {
+          id: editar.id,
+          data: editar.data,
+          quantidade_animais: editar.quantidade_animais,
+          peso_total: editar.peso_total,
+          valor_kg: editar.valor_kg,
+          tipo_gado: editar.tipo_gado,
+          condicao_gado: editar.condicao_gado,
+          observacoes: editar.observacoes,
+          detalhes_custo: {
+            subtotal,
+            imposto,
+            gta,
+            viagem,
+            total,
+          },
+        },
+        fornecedorNome: fornecedorNome,
+        fornecedorDoc: fornecedorDetalhe?.doc || null,
+        fornecedorConta: fornecedorConta,
+        parcelas,
+        logoUrl: getLogoUrl(),
+      })
+
+      toast.success('PDF baixado')
+    } catch {
+      toast.error('Erro ao gerar PDF')
+    } finally {
+      setDownloadingPdf(false)
+    }
+  }
 
   async function recarregarParcelas() {
     if (!compra) return
@@ -517,7 +570,6 @@ export function CompraDetalheModal({
 
       const config = {
         parcelas: setupPagamento.parcelas,
-        formaPagamento: setupPagamento.formaPagamento,
         contaPagamento: setupContaPagamento,
       }
 
@@ -528,7 +580,7 @@ export function CompraDetalheModal({
       }
 
       await comprasService.update(compra.id, {
-        forma_pagamento: setupPagamento.formaPagamento,
+        forma_pagamento: formaPagamentoResumoCompra(setupPagamento.parcelas),
       })
       await pagamentosComprasService.syncCompraQuitacao(compra.id)
 
@@ -590,14 +642,27 @@ export function CompraDetalheModal({
             valor: novaParcelaDraft.valor,
             data: novaParcelaDraft.data,
             pago: false,
+            formaPagamento: novaParcelaDraft.formaPagamento,
           },
         ],
-        formaPagamento: novaParcelaDraft.formaPagamento,
         contaPagamento: novaParcelaDraft.contaPagamento,
       })
 
       await comprasService.update(compra.id, {
-        forma_pagamento: novaParcelaDraft.formaPagamento,
+        forma_pagamento: formaPagamentoResumoCompra([
+          ...parcelas.map((p) => ({
+            valor: '',
+            data: '',
+            pago: false,
+            formaPagamento: p.forma_pagamento || 'Pix',
+          })),
+          {
+            valor: '',
+            data: '',
+            pago: false,
+            formaPagamento: novaParcelaDraft.formaPagamento,
+          },
+        ]),
       })
 
       toast.success('Parcela adicionada')
@@ -614,16 +679,13 @@ export function CompraDetalheModal({
   }
 
   function iniciarReconfiguracaoParcelas() {
-    const forma =
-      compra?.forma_pagamento || parcelas[0]?.forma_pagamento || 'Pix'
-
     setSetupPagamento({
       qtdParcelas: String(parcelas.length),
-      formaPagamento: forma,
       parcelas: parcelas.map((p) => ({
         valor: formatCurrencyFromNumber(Number(p.valor)),
         data: p.data_vencimento?.slice(0, 10) || '',
         pago: false,
+        formaPagamento: p.forma_pagamento || 'Pix',
       })),
     })
     setReconfigurando(true)
@@ -727,11 +789,20 @@ export function CompraDetalheModal({
     const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
 
     setSetupPagamento((prev) => {
+      const formaPadrao =
+        prev.parcelas[0]?.formaPagamento ||
+        editar?.forma_pagamento ||
+        'Pix'
       let parcelasLista = [...prev.parcelas]
 
       if (qtd > parcelasLista.length) {
         while (parcelasLista.length < qtd) {
-          parcelasLista.push({ valor: '', data: dataBase, pago: false })
+          parcelasLista.push({
+            valor: '',
+            data: dataBase,
+            pago: false,
+            formaPagamento: formaPadrao,
+          })
         }
       } else if (qtd > 0 && qtd < parcelasLista.length) {
         parcelasLista = parcelasLista.slice(0, qtd)
@@ -748,14 +819,24 @@ export function CompraDetalheModal({
   function adicionarParcelaSetup() {
     const dataBase = editar?.data || new Date().toISOString().slice(0, 10)
 
-    setSetupPagamento((prev) => ({
-      ...prev,
-      qtdParcelas: String(prev.parcelas.length + 1),
-      parcelas: [
-        ...prev.parcelas,
-        { valor: '', data: dataBase, pago: false },
-      ],
-    }))
+    setSetupPagamento((prev) => {
+      const formaPadrao =
+        prev.parcelas[prev.parcelas.length - 1]?.formaPagamento || 'Pix'
+
+      return {
+        ...prev,
+        qtdParcelas: String(prev.parcelas.length + 1),
+        parcelas: [
+          ...prev.parcelas,
+          {
+            valor: '',
+            data: dataBase,
+            pago: false,
+            formaPagamento: formaPadrao,
+          },
+        ],
+      }
+    })
   }
 
   if (!compra || !editar) return null
@@ -800,6 +881,21 @@ export function CompraDetalheModal({
 
       {tab === 'pagamento' && (
         <div className={styles.pagamentoPainel}>
+          <div className={styles.pagamentoToolbar}>
+            <p className={styles.pagamentoToolbarHint}>
+              Exporte o resumo de pagamento para enviar ao fornecedor.
+            </p>
+            <Button
+              variant="outline"
+              loading={downloadingPdf}
+              disabled={downloadingPdf || loadingParcelas}
+              onClick={exportarPdfPagamento}
+            >
+              <Download size={16} aria-hidden />
+              Baixar PDF
+            </Button>
+          </div>
+
           <div className={styles.kpiGrid}>
             <div className={styles.kpiCard}>
               <span className={styles.kpiLabel}>Total da compra</span>
@@ -855,17 +951,6 @@ export function CompraDetalheModal({
                   mask="integer"
                   value={setupPagamento.qtdParcelas}
                   onChange={(e) => atualizarQtdSetup(e.target.value)}
-                />
-                <Select
-                  label="Forma de pagamento"
-                  options={[...FORMAS_PAGAMENTO]}
-                  value={setupPagamento.formaPagamento}
-                  onChange={(e) =>
-                    setSetupPagamento({
-                      ...setupPagamento,
-                      formaPagamento: e.target.value,
-                    })
-                  }
                 />
               </div>
 
@@ -938,6 +1023,18 @@ export function CompraDetalheModal({
                             </small>
                           )}
                       </div>
+                      <Select
+                        label="Forma de pagamento"
+                        options={[...FORMAS_PAGAMENTO]}
+                        value={parcela.formaPagamento || 'Pix'}
+                        onChange={(e) =>
+                          atualizarSetupParcela(
+                            index,
+                            'formaPagamento',
+                            e.target.value,
+                          )
+                        }
+                      />
                       <Select
                         label="Já pago?"
                         options={['Não', 'Sim']}

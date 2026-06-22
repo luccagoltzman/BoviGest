@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Download } from 'lucide-react'
 import {
   Button,
   Card,
@@ -49,6 +50,7 @@ import { ModalViagem } from '../custos/Viagens/ModalViagem'
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
 import { viagensService } from '@/services/viagem.service'
+import { getLogoUrl } from '@/services/theme.service'
 
 interface CompraRow {
   id: number
@@ -121,9 +123,13 @@ export function Compras() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
 
-  const [startDate] = useState('')
-  const [endDate] = useState('')
-  const [condicaoGadoFiltro] = useState('')
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [condicaoGadoFiltro, setCondicaoGadoFiltro] = useState('')
+  const [filtroFornecedorLabel, setFiltroFornecedorLabel] = useState('')
+  const [filtroFornecedorId, setFiltroFornecedorId] = useState('')
+  const [filtroPagamento, setFiltroPagamento] = useState('')
+  const [exportandoPdfId, setExportandoPdfId] = useState<number | null>(null)
 
   const [fornecedores, setFornecedores] = useState<any[]>([])
   const [fornecedorBusca, setFornecedorBusca] = useState('')
@@ -133,7 +139,6 @@ export function Compras() {
 
   const [pagamento, setPagamento] = useState({
     qtdParcelas: '1',
-    formaPagamento: 'Pix',
     parcelas: [] as ParcelaDraft[],
     contaPagamento: emptyContaPagamento(),
   })
@@ -174,7 +179,6 @@ export function Compras() {
     setFornecedorConta(emptyContaPagamento())
     setPagamento({
       qtdParcelas: '1',
-      formaPagamento: 'Pix',
       parcelas: [],
       contaPagamento: emptyContaPagamento(),
     })
@@ -261,6 +265,85 @@ export function Compras() {
     pagamento.parcelas.length,
   ])
 
+  function selecionarFiltroFornecedor(nome: string) {
+    setFiltroFornecedorLabel(nome)
+    const fornecedor = fornecedores.find((f) => f.nome === nome)
+    setFiltroFornecedorId(fornecedor?.id || '')
+    setPage(1)
+  }
+
+  function limparFiltros() {
+    setStartDate('')
+    setEndDate('')
+    setCondicaoGadoFiltro('')
+    setFiltroFornecedorLabel('')
+    setFiltroFornecedorId('')
+    setFiltroPagamento('')
+    setPage(1)
+  }
+
+  const temFiltros = Boolean(
+    startDate ||
+      endDate ||
+      condicaoGadoFiltro ||
+      filtroFornecedorId ||
+      filtroPagamento,
+  )
+
+  async function exportarPdfPagamento(compra: CompraRow) {
+    try {
+      setExportandoPdfId(compra.id)
+
+      const [parcelas, fornecedor] = await Promise.all([
+        pagamentosComprasService.getByCompraId(compra.id),
+        fornecedoresService.getById(compra.fornecedor_id).catch(() => null),
+      ])
+
+      const subtotal = Number(compra.subtotal || 0)
+      const imposto = Number(compra.valor_imposto || 0)
+      const gta = Number(compra.gta_valor || 0)
+      const viagem = Number(compra.detalhes_custo?.viagem || 0)
+      const total =
+        compra.detalhes_custo?.total ??
+        subtotal + imposto + gta + viagem
+
+      const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
+
+      await gerarCompraPagamentoPdf({
+        compra: {
+          id: compra.id,
+          data: compra.data,
+          quantidade_animais: compra.quantidade_animais,
+          peso_total: compra.peso_total,
+          valor_kg: compra.valor_kg,
+          tipo_gado: compra.tipo_gado,
+          condicao_gado: compra.condicao_gado,
+          observacoes: compra.observacoes,
+          detalhes_custo: {
+            subtotal,
+            imposto,
+            gta,
+            viagem,
+            total,
+          },
+        },
+        fornecedorNome: compra.fornecedor?.nome || fornecedor?.nome || 'Fornecedor',
+        fornecedorDoc: fornecedor?.doc || null,
+        fornecedorConta: fornecedor
+          ? contaPagamentoFromFornecedor(fornecedor)
+          : undefined,
+        parcelas,
+        logoUrl: getLogoUrl(),
+      })
+
+      toast.success('PDF baixado')
+    } catch {
+      toast.error('Erro ao gerar PDF')
+    } finally {
+      setExportandoPdfId(null)
+    }
+  }
+
   function abrirDetalhe(
     compra: CompraRow,
     tab: 'pagamento' | 'dados' = 'pagamento',
@@ -311,10 +394,10 @@ export function Compras() {
         '',
         startDate,
         endDate,
-        condicaoGadoFiltro
+        condicaoGadoFiltro,
+        filtroFornecedorId,
+        filtroPagamento,
       )
-
-      console.log(response)
 
       setCompras(response.data || [])
       setTotal(response.total || 0)
@@ -326,7 +409,14 @@ export function Compras() {
 
   useEffect(() => {
     carregarCompras()
-  }, [page, startDate, endDate, condicaoGadoFiltro])
+  }, [
+    page,
+    startDate,
+    endDate,
+    condicaoGadoFiltro,
+    filtroFornecedorId,
+    filtroPagamento,
+  ])
 
   useEffect(() => {
     async function carregarFornecedores() {
@@ -364,7 +454,6 @@ export function Compras() {
           status: form.status,
         },
         {
-          formaPagamento: pagamento.formaPagamento,
           parcelas: pagamento.parcelas,
           contaPagamento: pagamento.contaPagamento,
         },
@@ -528,6 +617,16 @@ export function Compras() {
       header: 'Ações',
       render: (r: CompraRow) => (
         <div className={tableListStyles.acoesCell}>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            loading={exportandoPdfId === r.id}
+            disabled={exportandoPdfId === r.id}
+            onClick={() => exportarPdfPagamento(r)}
+          >
+            <Download size={14} aria-hidden />
+            PDF
+          </Button>
           <Button
             variant="outline"
             className={tableListStyles.acaoBtn}
@@ -752,18 +851,6 @@ export function Compras() {
               onChange={(e) => atualizarQtdParcelas(e.target.value)}
             />
 
-            <Select
-              label="Forma de pagamento"
-              options={[...FORMAS_PAGAMENTO]}
-              value={pagamento.formaPagamento}
-              onChange={(e) =>
-                setPagamento({
-                  ...pagamento,
-                  formaPagamento: e.target.value,
-                })
-              }
-            />
-
             <ContaPagamentoFields
               className={styles.contaPagamentoSection}
               value={pagamento.contaPagamento}
@@ -796,6 +883,7 @@ export function Compras() {
                   <div className={styles.parcelasTabelaHead}>
                     <span>Parcela</span>
                     <span>Valor (R$)</span>
+                    <span>Forma</span>
                     <span>Já pago?</span>
                     <span>Data</span>
                   </div>
@@ -858,6 +946,18 @@ export function Compras() {
                             </small>
                           )}
                       </div>
+                      <Select
+                        label="Forma de pagamento"
+                        options={[...FORMAS_PAGAMENTO]}
+                        value={parcela.formaPagamento || 'Pix'}
+                        onChange={(e) =>
+                          atualizarParcelaDraft(
+                            index,
+                            'formaPagamento',
+                            e.target.value,
+                          )
+                        }
+                      />
                       <Select
                         label="Status"
                         options={['Não', 'Sim']}
@@ -931,6 +1031,86 @@ export function Compras() {
           />
         }
       >
+        <div className={styles.filters}>
+          <Autocomplete
+            label="Fornecedor"
+            placeholder="Filtrar por fornecedor..."
+            options={fornecedores.map((f) => f.nome)}
+            value={filtroFornecedorLabel}
+            onChange={selecionarFiltroFornecedor}
+          />
+          <Input
+            label="Data inicial"
+            type="date"
+            value={startDate}
+            max={endDate || undefined}
+            onChange={(e) => {
+              setStartDate(e.target.value)
+              setPage(1)
+            }}
+          />
+          <Input
+            label="Data final"
+            type="date"
+            value={endDate}
+            min={startDate || undefined}
+            onChange={(e) => {
+              setEndDate(e.target.value)
+              setPage(1)
+            }}
+          />
+          <Select
+            label="Condição"
+            options={['Todos', 'Vivo', 'Abatido']}
+            value={
+              condicaoGadoFiltro === '1'
+                ? 'Vivo'
+                : condicaoGadoFiltro === '0'
+                  ? 'Abatido'
+                  : 'Todos'
+            }
+            onChange={(e) => {
+              const value = e.target.value
+              setCondicaoGadoFiltro(
+                value === 'Vivo' ? '1' : value === 'Abatido' ? '0' : '',
+              )
+              setPage(1)
+            }}
+          />
+          <Select
+            label="Pagamento"
+            options={[
+              'Todos',
+              'Quitado',
+              'Com pendência',
+              'Sem parcelas',
+            ]}
+            value={
+              filtroPagamento === 'quitado'
+                ? 'Quitado'
+                : filtroPagamento === 'pendente'
+                  ? 'Com pendência'
+                  : filtroPagamento === 'sem_parcelas'
+                    ? 'Sem parcelas'
+                    : 'Todos'
+            }
+            onChange={(e) => {
+              const map: Record<string, string> = {
+                Quitado: 'quitado',
+                'Com pendência': 'pendente',
+                'Sem parcelas': 'sem_parcelas',
+              }
+              setFiltroPagamento(map[e.target.value] || '')
+              setPage(1)
+            }}
+          />
+          {temFiltros && (
+            <Button variant="ghost" onClick={limparFiltros}>
+              Limpar filtros
+            </Button>
+          )}
+        </div>
+
         <Table
           columns={columns}
           data={compras}

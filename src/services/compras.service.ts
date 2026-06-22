@@ -1,4 +1,7 @@
-import { resumoPagamentoCompra } from '@/utils/compraParcelas'
+import {
+  formaPagamentoResumoCompra,
+  resumoPagamentoCompra,
+} from '@/utils/compraParcelas'
 
 import type { CompraParcelaConfig } from '@/utils/compraParcelas'
 
@@ -31,7 +34,6 @@ function getUser() {
 
 
 export type PagamentoCompraInput = {
-  formaPagamento: string
   parcelas: import('@/utils/compraParcelas').ParcelaDraft[]
   contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
 }
@@ -52,7 +54,11 @@ export const comprasService = {
 
     endDate = '',
 
-    condicao = ''
+    condicao = '',
+
+    fornecedorId = '',
+
+    pagamentoStatus = '',
 
   ) {
 
@@ -133,6 +139,30 @@ export const comprasService = {
       if (condicao !== '') {
 
         query = query.eq('condicao_gado', Number(condicao))
+
+      }
+
+
+
+      if (fornecedorId) {
+
+        query = query.eq('fornecedor_id', fornecedorId)
+
+      }
+
+
+
+      if (pagamentoStatus === 'quitado') {
+
+        query = query.eq('pagamento_quitado', true)
+
+      } else if (pagamentoStatus === 'pendente') {
+
+        query = query.eq('pagamento_quitado', false).gt('qtd_parcelas', 0)
+
+      } else if (pagamentoStatus === 'sem_parcelas') {
+
+        query = query.or('qtd_parcelas.is.null,qtd_parcelas.eq.0')
 
       }
 
@@ -359,7 +389,9 @@ export const comprasService = {
 
     const qtdParcelas = pagamento?.parcelas.length || 1
 
-    const formaPagamento = pagamento?.formaPagamento || 'Pix'
+    const formaPagamento = pagamento
+      ? formaPagamentoResumoCompra(pagamento.parcelas)
+      : 'Pix'
 
 
 
@@ -419,7 +451,6 @@ export const comprasService = {
 
       const parcelaConfig: CompraParcelaConfig = {
         parcelas: pagamento.parcelas,
-        formaPagamento,
         contaPagamento: pagamento.contaPagamento,
       }
 
@@ -458,7 +489,9 @@ export const comprasService = {
 
       updatePayload.qtd_parcelas = pagamento.parcelas.length
 
-      updatePayload.forma_pagamento = pagamento.formaPagamento
+      updatePayload.forma_pagamento = formaPagamentoResumoCompra(
+        pagamento.parcelas,
+      )
 
       updatePayload.pagamento_quitado = pagamento.parcelas.every((p) => p.pago)
 
@@ -510,7 +543,6 @@ export const comprasService = {
 
       const parcelaConfig: CompraParcelaConfig = {
         parcelas: pagamento.parcelas,
-        formaPagamento: pagamento.formaPagamento,
         contaPagamento: pagamento.contaPagamento,
       }
 
