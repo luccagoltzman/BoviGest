@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
+import toast from 'react-hot-toast'
 import { PageReveal } from '@/components/ui'
+import { WelcomeModal } from '@/components/WelcomeModal'
+import { AuthService } from '@/services/auth.service'
 import { Sidebar } from './Sidebar'
 import { Header } from './Header'
 import styles from './MainLayout.module.scss'
 
 export function MainLayout() {
+  const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
 
   useEffect(() => {
     document.body.classList.toggle('menu-open', menuOpen)
@@ -27,6 +32,31 @@ export function MainLayout() {
 
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  useEffect(() => {
+    if (AuthService.shouldShowWelcomeModal()) {
+      setWelcomeOpen(true)
+    }
+  }, [])
+
+  useEffect(() => {
+    const intervalId = window.setInterval(async () => {
+      if (!AuthService.isSessionExpired()) return
+
+      await AuthService.logout()
+      toast.error('Sua sessão expirou. Faça login novamente.')
+      navigate('/login', { replace: true })
+    }, 60_000)
+
+    return () => window.clearInterval(intervalId)
+  }, [navigate])
+
+  function fecharBoasVindas() {
+    AuthService.clearWelcomeModalPending()
+    setWelcomeOpen(false)
+  }
+
+  const userName = AuthService.getDisplayName()
 
   return (
     <div className={styles.layout}>
@@ -52,6 +82,12 @@ export function MainLayout() {
           </PageReveal>
         </main>
       </div>
+
+      <WelcomeModal
+        open={welcomeOpen}
+        userName={userName}
+        onClose={fecharBoasVindas}
+      />
     </div>
   )
 }

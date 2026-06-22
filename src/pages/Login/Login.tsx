@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import toast from 'react-hot-toast'
 import { AppLogo } from '@/components/AppLogo'
 import { Button, Input } from '@/components/ui'
 import { AuthService } from '@/services/auth.service'
@@ -24,7 +23,6 @@ export function Login() {
       await AuthService.login(email, password)
       await loadTheme()
       navigate('/dashboard')
-      toast.success('Seja bem-vindo!')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Erro ao logar'
       setError(message)

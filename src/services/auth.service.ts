@@ -4,11 +4,16 @@ import { supabase } from './supabase'
 export interface AuthUser {
   id: string
   email: string
+  nome: string | null
   empresa_id: number | null
   perfil: UserRole | null
 }
 
 const STORAGE_KEY = 'auth_user'
+const SESSION_EXPIRES_KEY = 'auth_session_expires_at'
+const WELCOME_MODAL_KEY = 'show_welcome_modal'
+const SESSION_EXPIRED_NOTICE_KEY = 'auth_session_expired_notice'
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000
 
 function formatAuthError(error: { message?: string }) {
   const msg = (error.message ?? '').toLowerCase()
@@ -36,10 +41,31 @@ function persistUser(user: AuthUser) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(user))
 }
 
+function setSessionExpiry() {
+  localStorage.setItem(
+    SESSION_EXPIRES_KEY,
+    String(Date.now() + SESSION_TTL_MS),
+  )
+}
+
+function clearSessionStorage() {
+  localStorage.removeItem(STORAGE_KEY)
+  localStorage.removeItem(SESSION_EXPIRES_KEY)
+}
+
+async function enforceSessionExpiry() {
+  if (!AuthService.isSessionExpired()) return false
+
+  sessionStorage.setItem(SESSION_EXPIRED_NOTICE_KEY, '1')
+  await supabase.auth.signOut()
+  clearSessionStorage()
+  return true
+}
+
 async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
   let { data: vinculo, error } = await supabase
     .from('usuarios_empresas')
-    .select('empresa_id, status, perfil')
+    .select('empresa_id, status, perfil, nome')
     .eq('user_id', userId)
     .maybeSingle()
 
@@ -54,7 +80,7 @@ async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
 
     const retry = await supabase
       .from('usuarios_empresas')
-      .select('empresa_id, status, perfil')
+      .select('empresa_id, status, perfil, nome')
       .eq('user_id', userId)
       .maybeSingle()
 
@@ -64,23 +90,29 @@ async function loadAuthUser(userId: string, email: string): Promise<AuthUser> {
 
   if (!vinculo || vinculo.status !== 1) {
     await supabase.auth.signOut()
-    localStorage.removeItem(STORAGE_KEY)
+    clearSessionStorage()
     throw new Error('Usuário inativo, sem autorização ou cadastro pendente')
   }
 
   const user: AuthUser = {
     id: userId,
     email,
+    nome: vinculo.nome?.trim() || null,
     empresa_id: vinculo.empresa_id,
     perfil: vinculo.perfil as UserRole,
   }
 
   persistUser(user)
+  setSessionExpiry()
   return user
 }
 
 export const AuthService = {
   async syncSession(): Promise<AuthUser | null> {
+    if (await enforceSessionExpiry()) {
+      return null
+    }
+
     const {
       data: { session },
       error,
@@ -88,8 +120,19 @@ export const AuthService = {
 
     if (error) throw error
     if (!session?.user?.id) {
-      localStorage.removeItem(STORAGE_KEY)
+      clearSessionStorage()
       return null
+    }
+
+    if (AuthService.isSessionExpired()) {
+      sessionStorage.setItem(SESSION_EXPIRED_NOTICE_KEY, '1')
+      await supabase.auth.signOut()
+      clearSessionStorage()
+      return null
+    }
+
+    if (!localStorage.getItem(SESSION_EXPIRES_KEY)) {
+      setSessionExpiry()
     }
 
     const cached = AuthService.getCachedUser()
@@ -114,7 +157,9 @@ export const AuthService = {
     })
     if (error) throw new Error(formatAuthError(error))
 
-    return loadAuthUser(data.user?.id ?? '', data.user?.email ?? email)
+    const user = await loadAuthUser(data.user?.id ?? '', data.user?.email ?? email)
+    AuthService.markWelcomeModalPending()
+    return user
   },
 
   async registerAuthorizedUser(input: {
@@ -150,6 +195,8 @@ export const AuthService = {
       throw new Error('Não foi possível criar a conta. Tente novamente.')
     }
 
+    let user: AuthUser
+
     if (!data.session) {
       const { data: loginData, error: loginError } =
         await supabase.auth.signInWithPassword({
@@ -164,17 +211,24 @@ export const AuthService = {
       }
 
       await usuariosService.completarCadastro(nome)
-      return loadAuthUser(
+      user = await loadAuthUser(
         loginData.user?.id ?? userId,
         loginData.user?.email ?? email,
       )
+    } else {
+      await usuariosService.completarCadastro(nome)
+      user = await loadAuthUser(userId, data.user?.email ?? email)
     }
 
-    await usuariosService.completarCadastro(nome)
-    return loadAuthUser(userId, data.user?.email ?? email)
+    AuthService.markWelcomeModalPending()
+    return user
   },
 
   async me(userId?: string): Promise<AuthUser> {
+    if (await enforceSessionExpiry()) {
+      throw new Error('Sessão expirada')
+    }
+
     if (!userId) {
       const synced = await AuthService.syncSession()
       if (synced) return synced
@@ -189,7 +243,8 @@ export const AuthService = {
   },
 
   logout() {
-    localStorage.removeItem(STORAGE_KEY)
+    clearSessionStorage()
+    sessionStorage.removeItem(WELCOME_MODAL_KEY)
     return supabase.auth.signOut()
   },
 
@@ -204,6 +259,59 @@ export const AuthService = {
 
   getCachedUser(): AuthUser | null {
     const cached = localStorage.getItem(STORAGE_KEY)
-    return cached ? JSON.parse(cached) : null
+    if (!cached) return null
+
+    try {
+      return JSON.parse(cached) as AuthUser
+    } catch {
+      return null
+    }
+  },
+
+  isSessionExpired() {
+    const raw = localStorage.getItem(SESSION_EXPIRES_KEY)
+    if (!raw) return false
+
+    const expiresAt = Number(raw)
+    if (!Number.isFinite(expiresAt)) return false
+
+    return Date.now() >= expiresAt
+  },
+
+  getSessionExpiresAt() {
+    const raw = localStorage.getItem(SESSION_EXPIRES_KEY)
+    if (!raw) return null
+
+    const expiresAt = Number(raw)
+    return Number.isFinite(expiresAt) ? expiresAt : null
+  },
+
+  markWelcomeModalPending() {
+    sessionStorage.setItem(WELCOME_MODAL_KEY, '1')
+  },
+
+  shouldShowWelcomeModal() {
+    return sessionStorage.getItem(WELCOME_MODAL_KEY) === '1'
+  },
+
+  clearWelcomeModalPending() {
+    sessionStorage.removeItem(WELCOME_MODAL_KEY)
+  },
+
+  consumeSessionExpiredNotice() {
+    const shouldNotify =
+      sessionStorage.getItem(SESSION_EXPIRED_NOTICE_KEY) === '1'
+    sessionStorage.removeItem(SESSION_EXPIRED_NOTICE_KEY)
+    return shouldNotify
+  },
+
+  getDisplayName(user?: AuthUser | null) {
+    const resolved = user ?? AuthService.getCachedUser()
+    if (!resolved) return 'usuário'
+
+    if (resolved.nome?.trim()) return resolved.nome.trim()
+
+    const emailPart = resolved.email.split('@')[0]?.trim()
+    return emailPart || 'usuário'
   },
 }
