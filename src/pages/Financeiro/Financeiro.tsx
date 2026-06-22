@@ -10,14 +10,16 @@ import {
   tableListStyles,
 } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
-import { pagamentosComprasService } from '@/services/pagamentosCompras.service'
 import {
-  contaPagamentoFromFornecedor,
-  contaPagamentoFromParcela,
-  contaPagamentoTemDados,
+  financeiroService,
+  type FinanceiroLancamento,
+} from '@/services/financeiro.service'
+import { custosOperacionaisService } from '@/services/centroCusto.service'
+import {
   contaPagamentoToDetailItems,
   type ContaPagamentoData,
 } from '@/utils/contaPagamento'
+import { parseCurrencyInput } from '@/utils/masks'
 import {
   ArrowRight,
   BadgePercent,
@@ -43,90 +45,8 @@ interface ContaRow {
   dataPagamento?: string
   parcelaId?: number
   contaPagamento?: ContaPagamentoData
+  origem?: FinanceiroLancamento['origem']
 }
-
-const mock: ContaRow[] = [
-  {
-    id: '1',
-    descricao: 'Compra gado - Fazenda São João',
-    tipo: 'pagar',
-    valor: 108000,
-    vencimento: '2025-02-25',
-    status: 'Pendente',
-  },
-  {
-    id: '2',
-    descricao: 'Compra gado - Fazenda Boi Gordo (parcela 1/3)',
-    tipo: 'pagar',
-    valor: 54000,
-    vencimento: '2025-02-22',
-    status: 'Pendente',
-  },
-  {
-    id: '3',
-    descricao: 'Abate - Lote L-001',
-    tipo: 'pagar',
-    valor: 6750,
-    vencimento: '2025-02-20',
-    status: 'Pago',
-  },
-  {
-    id: '4',
-    descricao: 'Transporte - Viagem #12',
-    tipo: 'pagar',
-    valor: 1250,
-    vencimento: '2025-02-18',
-    status: 'Pago',
-  },
-  {
-    id: '5',
-    descricao: 'Venda - Super Carnes Ltda',
-    tipo: 'receber',
-    valor: 40000,
-    vencimento: '2025-02-28',
-    status: 'Pendente',
-  },
-  {
-    id: '6',
-    descricao: 'Venda - Açougue Central',
-    tipo: 'receber',
-    valor: 19200,
-    vencimento: '2025-02-20',
-    status: 'Pago',
-  },
-  {
-    id: '7',
-    descricao: 'Venda - Frigorífico Regional (parcela 2/3)',
-    tipo: 'receber',
-    valor: 26667,
-    vencimento: '2025-03-15',
-    status: 'Pendente',
-  },
-  {
-    id: '8',
-    descricao: 'Energia - Conta de luz',
-    tipo: 'pagar',
-    valor: 1200,
-    vencimento: '2025-02-18',
-    status: 'Pago',
-  },
-  {
-    id: '9',
-    descricao: 'Venda - Mercado do Produtor',
-    tipo: 'receber',
-    valor: 28800,
-    vencimento: '2025-02-14',
-    status: 'Pago',
-  },
-  {
-    id: '10',
-    descricao: 'Venda - Distribuidora Carnes Norte',
-    tipo: 'receber',
-    valor: 51200,
-    vencimento: '2025-02-10',
-    status: 'Atrasado',
-  },
-]
 
 type TabId = 'resumo' | 'pagar' | 'receber' | 'lancar'
 
@@ -154,26 +74,10 @@ function normalizeText(value: string) {
     .replace(/\p{Diacritic}/gu, '')
 }
 
-function getDefaultPeriodFromRows(rows: ContaRow[]) {
-  const dates = rows
-    .map((r) => r.vencimento)
-    .filter(Boolean)
-    .map((d) => new Date(`${d.slice(0, 10)}T12:00:00`).getTime())
-    .filter((t) => Number.isFinite(t))
-    .sort((a, b) => a - b)
-
-  if (dates.length === 0) {
-    const now = new Date()
-    const start = new Date(now.getFullYear(), now.getMonth(), 1)
-    const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
-    return {
-      startDate: start.toISOString().slice(0, 10),
-      endDate: end.toISOString().slice(0, 10),
-    }
-  }
-
-  const start = new Date(dates[0])
-  const end = new Date(dates[dates.length - 1])
+function getDefaultPeriod() {
+  const now = new Date()
+  const start = new Date(now.getFullYear(), now.getMonth(), 1)
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0)
   return {
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
@@ -183,9 +87,9 @@ function getDefaultPeriodFromRows(rows: ContaRow[]) {
 export function Financeiro() {
   const [detalhe, setDetalhe] = useState<ContaRow | null>(null)
   const [tab, setTab] = useState<TabId>('resumo')
-  const [contasPagar, setContasPagar] = useState<ContaRow[]>([])
-  const [loadingContas, setLoadingContas] = useState(false)
-  const defaultPeriod = useMemo(() => getDefaultPeriodFromRows(mock), [])
+  const [rows, setRows] = useState<ContaRow[]>([])
+  const [loading, setLoading] = useState(false)
+  const defaultPeriod = useMemo(() => getDefaultPeriod(), [])
   const [startDate, setStartDate] = useState(defaultPeriod.startDate)
   const [endDate, setEndDate] = useState(defaultPeriod.endDate)
   const [search, setSearch] = useState('')
@@ -195,62 +99,80 @@ export function Financeiro() {
   const [statusFiltro, setStatusFiltro] = useState<
     'todos' | 'pendente' | 'pago' | 'atrasado'
   >('todos')
+  const [despesaForm, setDespesaForm] = useState({
+    descricao: '',
+    valor: '',
+    vencimento: new Date().toISOString().slice(0, 10),
+    categoria: '',
+  })
+  const [salvandoDespesa, setSalvandoDespesa] = useState(false)
 
-  async function carregarContasPagar() {
+  async function carregarLancamentos() {
     try {
-      setLoadingContas(true)
+      setLoading(true)
 
-      const parcelas = await pagamentosComprasService.listarParaFinanceiro(
+      const lancamentos = await financeiroService.listarLancamentos(
         startDate,
         endDate,
       )
 
-      setContasPagar(
-        parcelas.map((parcela) => {
-          const fornecedor =
-            parcela.compra?.fornecedor?.nome || 'Fornecedor não informado'
-          const parcelaLabel =
-            parcela.total_parcelas > 1
-              ? ` (parcela ${parcela.numero_parcela}/${parcela.total_parcelas})`
-              : ''
-          const contaSalva = contaPagamentoFromParcela(parcela)
-          const contaFornecedor = contaPagamentoFromFornecedor(
-            parcela.compra?.fornecedor,
-          )
-          const contaPagamento = contaPagamentoTemDados(contaSalva)
-            ? contaSalva
-            : contaFornecedor
-
-          return {
-            id: `compra-parcela-${parcela.id}`,
-            descricao: `Compra gado - ${fornecedor}${parcelaLabel} · ${formatCurrency(Number(parcela.valor || 0))}`,
-            tipo: 'pagar' as const,
-            valor: Number(parcela.valor || 0),
-            vencimento: parcela.data_vencimento,
-            dataPagamento: parcela.data_pagamento || undefined,
-            status: parcela.statusExibicao,
-            formaPagamento: parcela.forma_pagamento || undefined,
-            parcelaId: parcela.id,
-            contaPagamento,
-          }
-        }),
-      )
+      setRows(lancamentos)
     } catch {
-      toast.error('Erro ao carregar contas a pagar')
-      setContasPagar([])
+      toast.error('Erro ao carregar lançamentos financeiros')
+      setRows([])
     } finally {
-      setLoadingContas(false)
+      setLoading(false)
     }
   }
 
   useEffect(() => {
-    carregarContasPagar()
+    carregarLancamentos()
   }, [startDate, endDate])
 
-  const rows = useMemo(
-    () => [...contasPagar, ...mock.filter((r) => r.tipo === 'receber')],
-    [contasPagar],
-  )
+  async function salvarDespesa() {
+    const valor = parseCurrencyInput(despesaForm.valor)
+
+    if (!despesaForm.descricao.trim()) {
+      toast.error('Informe a descrição')
+      return
+    }
+
+    if (valor <= 0) {
+      toast.error('Informe um valor válido')
+      return
+    }
+
+    if (!despesaForm.vencimento) {
+      toast.error('Informe a data')
+      return
+    }
+
+    try {
+      setSalvandoDespesa(true)
+
+      await custosOperacionaisService.create({
+        data: despesaForm.vencimento,
+        categoria: despesaForm.categoria.trim() || 'Despesa',
+        descricao: despesaForm.descricao.trim(),
+        valor,
+      })
+
+      toast.success('Despesa lançada')
+      setDespesaForm({
+        descricao: '',
+        valor: '',
+        vencimento: new Date().toISOString().slice(0, 10),
+        categoria: '',
+      })
+      await carregarLancamentos()
+      setTab('pagar')
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : 'Erro ao lançar despesa'
+      toast.error(msg)
+    } finally {
+      setSalvandoDespesa(false)
+    }
+  }
 
   const filtered = useMemo(() => {
     const startTs = startDate
@@ -480,13 +402,13 @@ export function Financeiro() {
           </Button>
           <Button
             onClick={() => {
-              carregarContasPagar()
+              carregarLancamentos()
               toast.success('Dados atualizados')
             }}
-            disabled={loadingContas}
+            disabled={loading}
           >
             <RefreshCw size={16} style={{ marginRight: 6 }} />
-            {loadingContas ? 'Atualizando...' : 'Atualizar'}
+            {loading ? 'Atualizando...' : 'Atualizar'}
           </Button>
         </div>
       </div>
@@ -561,6 +483,7 @@ export function Financeiro() {
                     columns={columns}
                     data={filtered}
                     keyExtractor={(r) => r.id}
+                    loading={loading}
                   />
                 </div>
                 <div className={styles.cardFooter}>
@@ -587,14 +510,15 @@ export function Financeiro() {
           <div className={styles.sectionGrid}>
             <Card title="Contas a pagar" className={styles.sectionFull}>
               <p className={styles.sectionIntro}>
-                Parcelas de compras de gado. Use filtros acima para ajustar o período.
+                Parcelas de compras, despesas operacionais e abates no período
+                filtrado.
               </p>
               <div className={styles.tableWrap}>
                 <Table
                   columns={columns}
                   data={filtered.filter((r) => r.tipo === 'pagar')}
                   keyExtractor={(r) => r.id}
-                  loading={loadingContas}
+                  loading={loading}
                 />
               </div>
             </Card>
@@ -605,13 +529,14 @@ export function Financeiro() {
           <div className={styles.sectionGrid}>
             <Card title="Contas a receber" className={styles.sectionFull}>
               <p className={styles.sectionIntro}>
-                Recebimentos normalmente vinculados às vendas.
+                Vendas registradas e recebimentos de clientes no período.
               </p>
               <div className={styles.tableWrap}>
                 <Table
                   columns={columns}
                   data={filtered.filter((r) => r.tipo === 'receber')}
                   keyExtractor={(r) => r.id}
+                  loading={loading}
                 />
               </div>
             </Card>
@@ -622,21 +547,53 @@ export function Financeiro() {
           <div className={styles.sectionGrid}>
             <Card title="Lançar despesa" className={styles.sectionFull}>
               <p className={styles.sectionIntro}>
-                Ainda em fase de implementação (hoje é mock). O layout já segue o
-                padrão do sistema.
+                Registra uma despesa operacional. Ela aparecerá em contas a pagar
+                no período da data informada.
               </p>
               <div className={styles.formGrid}>
-                <Input label="Descrição" placeholder="Ex.: Transporte - Viagem #12" />
-                <Input label="Valor (R$)" mask="currency" />
-                <Input label="Vencimento" type="date" />
-                <Input label="Categoria" placeholder="Transporte, abate, energia..." />
+                <Input
+                  label="Descrição"
+                  placeholder="Ex.: Transporte - Viagem #12"
+                  value={despesaForm.descricao}
+                  onChange={(e) =>
+                    setDespesaForm({ ...despesaForm, descricao: e.target.value })
+                  }
+                />
+                <Input
+                  label="Valor (R$)"
+                  mask="currency"
+                  value={despesaForm.valor}
+                  onChange={(e) =>
+                    setDespesaForm({ ...despesaForm, valor: e.target.value })
+                  }
+                />
+                <Input
+                  label="Data"
+                  type="date"
+                  value={despesaForm.vencimento}
+                  onChange={(e) =>
+                    setDespesaForm({
+                      ...despesaForm,
+                      vencimento: e.target.value,
+                    })
+                  }
+                />
+                <Input
+                  label="Categoria"
+                  placeholder="Transporte, abate, energia..."
+                  value={despesaForm.categoria}
+                  onChange={(e) =>
+                    setDespesaForm({ ...despesaForm, categoria: e.target.value })
+                  }
+                />
               </div>
               <div className={styles.formActions}>
                 <Button
-                  onClick={() => toast('Em breve: salvar no banco')}
+                  onClick={salvarDespesa}
+                  disabled={salvandoDespesa}
                   className={styles.btn}
                 >
-                  Lançar
+                  {salvandoDespesa ? 'Salvando...' : 'Lançar'}
                 </Button>
               </div>
             </Card>

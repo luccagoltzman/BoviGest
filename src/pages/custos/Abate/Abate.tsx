@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import {
+  AddNewButton,
   Button,
   Card,
   Input,
@@ -31,6 +32,7 @@ import {
 import { PesoMedioResumo } from '@/pages/Compras/PesoMedioResumo'
 import { calcularPesoMedioAnimal, formatWeightKg } from '@/utils/masks'
 import { RomaneioModal } from './RomaneioModal'
+import { AbateRelatorio } from './AbateRelatorio'
 import styles from './Abate.module.scss'
 
 interface AbateRow {
@@ -337,6 +339,7 @@ export function Abate() {
   const [total, setTotal] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
 
+  const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editForm, setEditForm] = useState(emptyForm)
   const [showEstoqueModal, setShowEstoqueModal] = useState(false)
@@ -370,6 +373,11 @@ export function Abate() {
   useEffect(() => {
     loadAbates()
   }, [page])
+
+  function closeCreate() {
+    setShowCreate(false)
+    setForm(emptyForm())
+  }
 
   function abrirConfirmacaoEstoque() {
     if (!isFormValid) {
@@ -424,7 +432,7 @@ export function Abate() {
         })
       }
 
-      setForm(emptyForm())
+      closeCreate()
       setViscerasDefaultValues(null)
       await loadAbates()
     } catch {
@@ -619,29 +627,41 @@ export function Abate() {
         <div>
           <h1 className="page-title">Custos de abate</h1>
           <p className={styles.subtitle}>
-            Registre o abate com peso vivo, peso de carcaça, retalho e desconto por
-            couro. Ao registrar, as peças entram em estoque (animais × 2 bandas),
-            as vísceras (1 por animal) e o retalho informado.
+            Histórico, romaneio e relatório de pagamentos no abatedouro.
           </p>
         </div>
       </header>
 
-      <Card title="Registrar abate">
-        <div className={styles.formCard}>
-          <AbateFormFields form={form} onChange={setForm} />
-          <div className={styles.actions}>
-            <Button
-              loading={saving}
-              onClick={handleCreate}
-              disabled={!isFormValid || saving}
-            >
-              Registrar abate
-            </Button>
+      {showCreate && (
+        <Card title="Novo abate">
+          <div className={styles.formCard}>
+            <AbateFormFields form={form} onChange={setForm} />
+            <div className={styles.actions}>
+              <Button
+                loading={saving}
+                onClick={handleCreate}
+                disabled={!isFormValid || saving}
+              >
+                Registrar abate
+              </Button>
+              <Button variant="ghost" onClick={closeCreate} disabled={saving}>
+                Cancelar
+              </Button>
+            </div>
           </div>
-        </div>
-      </Card>
+        </Card>
+      )}
 
-      <Card title="Histórico de abates">
+      <Card
+        title="Histórico de abates"
+        action={
+          <AddNewButton
+            open={showCreate}
+            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
+            label="Novo abate"
+          />
+        }
+      >
         <Table
           columns={columns}
           data={abates}
@@ -653,6 +673,8 @@ export function Abate() {
           onPageChange={setPage}
         />
       </Card>
+
+      <AbateRelatorio />
 
       <ProcessamentoModal
         open={showEstoqueModal}

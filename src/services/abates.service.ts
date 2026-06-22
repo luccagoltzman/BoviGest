@@ -144,4 +144,39 @@ export const abatesService = {
       throw error
     }
   },
+
+  async listarRelatorio(startDate = '', endDate = '') {
+    const user = getUser()
+
+    let query = supabase
+      .from('abates')
+      .select(
+        `
+        *,
+        romaneio:romaneios (
+          data_romaneio,
+          fornecedor_nome,
+          fornecedor:fornecedores (
+            nome
+          )
+        )
+      `,
+      )
+      .eq('empresa_id', user.empresa_id)
+      .order('data_abate', { ascending: true })
+
+    if (startDate) {
+      query = query.gte('data_abate', startDate)
+    }
+
+    if (endDate) {
+      query = query.lte('data_abate', endDate)
+    }
+
+    const { data, error } = await query
+
+    if (error) throw error
+
+    return data || []
+  },
 }

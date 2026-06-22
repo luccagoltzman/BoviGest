@@ -155,6 +155,101 @@
   color: $color-warning;
 }
 
+.cardIcon {
+  color: $color-primary;
+}
+
+.relatorioIntro {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: $color-text-muted;
+  line-height: 1.45;
+  max-width: 820px;
+}
+
+.relatorioToolbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+  align-items: end;
+  margin-bottom: 1rem;
+}
+
+.relatorioActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  align-items: center;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+}
+
+.relatorioKpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.relatorioKpi {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.85rem 1rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-border, 0.85);
+  background: $color-surface-soft;
+
+  span {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: $color-text-muted;
+  }
+
+  strong {
+    font-size: 1.05rem;
+    color: $color-primary-dark;
+  }
+}
+
+.relatorioKpiDestaque {
+  background: linear-gradient(
+    135deg,
+    rgba($color-primary, 0.1),
+    rgba($color-primary, 0.04)
+  );
+  border-color: rgba($color-primary, 0.25);
+
+  strong {
+    font-size: 1.15rem;
+  }
+}
+
+.relatorioTableWrap {
+  overflow-x: auto;
+}
+
+.relatorioRodape {
+  margin: 0.85rem 0 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: $radius-sm;
+  background: rgba($color-primary, 0.06);
+  color: $color-primary-dark;
+  font-size: 0.88rem;
+}
+
+.relatorioVazio {
+  margin: 0.5rem 0 0;
+  color: $color-text-muted;
+  font-size: 0.9rem;
+}
+
 @media (max-width: 768px) {
   .formGrid,
   .summaryGrid {
