@@ -575,7 +575,7 @@ export function Vendas() {
           peso_bruto_kg: 0,
           peso_liquido_kg: 0,
           quantidade_pecas: 0,
-          agrupamento_id: item.agrupamento_id || null,
+          agrupamento_id: agrupamentoIdValido(item.agrupamento_id),
         }
       }
 
@@ -585,6 +585,19 @@ export function Vendas() {
     }
 
     return Object.values(mapa)
+  }
+
+  function agrupamentoIdValido(id: unknown): string | null {
+    if (typeof id !== 'string' || !id.trim()) return null
+
+    const uuid =
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+    return uuid.test(id) ? id : null
+  }
+
+  function resolverAgrupamentoId(id: unknown) {
+    return agrupamentoIdValido(id) ?? crypto.randomUUID()
   }
 
   async function gerarMovimentacaoEstoqueAutomatica(
@@ -613,7 +626,7 @@ export function Vendas() {
         const casado = isCasado(item.tipo_corte)
 
         if (casado) {
-          const agrupamentoId = item.agrupamento_id || crypto.randomUUID()
+          const agrupamentoId = resolverAgrupamentoId(item.agrupamento_id)
 
           return (item.composicoes || []).map((c: any) => {
             const peso = parseDecimalInput(String(c.peso_kg || ''))
@@ -630,20 +643,18 @@ export function Vendas() {
         }
 
         if (banda) {
-          const baseAgrup = item.agrupamento_id || crypto.randomUUID()
+          const agrupamentoId = resolverAgrupamentoId(item.agrupamento_id)
 
           return (item.composicoes || []).map((c: any) => {
             const peso = parseDecimalInput(String(c.peso_kg || ''))
             totalPeso += peso
-            const match = String(c.tipo_corte || '').match(/(\d+)\s*$/)
-            const suffix = match ? match[1] : '1'
 
             return {
               corte: normalizeCorteEstoque(c.tipo_corte),
               peso_bruto_kg: peso,
               peso_liquido_kg: peso,
               quantidade_pecas: 1,
-              agrupamento_id: `${baseAgrup}-b${suffix}`,
+              agrupamento_id: agrupamentoId,
             }
           })
         }
