@@ -38,4 +38,15 @@ export const REGRA_CASADO =
 /** Carnes em excesso do processamento — venda por peso (kg) */
 export const CORTE_RETALHO = 'Retalho'
 export const REGRA_RETALHO =
-  'Retalho = excesso de carnes do boi. Informe o peso (kg) e o valor por kg.'
+  'Retalho = excesso de carnes do boi. Informe a quantidade de peças, o peso (kg) de cada uma e o valor por kg.'
+
+/** Cortes vendidos por peso, peça a peça (mesmo fluxo de BD/casado) */
+export const CORTES_PECA_SIMPLES = [
+  'Dianteiro',
+  'Traseiro',
+  'Costela',
+  CORTE_RETALHO,
+] as const
+
+export const REGRA_PECA_SIMPLES =
+  'Informe a quantidade de peças e o peso (kg) de cada uma.'

@@ -1,4 +1,4 @@
-import { PECAS_POR_LADO_CASADO } from '@/constants/cortes'
+import { PECAS_POR_LADO_CASADO, CORTES_PECA_SIMPLES } from '@/constants/cortes'
 import { parseCurrencyInput, parseDecimalInput, parseIntegerInput } from '@/utils/masks'
 
 export type ComposicaoItem = {
@@ -31,8 +31,23 @@ export function isRetalhoCorte(tipo: string) {
   return t === 'retalho' || t.includes('retalho')
 }
 
+export function isCortePecaSimples(tipo: string) {
+  if (
+    isCorteBanda(tipo) ||
+    isCorteCasado(tipo) ||
+    isVisceraCorte(tipo)
+  ) {
+    return false
+  }
+
+  const normalizado = (tipo || '').trim().toLowerCase()
+  return CORTES_PECA_SIMPLES.some(
+    (corte) => corte.toLowerCase() === normalizado,
+  )
+}
+
 export function isCorteComComposicao(tipo: string) {
-  return isCorteBanda(tipo) || isCorteCasado(tipo)
+  return isCorteBanda(tipo) || isCorteCasado(tipo) || isCortePecaSimples(tipo)
 }
 
 /** 5 casados → 10 dianteiros + 10 traseiros */
@@ -90,6 +105,108 @@ export function normalizeCorteEstoque(tipoCorte: string) {
 
 export function buildComposicoesBandaVazia(): ComposicaoItem[] {
   return syncComposicoesBanda(0, [])
+}
+
+export function buildComposicoesPecasVazia(tipoCorte: string): ComposicaoItem[] {
+  return syncComposicoesPecas(0, tipoCorte, [])
+}
+
+/**
+ * Gera N peças do mesmo corte, preservando pesos já digitados.
+ */
+export function syncComposicoesPecas(
+  quantidade: number,
+  tipoCorte: string,
+  composicoes: ComposicaoItem[] = [],
+): ComposicaoItem[] {
+  const qty = Math.max(0, quantidade)
+  if (qty === 0) return []
+
+  const baseName = (tipoCorte || 'Peça').trim()
+  const pesosExistentes = composicoes.map((c) => c.peso_kg ?? '')
+
+  const result: ComposicaoItem[] = []
+
+  for (let i = 0; i < qty; i++) {
+    result.push({
+      tipo_corte: `${baseName} ${i + 1}`,
+      peso_kg: pesosExistentes[i] ?? '',
+    })
+  }
+
+  return result
+}
+
+export function formatResumoPecas(
+  quantidade: number,
+  tipoCorte: string,
+  composicoes: ComposicaoItem[] = [],
+) {
+  const nome = (tipoCorte || 'Peça').trim()
+  const nomeLower = nome.toLowerCase()
+  let resumo = `${quantidade} ${nomeLower}${quantidade !== 1 ? 's' : ''}`
+
+  const peso = pesoTotalComposicao(composicoes)
+  if (peso > 0) {
+    resumo += ` · ${peso.toFixed(2)} kg`
+  }
+
+  return resumo
+}
+
+/** Converte venda legada (peso total sem composições) para o formulário por peça. */
+export function hydratePecaSimplesParaForm(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  composicoes?: ComposicaoItem[]
+}) {
+  if (!isCortePecaSimples(item.tipo_corte || '')) return item
+
+  const comps = item.composicoes || []
+  if (comps.length > 0) {
+    const qty =
+      parseIntegerInput(String(item.peso_total_kg ?? '')) || comps.length
+
+    return {
+      ...item,
+      peso_total_kg: qty > 0 ? String(qty) : '',
+      composicoes: syncComposicoesPecas(qty, item.tipo_corte || '', comps),
+    }
+  }
+
+  const peso = parseDecimalInput(String(item.peso_total_kg ?? ''))
+  if (peso <= 0) {
+    return {
+      ...item,
+      peso_total_kg: '',
+      composicoes: buildComposicoesPecasVazia(item.tipo_corte || ''),
+    }
+  }
+
+  return {
+    ...item,
+    peso_total_kg: '1',
+    composicoes: syncComposicoesPecas(1, item.tipo_corte || '', [
+      { tipo_corte: `${item.tipo_corte} 1`, peso_kg: String(peso) },
+    ]),
+  }
+}
+
+export function pesoTotalItemMovimentacao(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  composicoes?: ComposicaoItem[]
+}) {
+  if (isCorteComComposicao(item.tipo_corte || '')) {
+    const fromComps = pesoTotalComposicao(item.composicoes)
+    if (fromComps > 0) return fromComps
+  }
+
+  if (isVisceraCorte(item.tipo_corte || '')) {
+    return parseIntegerInput(String(item.peso_total_kg ?? ''))
+  }
+
+  return parseDecimalInput(String(item.peso_total_kg ?? ''))
 }
 
 /**
@@ -208,6 +325,7 @@ export function labelQuantidadeCorte(tipo: string) {
   if (isCorteCasado(tipo)) return 'Quantidade'
   if (isCorteBanda(tipo)) return 'Quantidade de bandas'
   if (isVisceraCorte(tipo)) return 'Unidades'
+  if (isCortePecaSimples(tipo)) return 'Quantidade de peças'
   return 'Peso (kg)'
 }
 
@@ -217,7 +335,12 @@ export function labelValorUnitarioCorte(tipo: string) {
 }
 
 export function corteUsesQuantidade(tipo: string) {
-  return isCorteCasado(tipo) || isCorteBanda(tipo) || isVisceraCorte(tipo)
+  return (
+    isCorteCasado(tipo) ||
+    isCorteBanda(tipo) ||
+    isVisceraCorte(tipo) ||
+    isCortePecaSimples(tipo)
+  )
 }
 
 export function calcularValorTotalViscera(

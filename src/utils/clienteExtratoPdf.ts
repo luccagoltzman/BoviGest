@@ -10,7 +10,7 @@ import {
   drawSectionSubtitle,
   drawSectionTitle,
 } from '@/utils/pdfTheme'
-import { isCorteBanda, isCorteCasado, isVisceraCorte, pesoTotalComposicao } from '@/utils/corteComposicao'
+import { isCorteBanda, isCorteCasado, isCortePecaSimples, isVisceraCorte, pesoTotalComposicao } from '@/utils/corteComposicao'
 
 interface Composicao {
   tipo_corte: string
@@ -190,6 +190,15 @@ function formatPesoItem(item: MovimentacaoItem) {
   }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
+  }
+  if (isCortePecaSimples(item.tipo_corte) && (item.composicoes || []).length) {
+    const composicoes = item.composicoes || []
+    const peso = pesoTotalComposicao(composicoes)
+    const qty = Number(item.peso_total_kg || 0) || composicoes.length
+    if (peso > 0) {
+      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} peça${qty !== 1 ? 's' : ''})` : ''}`
+    }
+    return qty > 0 ? `${qty} peça${qty !== 1 ? 's' : ''}` : '0 kg'
   }
   return `${Number(item.peso_total_kg || 0).toFixed(2)} kg`
 }

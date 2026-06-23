@@ -16,8 +16,10 @@ import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
 import {
   formatResumoBanda,
   formatResumoCasado,
+  formatResumoPecas,
   isCorteBanda,
   isCorteCasado,
+  isCortePecaSimples,
   isVisceraCorte,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
@@ -395,6 +397,9 @@ export function ClienteExtratoModal({
           } else {
             acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
           }
+          acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
+        } else if (isCortePecaSimples(corte) && item.composicoes?.length) {
+          acc[corte].quantidade += Number(item.peso_total_kg ?? 0) || item.composicoes.length
           acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
         } else {
           acc[corte].quantidade += 1
@@ -923,7 +928,11 @@ export function ClienteExtratoModal({
                         const comp = getBandaComposicao(item)
                         const casado = isCorteCasado(item.tipo_corte)
                         const banda = isCorteBanda(item.tipo_corte)
+                        const pecaSimples = isCortePecaSimples(item.tipo_corte)
                         const visceras = isVisceraCorte(item.tipo_corte)
+                        const qtyPecas =
+                          Number(item.peso_total_kg || 0) ||
+                          (item.composicoes?.length ?? 0)
                         return (
                           <span key={idx} className={styles.itemTag}>
                             {casado
@@ -937,6 +946,12 @@ export function ClienteExtratoModal({
                                       (item.composicoes?.length ? 1 : 0),
                                     item.composicoes,
                                   )
+                                : pecaSimples && item.composicoes?.length
+                                  ? formatResumoPecas(
+                                      qtyPecas,
+                                      item.tipo_corte,
+                                      item.composicoes,
+                                    )
                               : `${item.tipo_corte} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
                             {comp && !casado && !banda && (
                               <span className={styles.itemComposicao}>
