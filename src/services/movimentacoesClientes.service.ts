@@ -11,6 +11,87 @@ function getUser() {
   return user
 }
 
+export type ResumoClienteVendas = {
+  cliente_id: string
+  cliente: {
+    id: string
+    nome: string
+    nome_empresa?: string | null
+    telefone?: string | null
+  }
+  ultimaCompra: string
+  qtdVendas: number
+  qtdItens: number
+  cortes: string[]
+  valorTotal: number
+}
+
+function agregarResumoPorCliente(
+  movimentacoes: Array<{
+    cliente_id: string
+    data_movimentacao: string
+    valor_total: number
+    cliente?:
+      | ResumoClienteVendas['cliente']
+      | ResumoClienteVendas['cliente'][]
+    itens?: Array<{ tipo_corte?: string }>
+  }>,
+): ResumoClienteVendas[] {
+  const map = new Map<string, ResumoClienteVendas>()
+
+  for (const mov of movimentacoes) {
+    const clienteId = mov.cliente_id
+    if (!clienteId) continue
+
+    const clienteRaw = mov.cliente as
+      | ResumoClienteVendas['cliente']
+      | ResumoClienteVendas['cliente'][]
+      | undefined
+    const clienteInfo = Array.isArray(clienteRaw) ? clienteRaw[0] : clienteRaw
+
+    const existente = map.get(clienteId)
+    const cortesSet = new Set(existente?.cortes ?? [])
+    const qtdItensMov = mov.itens?.length ?? 0
+
+    for (const item of mov.itens ?? []) {
+      if (item.tipo_corte) cortesSet.add(item.tipo_corte)
+    }
+
+    if (!existente) {
+      map.set(clienteId, {
+        cliente_id: clienteId,
+        cliente: clienteInfo ?? {
+          id: clienteId,
+          nome: 'Cliente',
+        },
+        ultimaCompra: mov.data_movimentacao,
+        qtdVendas: 1,
+        qtdItens: qtdItensMov,
+        cortes: Array.from(cortesSet),
+        valorTotal: Number(mov.valor_total ?? 0),
+      })
+      continue
+    }
+
+    if (mov.data_movimentacao > existente.ultimaCompra) {
+      existente.ultimaCompra = mov.data_movimentacao
+    }
+
+    existente.qtdVendas += 1
+    existente.qtdItens += qtdItensMov
+    existente.cortes = Array.from(cortesSet)
+    existente.valorTotal += Number(mov.valor_total ?? 0)
+
+    if (clienteInfo?.nome) {
+      existente.cliente = clienteInfo
+    }
+  }
+
+  return Array.from(map.values()).sort((a, b) =>
+    b.ultimaCompra.localeCompare(a.ultimaCompra),
+  )
+}
+
 export const movimentacoesClientesService = {
   async getAll(
     page = 1,
@@ -306,6 +387,108 @@ export const movimentacoesClientesService = {
       throw error
     }
   },
+  async listarResumoPorCliente(
+    page = 1,
+    limit = 10,
+    search = '',
+    startDate = '',
+    endDate = '',
+    clienteId = '',
+  ) {
+    try {
+      const user = getUser()
+
+      let query = supabase
+        .from('movimentacoes_clientes')
+        .select(
+          `
+          id,
+          cliente_id,
+          data_movimentacao,
+          valor_total,
+          cliente:clientes(
+            id,
+            nome,
+            nome_empresa,
+            telefone
+          ),
+          itens:movimentacao_itens(
+            tipo_corte,
+            peso_total_kg
+          )
+        `,
+        )
+        .eq('empresa_id', user.empresa_id)
+        .order('data_movimentacao', { ascending: false })
+
+      if (clienteId) {
+        query = query.eq('cliente_id', clienteId)
+      } else if (search.trim()) {
+        const termo = search.trim()
+        const { data: clientesMatch, error: clientesError } = await supabase
+          .from('clientes')
+          .select('id')
+          .eq('empresa_id', user.empresa_id)
+          .or(
+            `nome.ilike.%${termo}%,nome_empresa.ilike.%${termo}%,doc.ilike.%${termo}%`,
+          )
+
+        if (clientesError) {
+          throw clientesError
+        }
+
+        const ids = (clientesMatch || []).map((c) => c.id)
+
+        if (!ids.length) {
+          return {
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          }
+        }
+
+        query = query.in('cliente_id', ids)
+      }
+
+      if (startDate) {
+        query = query.gte('data_movimentacao', startDate)
+      }
+
+      if (endDate) {
+        query = query.lte('data_movimentacao', endDate)
+      }
+
+      const { data, error } = await query
+
+      if (error) {
+        throw error
+      }
+
+      const resumo = agregarResumoPorCliente(data || [])
+      const total = resumo.length
+      const totalPages = Math.ceil(total / limit) || 0
+      const from = (page - 1) * limit
+
+      return {
+        data: resumo.slice(from, from + limit),
+        total,
+        page,
+        limit,
+        totalPages,
+      }
+    } catch {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      }
+    }
+  },
+
   async getByCliente(clienteId: string, startDate = '', endDate = '') {
     const user = getUser()
 

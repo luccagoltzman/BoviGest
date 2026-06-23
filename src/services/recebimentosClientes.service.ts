@@ -133,7 +133,7 @@ export const recebimentosClientesService = {
     return data
   },
 
-  async delete(id: number) {
+  async delete(id: string | number) {
     const user = getUser()
 
     const { error } = await supabase

@@ -483,7 +483,16 @@
   flex: 1;
 }
 
-.btnEditar {
+.historicoAcoes {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.btnEditar,
+.btnExcluir {
   background: none;
   border: 1px solid var(--color-border);
   border-radius: 6px;
@@ -499,6 +508,11 @@
     background: var(--color-surface-soft);
     color: var(--color-text);
   }
+}
+
+.btnExcluir:hover {
+  color: var(--color-danger, #dc2626);
+  border-color: color-mix(in srgb, var(--color-danger, #dc2626) 35%, var(--color-border));
 }
 
 .editRow {

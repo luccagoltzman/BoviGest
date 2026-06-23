@@ -8,8 +8,6 @@ import {
   Modal,
   ModalDetails,
   Table,
-  TouchTooltip,
-  touchTooltipStyles,
   AddNewButton,
   tableListStyles,
 } from '@/components/ui'
@@ -258,19 +256,6 @@ export function Vendas() {
     setPage(1)
   }
 
-  function abrirExtratoClienteFiltrado() {
-    if (!filtroClienteId) return
-
-    const cli = clientesFiltro.find((c) => c.id === filtroClienteId)
-
-    setClienteExtrato({
-      cliente: {
-        id: filtroClienteId,
-        nome: cli?.nome || filtroClienteLabel,
-      },
-    })
-  }
-
   function clienteExtratoFromRow(r: any) {
     return {
       cliente: r.cliente ?? {
@@ -293,7 +278,7 @@ export function Vendas() {
     try {
       setLoading(true)
 
-      const data = await movimentacoesClientesService.getAll(
+      const data = await movimentacoesClientesService.listarResumoPorCliente(
         currentPage,
         10,
         filtroClienteId ? '' : filtroClienteLabel,
@@ -308,6 +293,41 @@ export function Vendas() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function formatResumoItensCliente(r: {
+    qtdItens?: number
+    qtdVendas?: number
+    cortes?: string[]
+  }) {
+    const qtdItens = r.qtdItens ?? 0
+    const qtdVendas = r.qtdVendas ?? 0
+    const cortes = r.cortes ?? []
+    const cortesLabel =
+      cortes.length <= 4
+        ? cortes.join(', ')
+        : `${cortes.slice(0, 4).join(', ')}…`
+
+    const partes = [
+      `${qtdVendas} venda${qtdVendas !== 1 ? 's' : ''}`,
+      `${qtdItens} peça${qtdItens !== 1 ? 's' : ''}`,
+    ]
+
+    if (cortesLabel) partes.push(cortesLabel)
+
+    return partes.join(' · ')
+  }
+
+  function abrirEdicaoVenda(venda: any) {
+    const copia = structuredClone(venda)
+    copia.itens = (copia.itens ?? []).map((item: any) => ({
+      ...item,
+      data_movimentacao:
+        item.data_movimentacao?.slice(0, 10) || copia.data_movimentacao,
+    }))
+    setMovimentacaoOriginal(structuredClone(copia))
+    setEditando(copia)
+    setClienteExtrato(null)
   }
 
   // ─── form (criar) ───────────────────────────────────────────
@@ -1162,31 +1182,15 @@ export function Vendas() {
     }
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm('Excluir esta venda?')) return
-    try {
-      await movimentacoesClientesService.delete(id)
-      await estoqueService.deleteByReferencia(id)
-      toast.success('Movimentação excluída')
-      setEditando(null)
-      carregarMovimentacoes()
-    } catch {
-      toast.error('Erro ao excluir')
-    }
-  }
-
   // ─── tabela ──────────────────────────────────────────────────
 
-  const clienteFiltrado = Boolean(filtroClienteId || filtroClienteLabel.trim())
   const temFiltrosHistorico = Boolean(
-    clienteFiltrado || filtroInicio || filtroFim,
+    filtroClienteId || filtroClienteLabel.trim() || filtroInicio || filtroFim,
   )
 
-  const columns = useMemo(() => {
-    const cols: any[] = []
-
-    if (!clienteFiltrado) {
-      cols.push({
+  const columns = useMemo(
+    () => [
+      {
         key: 'cliente',
         header: 'Cliente',
         render: (r: any) => (
@@ -1204,104 +1208,41 @@ export function Vendas() {
             {r.cliente?.nome}
           </span>
         ),
-      })
-    }
-
-    cols.push(
-      {
-        key: 'data',
-        header: 'Data',
-        render: (r: any) =>
-          formatDatasMovimentacaoLabel(r.itens, r.data_movimentacao),
       },
       {
-        key: 'detalhes',
+        key: 'ultimaCompra',
+        header: 'Última compra',
+        render: (r: any) => formatDateBr(r.ultimaCompra),
+      },
+      {
+        key: 'itens',
         header: 'Itens',
-        render: (r: any) => (
-          <TouchTooltip label={`Ver itens (${r.itens?.length || 0})`}>
-            {r.itens?.map((item: any, index: number) => (
-              <div key={index} className={touchTooltipStyles.item}>
-                <strong>{item.tipo_corte}</strong>
-                <span>
-                  {isCasado(item.tipo_corte)
-                    ? `${formatResumoCasado(Number(item.peso_total_kg || 0), item.composicoes)} · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
-                    : isBanda(item.tipo_corte)
-                      ? `${formatResumoBanda(quantidadeBandiasItem(item), item.composicoes)} · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`
-                      : isViscera(item.tipo_corte)
-                        ? `${Number(item.peso_total_kg || 0)} un · R$ ${Number(item.valor_kg || 0).toFixed(2)}/un`
-                        : `${Number(item.peso_total_kg || 0).toFixed(2)} kg · R$ ${Number(item.valor_kg || 0).toFixed(2)}/kg`}
-                </span>
-                <span>Total: R$ {Number(item.valor_total).toFixed(2)}</span>
-              </div>
-            ))}
-          </TouchTooltip>
-        ),
+        render: (r: any) => formatResumoItensCliente(r),
       },
       {
         key: 'total',
-        header: 'Total',
-        render: (r: any) => `R$ ${Number(r.valor_total).toFixed(2)}`,
-      },
-      {
-        key: 'status',
-        header: 'Status',
-        render: (r: any) => (
-          <span
-            className={
-              r.movimentacao_status === 'finalizado'
-                ? styles.badgeFinalizado
-                : styles.badgePendente
-            }
-          >
-            {r.movimentacao_status === 'finalizado' ? 'Finalizado' : 'Pendente'}
-          </span>
-        ),
+        header: 'Valor total',
+        render: (r: any) =>
+          `R$ ${Number(r.valorTotal).toLocaleString('pt-BR', {
+            minimumFractionDigits: 2,
+          })}`,
       },
       {
         key: 'acao',
         header: 'Ação',
         render: (r: any) => (
-          <div className={tableListStyles.acoesRow}>
-            {!clienteFiltrado && (
-              <Button
-                variant="ghost"
-                className={tableListStyles.acaoBtn}
-                onClick={() => setClienteExtrato(clienteExtratoFromRow(r))}
-              >
-                Extrato
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              className={tableListStyles.acaoBtn}
-              onClick={() => {
-                const copia = structuredClone(r)
-                copia.itens = (copia.itens ?? []).map((item: any) => ({
-                  ...item,
-                  data_movimentacao:
-                    item.data_movimentacao?.slice(0, 10) ||
-                    copia.data_movimentacao,
-                }))
-                setMovimentacaoOriginal(structuredClone(copia))
-                setEditando(copia)
-              }}
-            >
-              Editar
-            </Button>
-            <Button
-              variant="destructive"
-              className={tableListStyles.acaoBtn}
-              onClick={() => handleDelete(r.id)}
-            >
-              Excluir
-            </Button>
-          </div>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            onClick={() => setClienteExtrato(clienteExtratoFromRow(r))}
+          >
+            Extrato
+          </Button>
         ),
       },
-    )
-
-    return cols
-  }, [clienteFiltrado])
+    ],
+    [],
+  )
   // ─── render ──────────────────────────────────────────────────
 
   return (
@@ -1510,39 +1451,16 @@ export function Vendas() {
           )}
         </div>
 
-        {clienteFiltrado && (
-          <div className={styles.historicoResumoCliente}>
-            <div>
-              <span className={styles.historicoResumoLabel}>Cliente</span>
-              <strong>{filtroClienteLabel}</strong>
-              {(filtroInicio || filtroFim) && (
-                <span className={styles.historicoResumoPeriodo}>
-                  {filtroInicio && filtroFim
-                    ? `${formatDateBr(filtroInicio)} a ${formatDateBr(filtroFim)}`
-                    : filtroInicio
-                      ? `a partir de ${formatDateBr(filtroInicio)}`
-                      : `até ${formatDateBr(filtroFim)}`}
-                </span>
-              )}
-            </div>
-            {filtroClienteId && (
-              <Button variant="outline" onClick={abrirExtratoClienteFiltrado}>
-                Ver extrato
-              </Button>
-            )}
-          </div>
-        )}
-
         <Table
           columns={columns}
           data={historico}
-          keyExtractor={(r) => String(r.id)}
+          keyExtractor={(r) => r.cliente_id}
           loading={loading}
           page={page}
           total={total}
           totalPages={totalPages}
           onPageChange={setPage}
-          emptyMessage="Nenhuma venda encontrada."
+          emptyMessage="Nenhum cliente com vendas encontrado."
         />
       </Card>
 
@@ -1744,6 +1662,8 @@ export function Vendas() {
         open={!!clienteExtrato?.cliente?.id}
         cliente={clienteExtrato?.cliente}
         onClose={() => setClienteExtrato(null)}
+        onEditVenda={abrirEdicaoVenda}
+        onDataChanged={() => carregarMovimentacoes(page)}
       />
     </div>
   )

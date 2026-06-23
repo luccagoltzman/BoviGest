@@ -5,6 +5,7 @@ import { Download } from 'lucide-react'
 import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
+import { estoqueService } from '@/services/estoque.service'
 import { clientesService } from '@/services/cliente.service'
 import { FORMAS_PAGAMENTO } from '../../../constants/formasPagamentos'
 import {
@@ -60,6 +61,8 @@ interface Props {
   open: boolean
   onClose: () => void
   cliente: { id: string; nome: string }
+  onEditVenda?: (venda: Movimentacao) => void
+  onDataChanged?: () => void
 }
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -90,7 +93,13 @@ function getBandaComposicao(item: MovimentacaoItem) {
 
 // ─── Componente principal ────────────────────────────────────────────────────
 
-export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
+export function ClienteExtratoModal({
+  open,
+  onClose,
+  cliente,
+  onEditVenda,
+  onDataChanged,
+}: Props) {
   const hoje = new Date()
   const inicioMes = new Date(hoje.getFullYear(), hoje.getMonth(), 1)
 
@@ -290,8 +299,37 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
       toast.success('Recebimento atualizado')
       setEditandoId(null)
       carregarDados()
+      onDataChanged?.()
     } catch {
       toast.error('Erro ao atualizar recebimento')
+    }
+  }
+
+  async function excluirRecebimento(rec: Recebimento) {
+    if (!confirm('Excluir este recebimento?')) return
+
+    try {
+      await recebimentosClientesService.delete(rec.id)
+      toast.success('Recebimento excluído')
+      if (editandoId === rec.id) setEditandoId(null)
+      await carregarDados()
+      onDataChanged?.()
+    } catch {
+      toast.error('Erro ao excluir recebimento')
+    }
+  }
+
+  async function excluirVenda(id: number) {
+    if (!confirm('Excluir esta venda?')) return
+
+    try {
+      await movimentacoesClientesService.delete(id)
+      await estoqueService.deleteByReferencia(id)
+      toast.success('Venda excluída')
+      await carregarDados()
+      onDataChanged?.()
+    } catch {
+      toast.error('Erro ao excluir venda')
     }
   }
 
@@ -921,6 +959,28 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     <strong className={styles.historicoValor}>
                       {formatCurrency(entry.valor)}
                     </strong>
+                    <div className={styles.historicoAcoes}>
+                      {onEditVenda && (
+                        <button
+                          type="button"
+                          className={styles.btnEditar}
+                          title="Editar venda"
+                          onClick={() =>
+                            onEditVenda(entry.raw as Movimentacao)
+                          }
+                        >
+                          ✎
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.btnExcluir}
+                        title="Excluir venda"
+                        onClick={() => excluirVenda(entry.id as number)}
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 ) : entry.tipo === 'debito_anterior' ? (
                   <div className={styles.debitoHistoricoRow}>
@@ -1020,12 +1080,26 @@ export function ClienteExtratoModal({ open, onClose, cliente }: Props) {
                     >
                       − {formatCurrency(entry.valor)}
                     </strong>
-                    <button
-                      className={styles.btnEditar}
-                      onClick={() => iniciarEdicao(entry.raw as Recebimento)}
-                    >
-                      ✎
-                    </button>
+                    <div className={styles.historicoAcoes}>
+                      <button
+                        type="button"
+                        className={styles.btnEditar}
+                        title="Editar recebimento"
+                        onClick={() => iniciarEdicao(entry.raw as Recebimento)}
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.btnExcluir}
+                        title="Excluir recebimento"
+                        onClick={() =>
+                          excluirRecebimento(entry.raw as Recebimento)
+                        }
+                      >
+                        ✕
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
