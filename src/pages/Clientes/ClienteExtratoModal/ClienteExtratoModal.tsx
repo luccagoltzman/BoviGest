@@ -111,8 +111,6 @@ export function ClienteExtratoModal({
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
-  const [totalVendasGeral, setTotalVendasGeral] = useState(0)
-  const [totalRecebidoGeral, setTotalRecebidoGeral] = useState(0)
   const [startDate, setStartDate] = useState(
     inicioMes.toISOString().split('T')[0],
   )
@@ -155,13 +153,7 @@ export function ClienteExtratoModal({
   async function carregarDados() {
     try {
       setLoading(true)
-      const [
-        movsPeriodo,
-        recsPeriodo,
-        movsGeral,
-        recsGeral,
-        clienteDetalhe,
-      ] = await Promise.all([
+      const [movsPeriodo, recsPeriodo, clienteDetalhe] = await Promise.all([
         movimentacoesClientesService.getByCliente(
           cliente.id,
           startDate,
@@ -172,25 +164,11 @@ export function ClienteExtratoModal({
           startDate,
           endDate,
         ),
-        movimentacoesClientesService.getByCliente(cliente.id),
-        recebimentosClientesService.getByCliente(cliente.id),
         clientesService.getById(cliente.id),
       ])
 
       setMovimentacoes(movsPeriodo as Movimentacao[])
       setRecebimentos(recsPeriodo as Recebimento[])
-      setTotalVendasGeral(
-        (movsGeral ?? []).reduce(
-          (acc: number, m: Movimentacao) => acc + Number(m.valor_total ?? 0),
-          0,
-        ),
-      )
-      setTotalRecebidoGeral(
-        (recsGeral ?? []).reduce(
-          (acc: number, r: Recebimento) => acc + Number(r.valor ?? 0),
-          0,
-        ),
-      )
 
       const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
       setDebitoAnterior(debito)
@@ -352,8 +330,9 @@ export function ClienteExtratoModal({
     (acc, r) => acc + Number(r.valor ?? 0),
     0,
   )
-  const totalComprasGeral = debitoAnterior + totalVendasGeral
-  const saldo = totalComprasGeral - totalRecebidoGeral
+  const saldoPeriodo = totalComprasPeriodo - totalRecebidoPeriodo
+  const saldoDevedorExibicao = Math.max(0, saldoPeriodo)
+  const periodoQuitado = saldoPeriodo <= 0
 
   /**
    * Resumo de cortes — agora acumula a composição (dianteiro/traseiro)
@@ -495,7 +474,7 @@ export function ClienteExtratoModal({
       totalVendasPeriodo,
       totalCompras: totalComprasPeriodo + debitoAnterior,
       totalRecebido: totalRecebidoPeriodo,
-      saldo,
+      saldo: saldoDevedorExibicao,
       movimentacoes,
       recebimentos,
       resumoCortes,
@@ -508,7 +487,9 @@ export function ClienteExtratoModal({
         ? `${formatDate(startDate)} a ${formatDate(endDate)}`
         : 'período selecionado'
 
-    return `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Saldo devedor: ${formatCurrency(saldo)}.`
+    return periodoQuitado
+      ? `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Situação: quitado no período.`
+      : `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Saldo devedor: ${formatCurrency(saldoDevedorExibicao)}.`
   }
 
   async function handleDownloadPdf() {
@@ -732,28 +713,26 @@ export function ClienteExtratoModal({
               {recebimentos.length !== 1 ? 's' : ''}
             </span>
           </div>
+          {saldoDevedorExibicao > 0 && (
           <div
-            className={`${styles.resumoCard} ${saldo > 0 ? styles.cardDevedor : styles.cardQuitado}`}
+            className={`${styles.resumoCard} ${styles.cardDevedor}`}
           >
             <span className={styles.cardLabel}>Saldo devedor</span>
             <strong className={styles.cardValor}>
-              {formatCurrency(saldo)}
+              {formatCurrency(saldoDevedorExibicao)}
             </strong>
-            <span className={styles.cardSub}>
-              {saldo <= 0 ? '✓ Quitado' : 'Em aberto'}
-              {debitoAnterior > 0 && (
-                <> · inclui débito anterior de {formatCurrency(debitoAnterior)}</>
-              )}
-            </span>
+            <span className={styles.cardSub}>Em aberto no período</span>
           </div>
+          )}
         </div>
 
         {/* Extrato detalhado — uma linha por peça / recebimento */}
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
           <p className={styles.extratoHint}>
-            Compras discriminadas por peça no período. O saldo devedor acima
-            considera débito anterior + todas as compras − todos os recebimentos.
+            Compras discriminadas por peça no período. O saldo considera apenas
+            compras e recebimentos do período selecionado — dívidas de outros
+            meses não entram neste cálculo.
           </p>
           <div className={styles.extratoTableWrap}>
             <table className={styles.extratoTable}>
