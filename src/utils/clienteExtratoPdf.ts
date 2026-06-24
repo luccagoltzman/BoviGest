@@ -10,7 +10,14 @@ import {
   drawSectionSubtitle,
   drawSectionTitle,
 } from '@/utils/pdfTheme'
-import { isCorteBanda, isCorteCasado, isCortePecaSimples, isVisceraCorte, pesoTotalComposicao } from '@/utils/corteComposicao'
+import {
+  isCorteBanda,
+  isCorteCasado,
+  isCortePecaSimples,
+  isVisceraCorte,
+  labelCorteExibicao,
+  pesoTotalComposicao,
+} from '@/utils/corteComposicao'
 
 interface Composicao {
   tipo_corte: string
@@ -111,7 +118,7 @@ function pdfText(value: string) {
 }
 
 function formatCorteItem(item: MovimentacaoItem) {
-  let corte = item.tipo_corte || '-'
+  let corte = labelCorteExibicao(item.tipo_corte || '-') || '-'
 
   if (isViscera(item.tipo_corte)) {
     return pdfText(corte)
@@ -168,7 +175,7 @@ function formatPesoItem(item: MovimentacaoItem) {
   if (isCorteCasado(item.tipo_corte)) {
     const peso = pesoTotalComposicao(item.composicoes)
     const qty = Number(item.peso_total_kg || 0)
-    const tipo = item.tipo_corte || 'Casado'
+    const tipo = labelCorteExibicao(item.tipo_corte || 'Casado')
     if (peso > 0) {
       return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} × ${tipo})` : ''}`
     }
@@ -183,10 +190,11 @@ function formatPesoItem(item: MovimentacaoItem) {
       : comps.length
         ? 1
         : 0
+    const tipo = labelCorteExibicao(item.tipo_corte)
     if (peso > 0) {
-      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} banda${qty !== 1 ? 's' : ''})` : ''}`
+      return `${peso.toFixed(2)} kg${qty > 0 ? ` (${qty} × ${tipo})` : ''}`
     }
-    return qty > 0 ? `${qty} banda${qty !== 1 ? 's' : ''}` : '0 kg'
+    return qty > 0 ? `${qty} × ${tipo}` : '0 kg'
   }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
@@ -336,7 +344,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
       tableWidth: pageWidth - margin * 2,
       head: [['Corte', 'Quantidade', 'Peso / Un.', 'Valor']],
       body: cortesEntries.map(([corte, dados]) => {
-        let corteLabel = corte
+        let corteLabel = labelCorteExibicao(corte)
         if ((dados.isCasado || dados.isBanda) && !dados.isViscera) {
           const partes: string[] = []
           if (dados.composicao.dianteiro > 0) {
@@ -364,7 +372,7 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
           dados.isCasado
             ? `${dados.quantidade} un`
             : dados.isBanda
-              ? `${dados.quantidade} banda${dados.quantidade !== 1 ? 's' : ''}`
+              ? `${dados.quantidade} × ${labelCorteExibicao(corte)}`
               : `${dados.quantidade} peça${dados.quantidade !== 1 ? 's' : ''}`,
           dados.isCasado && pesoTotal > 0
             ? `${pesoTotal.toFixed(2)} kg`

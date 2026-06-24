@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Button, Card, Input, Modal, Select } from '@/components/ui'
 import { estoqueService } from '@/services/estoque.service'
-import { TIPOS_CORTE, REGRA_BD } from '@/constants/cortes'
+import { TIPOS_CORTE, CORTE_BD, REGRA_BD } from '@/constants/cortes'
 import { Trash2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import styles from './ProcessamentoModal.module.scss'
@@ -90,7 +90,7 @@ export function ProcessamentoModal({
 
       for (const [agrupamentoId, itensBanda] of Object.entries(grupos)) {
         itensAgrupados.push({
-          corte: 'BD (banda)',
+          corte: CORTE_BD,
           peso_liquido_kg: String(
             itensBanda.reduce((acc, i) => acc + Number(i.peso_liquido_kg), 0)
           ),

@@ -1,4 +1,10 @@
-import { PECAS_POR_LADO_CASADO, CORTES_PECA_SIMPLES } from '@/constants/cortes'
+import {
+  PECAS_POR_LADO_CASADO,
+  CORTES_PECA_SIMPLES,
+  CORTE_BD,
+  CORTE_VACA_CASADA,
+  CORTE_VACA_CASADA_LEGADO,
+} from '@/constants/cortes'
 import { parseCurrencyInput, parseDecimalInput, parseIntegerInput } from '@/utils/masks'
 
 export type ComposicaoItem = {
@@ -8,7 +14,20 @@ export type ComposicaoItem = {
 
 export function isCorteBanda(tipo: string) {
   const t = (tipo || '').toLowerCase()
-  return t.includes('banda') || t.includes('bd')
+  return t.includes('banda') || t === 'bd' || t.includes('bd (')
+}
+
+/** Nome padronizado para exibição (inclui registros legados). */
+export function labelCorteExibicao(tipo: string) {
+  const normalizado = (tipo || '').trim()
+  if (isCorteBanda(normalizado)) return CORTE_BD
+  if (
+    normalizado === CORTE_VACA_CASADA_LEGADO ||
+    normalizado.toLowerCase() === 'vaca casado'
+  ) {
+    return CORTE_VACA_CASADA
+  }
+  return normalizado
 }
 
 export function isCorteCasado(tipo: string) {

@@ -20,6 +20,7 @@ import {
   isCorteBanda,
   isCorteCasado,
   isCortePecaSimples,
+  labelCorteExibicao,
   isVisceraCorte,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
@@ -369,10 +370,10 @@ export function ClienteExtratoModal({
 
     movimentacoes.forEach((mov) => {
       mov.itens?.forEach((item) => {
-        const corte = item.tipo_corte || 'Sem corte'
-        const isBandaCorte = isCorteBanda(corte)
-        const isCasado = isCorteCasado(corte)
-        const isVisceraItem = isVisceraCorte(corte)
+        const corte = labelCorteExibicao(item.tipo_corte || 'Sem corte')
+        const isBandaCorte = isCorteBanda(item.tipo_corte || '')
+        const isCasado = isCorteCasado(item.tipo_corte || '')
+        const isVisceraItem = isVisceraCorte(item.tipo_corte || '')
 
         if (!acc[corte]) {
           acc[corte] = {
@@ -398,7 +399,7 @@ export function ClienteExtratoModal({
             acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
           }
           acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
-        } else if (isCortePecaSimples(corte) && item.composicoes?.length) {
+        } else if (isCortePecaSimples(item.tipo_corte || '') && item.composicoes?.length) {
           acc[corte].quantidade += Number(item.peso_total_kg ?? 0) || item.composicoes.length
           acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
         } else {
@@ -936,7 +937,7 @@ export function ClienteExtratoModal({
                         return (
                           <span key={idx} className={styles.itemTag}>
                             {casado
-                              ? `${item.tipo_corte}: ${formatResumoCasado(
+                              ? `${labelCorteExibicao(item.tipo_corte)}: ${formatResumoCasado(
                                   Number(item.peso_total_kg || 0),
                                   item.composicoes,
                                 )}`
@@ -952,7 +953,7 @@ export function ClienteExtratoModal({
                                       item.tipo_corte,
                                       item.composicoes,
                                     )
-                              : `${item.tipo_corte} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
+                              : `${labelCorteExibicao(item.tipo_corte)} · ${item.peso_total_kg}${visceras ? ' un' : ' kg'}`}
                             {comp && !casado && !banda && (
                               <span className={styles.itemComposicao}>
                                 {comp.dianteiro > 0 && (

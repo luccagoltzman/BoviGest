@@ -31,6 +31,7 @@ import {
   isRetalhoCorte,
   labelQuantidadeCorte,
   labelValorUnitarioCorte,
+  labelCorteExibicao,
   normalizeCorteEstoque,
   pesoTotalComposicao,
   syncComposicoesBanda,
@@ -1579,7 +1580,7 @@ export function Vendas() {
             <div className={styles.items}>
               {detalhe.itens?.map((item: any, idx: number) => (
                 <div key={idx} className={styles.itemCard}>
-                  <strong>{item.tipo_corte}</strong>
+                  <strong>{labelCorteExibicao(item.tipo_corte)}</strong>
                   {item.data_movimentacao && (
                     <p className={styles.itemMeta}>
                       Data:{' '}
