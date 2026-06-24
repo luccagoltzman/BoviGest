@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
-import { Download } from 'lucide-react'
+import { Download, MessageCircle } from 'lucide-react'
 import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
@@ -13,6 +13,8 @@ import {
   formatCurrencyFromNumber,
 } from '@/utils/masks'
 import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
+import type { ExtratoPdfInput } from '@/utils/clienteExtratoPdf'
+import { enviarPdfViaWhatsApp } from '@/utils/whatsappShare'
 import {
   formatResumoBanda,
   formatResumoCasado,
@@ -132,6 +134,8 @@ export function ClienteExtratoModal({
   const [editObs, setEditObs] = useState('')
   const [editData, setEditData] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false)
+  const [telefoneCliente, setTelefoneCliente] = useState('')
 
   const [debitoAnterior, setDebitoAnterior] = useState(0)
   const [debitoValor, setDebitoValor] = useState('')
@@ -197,6 +201,7 @@ export function ClienteExtratoModal({
         clienteDetalhe?.debito_anterior_referencia?.slice(0, 10) ?? ''
       setDebitoReferencia(referencia)
       setDebitoReferenciaPersistida(referencia)
+      setTelefoneCliente(clienteDetalhe?.telefone?.trim() ?? '')
     } catch {
       toast.error('Erro ao carregar extrato')
     } finally {
@@ -479,30 +484,77 @@ export function ClienteExtratoModal({
     ],
   )
 
+  function buildExtratoPdfInput(): ExtratoPdfInput {
+    return {
+      clienteNome: cliente.nome,
+      startDate,
+      endDate,
+      debitoAnterior,
+      debitoAnteriorObservacao: debitoObs,
+      debitoAnteriorReferencia: debitoReferencia,
+      totalVendasPeriodo,
+      totalCompras: totalComprasPeriodo + debitoAnterior,
+      totalRecebido: totalRecebidoPeriodo,
+      saldo,
+      movimentacoes,
+      recebimentos,
+      resumoCortes,
+    }
+  }
+
+  function mensagemExtratoWhatsApp() {
+    const periodo =
+      startDate && endDate
+        ? `${formatDate(startDate)} a ${formatDate(endDate)}`
+        : 'período selecionado'
+
+    return `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Saldo devedor: ${formatCurrency(saldo)}.`
+  }
+
   async function handleDownloadPdf() {
     try {
       setDownloadingPdf(true)
       const { gerarExtratoClientePdf } = await import('@/utils/clienteExtratoPdf')
-      await gerarExtratoClientePdf({
-        clienteNome: cliente.nome,
-        startDate,
-        endDate,
-        debitoAnterior,
-        debitoAnteriorObservacao: debitoObs,
-        debitoAnteriorReferencia: debitoReferencia,
-        totalVendasPeriodo,
-        totalCompras: totalComprasPeriodo + debitoAnterior,
-        totalRecebido: totalRecebidoPeriodo,
-        saldo,
-        movimentacoes,
-        recebimentos,
-        resumoCortes,
-      })
+      await gerarExtratoClientePdf(buildExtratoPdfInput())
       toast.success('PDF baixado com sucesso')
     } catch {
       toast.error('Erro ao gerar PDF')
     } finally {
       setDownloadingPdf(false)
+    }
+  }
+
+  async function handleEnviarWhatsApp() {
+    if (!telefoneCliente.trim()) {
+      toast.error('Cadastre o telefone/WhatsApp do cliente para enviar')
+      return
+    }
+
+    let whatsappWindow: Window | null = null
+
+    try {
+      setEnviandoWhatsApp(true)
+      whatsappWindow = window.open('about:blank', '_blank')
+      const { gerarExtratoClientePdfBlob } = await import('@/utils/clienteExtratoPdf')
+      const { blob, filename } = await gerarExtratoClientePdfBlob(buildExtratoPdfInput())
+      await enviarPdfViaWhatsApp({
+        blob,
+        filename,
+        telefone: telefoneCliente,
+        mensagem: mensagemExtratoWhatsApp(),
+        targetWindow: whatsappWindow,
+      })
+
+      toast.success('PDF baixado. WhatsApp Web aberto — anexe o arquivo na conversa')
+    } catch (error) {
+      whatsappWindow?.close()
+      if (error instanceof Error && error.message.includes('Telefone')) {
+        toast.error('Telefone inválido. Verifique o cadastro do cliente')
+        return
+      }
+      toast.error('Erro ao preparar envio pelo WhatsApp')
+    } finally {
+      setEnviandoWhatsApp(false)
     }
   }
 
@@ -532,16 +584,33 @@ export function ClienteExtratoModal({
               onChange={(e) => setEndDate(e.target.value)}
             />
           </div>
-          <Button
-            variant="outline"
-            loading={downloadingPdf}
-            disabled={loading || downloadingPdf}
-            onClick={handleDownloadPdf}
-            className={styles.btnPdf}
-          >
-            <Download size={16} aria-hidden />
-            Baixar PDF
-          </Button>
+          <div className={styles.pdfActions}>
+            <Button
+              variant="outline"
+              loading={downloadingPdf}
+              disabled={loading || downloadingPdf || enviandoWhatsApp}
+              onClick={handleDownloadPdf}
+              className={styles.btnPdf}
+            >
+              <Download size={16} aria-hidden />
+              Baixar PDF
+            </Button>
+            <Button
+              variant="outline"
+              loading={enviandoWhatsApp}
+              disabled={loading || downloadingPdf || enviandoWhatsApp}
+              onClick={handleEnviarWhatsApp}
+              className={styles.btnWhatsApp}
+              title={
+                telefoneCliente.trim()
+                  ? 'Enviar extrato pelo WhatsApp'
+                  : 'Cadastre o telefone do cliente'
+              }
+            >
+              <MessageCircle size={16} aria-hidden />
+              WhatsApp
+            </Button>
+          </div>
         </div>
 
         {/* Débito anterior (fora do sistema) */}

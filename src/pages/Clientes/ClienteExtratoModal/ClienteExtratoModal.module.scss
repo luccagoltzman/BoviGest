@@ -29,6 +29,27 @@
   white-space: nowrap;
 }
 
+.pdfActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.btnWhatsApp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  white-space: nowrap;
+  color: #128c7e;
+  border-color: color-mix(in srgb, #128c7e 35%, var(--color-border));
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, #128c7e 8%, transparent);
+    border-color: #128c7e;
+  }
+}
+
 .resumoGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));

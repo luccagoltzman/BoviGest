@@ -293,7 +293,11 @@ function buildHistoricoDetalhadoRows(
 
 export { buildHistoricoDetalhadoRows }
 
-export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
+export function extratoPdfFilename(input: Pick<ExtratoPdfInput, 'clienteNome' | 'endDate'>) {
+  return `extrato-${sanitizeFilename(input.clienteNome) || 'cliente'}-${input.endDate.slice(0, 10)}.pdf`
+}
+
+async function renderExtratoClientePdf(input: ExtratoPdfInput) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 14
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -525,6 +529,23 @@ export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
 
   drawPageFooters(doc, margin, pageWidth)
 
-  const filename = `extrato-${sanitizeFilename(input.clienteNome) || 'cliente'}-${input.endDate.slice(0, 10)}.pdf`
-  doc.save(filename)
+  return doc
+}
+
+export async function gerarExtratoClientePdfBlob(input: ExtratoPdfInput) {
+  const doc = await renderExtratoClientePdf(input)
+  const filename = extratoPdfFilename(input)
+  const blob = doc.output('blob')
+
+  return { blob, filename }
+}
+
+export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
+  const { blob, filename } = await gerarExtratoClientePdfBlob(input)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
 }
