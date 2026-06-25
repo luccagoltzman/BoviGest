@@ -214,7 +214,112 @@ function nomeCliente(cliente: {
   return nome || empresa || 'Cliente não informado'
 }
 
+export type ClienteDevedorResumo = {
+  cliente_id: string
+  nome: string
+  telefone: string | null
+  debito_anterior: number
+  total_compras: number
+  total_recebido: number
+  saldo_devedor: number
+  ultima_compra: string | null
+}
+
+async function listarTotaisVendasPorCliente() {
+  const user = getUser()
+
+  const { data, error } = await supabase
+    .from('movimentacoes_clientes')
+    .select('cliente_id, valor_total, data_movimentacao')
+    .eq('empresa_id', user.empresa_id)
+
+  if (error) throw error
+  return data || []
+}
+
+async function listarTotaisRecebimentosPorCliente() {
+  const user = getUser()
+
+  const { data, error } = await supabase
+    .from('recebimentos_clientes')
+    .select('cliente_id, valor')
+    .eq('empresa_id', user.empresa_id)
+
+  if (error) throw error
+  return data || []
+}
+
+async function listarClientesEmpresa() {
+  const user = getUser()
+
+  const { data, error } = await supabase
+    .from('clientes')
+    .select('id, nome, nome_empresa, telefone, debito_anterior')
+    .eq('empresa_id', user.empresa_id)
+    .neq('status', 0)
+
+  if (error) throw error
+  return data || []
+}
+
 export const financeiroService = {
+  async listarClientesDevedores(): Promise<ClienteDevedorResumo[]> {
+    const [clientes, vendas, recebimentos] = await Promise.all([
+      listarClientesEmpresa(),
+      listarTotaisVendasPorCliente(),
+      listarTotaisRecebimentosPorCliente(),
+    ])
+
+    const comprasPorCliente = new Map<string, { total: number; ultima: string }>()
+    for (const venda of vendas) {
+      if (!venda.cliente_id) continue
+      const atual = comprasPorCliente.get(venda.cliente_id) || {
+        total: 0,
+        ultima: '',
+      }
+      atual.total += Number(venda.valor_total || 0)
+      const data = isoDateOnly(venda.data_movimentacao)
+      if (!atual.ultima || data > atual.ultima) {
+        atual.ultima = data
+      }
+      comprasPorCliente.set(venda.cliente_id, atual)
+    }
+
+    const recebidoPorCliente = new Map<string, number>()
+    for (const rec of recebimentos) {
+      if (!rec.cliente_id) continue
+      recebidoPorCliente.set(
+        rec.cliente_id,
+        (recebidoPorCliente.get(rec.cliente_id) || 0) + Number(rec.valor || 0),
+      )
+    }
+
+    const devedores: ClienteDevedorResumo[] = []
+
+    for (const cliente of clientes) {
+      const compras = comprasPorCliente.get(cliente.id)
+      const debitoAnterior = Number(cliente.debito_anterior || 0)
+      const totalCompras = compras?.total || 0
+      const totalRecebido = recebidoPorCliente.get(cliente.id) || 0
+      const saldo = debitoAnterior + totalCompras - totalRecebido
+
+      if (saldo <= 0) continue
+
+      devedores.push({
+        cliente_id: cliente.id,
+        nome: nomeCliente(cliente),
+        telefone: cliente.telefone?.trim() || null,
+        debito_anterior: debitoAnterior,
+        total_compras: totalCompras,
+        total_recebido: totalRecebido,
+        saldo_devedor: saldo,
+        ultima_compra: compras?.ultima || null,
+      })
+    }
+
+    return devedores.sort((a, b) => b.saldo_devedor - a.saldo_devedor)
+  },
+
   async listarLancamentos(startDate = '', endDate = '') {
     const [parcelas, custos, abates, vendas, recebimentos] = await Promise.all([
       pagamentosComprasService.listarParaFinanceiro(startDate, endDate),

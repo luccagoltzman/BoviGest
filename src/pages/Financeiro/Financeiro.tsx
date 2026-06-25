@@ -12,8 +12,10 @@ import {
 import type { DetailItem } from '@/components/ui'
 import {
   financeiroService,
+  type ClienteDevedorResumo,
   type FinanceiroLancamento,
 } from '@/services/financeiro.service'
+import { getLogoUrl } from '@/services/theme.service'
 import { custosOperacionaisService } from '@/services/centroCusto.service'
 import {
   contaPagamentoToDetailItems,
@@ -25,11 +27,13 @@ import {
   BadgePercent,
   BarChart3,
   Calendar,
+  Download,
   FilePlus2,
   RefreshCw,
   Search,
   TrendingDown,
   TrendingUp,
+  Users,
   Wallet,
 } from 'lucide-react'
 import styles from './Financeiro.module.scss'
@@ -48,12 +52,13 @@ interface ContaRow {
   origem?: FinanceiroLancamento['origem']
 }
 
-type TabId = 'resumo' | 'pagar' | 'receber' | 'lancar'
+type TabId = 'resumo' | 'pagar' | 'receber' | 'devedores' | 'lancar'
 
 const tabs: { id: TabId; label: string; icon: React.ComponentType<any> }[] = [
   { id: 'resumo', label: 'Resumo', icon: BarChart3 },
   { id: 'pagar', label: 'A pagar', icon: TrendingDown },
   { id: 'receber', label: 'A receber', icon: TrendingUp },
+  { id: 'devedores', label: 'Clientes devedores', icon: Users },
   { id: 'lancar', label: 'Lançar despesa', icon: FilePlus2 },
 ]
 
@@ -106,6 +111,9 @@ export function Financeiro() {
     categoria: '',
   })
   const [salvandoDespesa, setSalvandoDespesa] = useState(false)
+  const [devedores, setDevedores] = useState<ClienteDevedorResumo[]>([])
+  const [loadingDevedores, setLoadingDevedores] = useState(false)
+  const [exportandoDevedoresPdf, setExportandoDevedoresPdf] = useState(false)
 
   async function carregarLancamentos() {
     try {
@@ -128,6 +136,48 @@ export function Financeiro() {
   useEffect(() => {
     carregarLancamentos()
   }, [startDate, endDate])
+
+  async function carregarDevedores() {
+    try {
+      setLoadingDevedores(true)
+      const data = await financeiroService.listarClientesDevedores()
+      setDevedores(data)
+    } catch {
+      toast.error('Erro ao carregar clientes devedores')
+      setDevedores([])
+    } finally {
+      setLoadingDevedores(false)
+    }
+  }
+
+  useEffect(() => {
+    if (tab === 'devedores') {
+      carregarDevedores()
+    }
+  }, [tab])
+
+  async function exportarDevedoresPdf() {
+    if (!devedores.length) {
+      toast.error('Não há clientes em débito para exportar')
+      return
+    }
+
+    try {
+      setExportandoDevedoresPdf(true)
+      const { gerarClientesDevedoresPdf } = await import(
+        '@/utils/clientesDevedoresPdf'
+      )
+      await gerarClientesDevedoresPdf({
+        clientes: devedores,
+        logoUrl: getLogoUrl(),
+      })
+      toast.success('PDF baixado')
+    } catch {
+      toast.error('Erro ao gerar PDF')
+    } finally {
+      setExportandoDevedoresPdf(false)
+    }
+  }
 
   async function salvarDespesa() {
     const valor = parseCurrencyInput(despesaForm.valor)
@@ -243,6 +293,53 @@ export function Financeiro() {
       qtd: filtered.length,
     }
   }, [filtered])
+
+  const totalSaldoDevedores = useMemo(
+    () => devedores.reduce((acc, item) => acc + item.saldo_devedor, 0),
+    [devedores],
+  )
+
+  const devedoresColumns = [
+    {
+      key: 'nome',
+      header: 'Cliente',
+      render: (r: ClienteDevedorResumo) => (
+        <span className={tableListStyles.descricaoCell}>{r.nome}</span>
+      ),
+    },
+    {
+      key: 'telefone',
+      header: 'Telefone',
+      render: (r: ClienteDevedorResumo) => r.telefone || '—',
+    },
+    {
+      key: 'debito_anterior',
+      header: 'Débito anterior',
+      render: (r: ClienteDevedorResumo) => formatCurrency(r.debito_anterior),
+    },
+    {
+      key: 'total_compras',
+      header: 'Compras',
+      render: (r: ClienteDevedorResumo) => formatCurrency(r.total_compras),
+    },
+    {
+      key: 'total_recebido',
+      header: 'Recebido',
+      render: (r: ClienteDevedorResumo) => formatCurrency(r.total_recebido),
+    },
+    {
+      key: 'saldo_devedor',
+      header: 'Saldo devedor',
+      render: (r: ClienteDevedorResumo) => (
+        <strong>{formatCurrency(r.saldo_devedor)}</strong>
+      ),
+    },
+    {
+      key: 'ultima_compra',
+      header: 'Última compra',
+      render: (r: ClienteDevedorResumo) => formatDateBr(r.ultima_compra || ''),
+    },
+  ]
 
   const columns = [
     {
@@ -403,9 +500,10 @@ export function Financeiro() {
           <Button
             onClick={() => {
               carregarLancamentos()
+              if (tab === 'devedores') carregarDevedores()
               toast.success('Dados atualizados')
             }}
-            disabled={loading}
+            disabled={loading || loadingDevedores}
           >
             <RefreshCw size={16} style={{ marginRight: 6 }} />
             {loading ? 'Atualizando...' : 'Atualizar'}
@@ -541,6 +639,73 @@ export function Financeiro() {
               </div>
             </Card>
           </div>
+        )}
+
+        {tab === 'devedores' && (
+          <>
+            <div className={styles.kpiGrid}>
+              <KpiCard
+                label="Clientes em débito"
+                value={String(devedores.length)}
+                sub="Com saldo devedor em aberto"
+                icon={<Users />}
+                iconClass={styles.kpiIconAtrasado}
+              />
+              <KpiCard
+                label="Total a receber"
+                value={formatCurrency(totalSaldoDevedores)}
+                sub="Soma dos saldos devedores"
+                icon={<Wallet />}
+                highlight
+                valueClass={styles.positive}
+              />
+            </div>
+
+            <div className={styles.sectionGrid}>
+              <Card
+                title="Clientes devedores"
+                className={styles.sectionFull}
+                action={
+                  <Button
+                    variant="outline"
+                    loading={exportandoDevedoresPdf}
+                    disabled={
+                      loadingDevedores ||
+                      exportandoDevedoresPdf ||
+                      devedores.length === 0
+                    }
+                    onClick={exportarDevedoresPdf}
+                  >
+                    <Download size={16} aria-hidden />
+                    Baixar PDF
+                  </Button>
+                }
+              >
+                <p className={styles.sectionIntro}>
+                  Saldo de cada cliente = débito anterior + compras −
+                  recebimentos. Considera todo o histórico, não apenas o período
+                  filtrado acima.
+                </p>
+                <div className={styles.tableWrap}>
+                  <Table
+                    columns={devedoresColumns}
+                    data={devedores}
+                    keyExtractor={(r) => r.cliente_id}
+                    loading={loadingDevedores}
+                    emptyMessage="Nenhum cliente com saldo devedor."
+                  />
+                </div>
+                {devedores.length > 0 && (
+                  <div className={styles.cardFooter}>
+                    <span className={styles.cardTotal}>
+                      Total em aberto:{' '}
+                      <strong>{formatCurrency(totalSaldoDevedores)}</strong>
+                    </span>
+                  </div>
+                )}
+              </Card>
+            </div>
+          </>
         )}
 
         {tab === 'lancar' && (
