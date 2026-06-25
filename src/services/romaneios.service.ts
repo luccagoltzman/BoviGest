@@ -24,6 +24,11 @@ export type Romaneio = {
   itens?: RomaneioItem[]
 }
 
+export type RomaneioResumo = {
+  id: number
+  data_romaneio: string
+}
+
 export type SaveRomaneioAbatePayload = {
   abate_id: number
   data_romaneio: string
@@ -57,6 +62,10 @@ function getUser() {
     throw new Error('Empresa não encontrada para o usuário logado')
   }
   return user
+}
+
+function formatSupabaseError(error: { message?: string; details?: string }) {
+  return error.details || error.message || 'Erro desconhecido no Supabase'
 }
 
 function parsePeso(value: unknown) {
@@ -176,9 +185,12 @@ function extrairFornecedor(
 }
 
 function mapRomaneioRow(data: Record<string, unknown>): Romaneio {
-  const itens = ((data.itens as RomaneioItem[]) || []).sort(
-    (a, b) => a.ordem - b.ordem,
-  )
+  const rawItens =
+    (data.itens as RomaneioItem[] | undefined) ??
+    (data.romaneio_itens as RomaneioItem[] | undefined) ??
+    []
+
+  const itens = rawItens.sort((a, b) => a.ordem - b.ordem)
 
   return {
     ...(data as Romaneio),
@@ -189,24 +201,93 @@ function mapRomaneioRow(data: Record<string, unknown>): Romaneio {
   }
 }
 
+async function fetchRomaneioItens(romaneioId: number): Promise<RomaneioItem[]> {
+  const { data, error } = await supabase
+    .from('romaneio_itens')
+    .select('*')
+    .eq('romaneio_id', romaneioId)
+    .order('ordem', { ascending: true })
+
+  if (error) {
+    throw new Error(formatSupabaseError(error))
+  }
+
+  return data || []
+}
+
 async function getByLink(
   field: 'abate_id' | 'compra_id',
   id: number,
 ): Promise<Romaneio | null> {
-  getUser()
+  const user = getUser()
 
   const { data, error } = await supabase
     .from('romaneios')
-    .select(
-      '*, fornecedor:fornecedores(id, nome), itens:romaneio_itens(*)',
-    )
+    .select('*, fornecedor:fornecedores(id, nome)')
     .eq(field, id)
+    .eq('empresa_id', user.empresa_id)
     .maybeSingle()
 
-  if (error) throw error
+  if (error) {
+    throw new Error(formatSupabaseError(error))
+  }
+
   if (!data) return null
 
-  return mapRomaneioRow(data as Record<string, unknown>)
+  const itens = await fetchRomaneioItens(data.id as number)
+
+  return mapRomaneioRow({
+    ...(data as Record<string, unknown>),
+    itens,
+  })
+}
+
+async function getById(romaneioId: number): Promise<Romaneio | null> {
+  const user = getUser()
+
+  const { data, error } = await supabase
+    .from('romaneios')
+    .select('*, fornecedor:fornecedores(id, nome)')
+    .eq('id', romaneioId)
+    .eq('empresa_id', user.empresa_id)
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(formatSupabaseError(error))
+  }
+
+  if (!data) return null
+
+  const itens = await fetchRomaneioItens(data.id as number)
+
+  return mapRomaneioRow({
+    ...(data as Record<string, unknown>),
+    itens,
+  })
+}
+
+async function inserirItens(romaneioId: number, itens: RomaneioItem[]) {
+  if (!itens.length) return
+
+  const { data, error } = await supabase
+    .from('romaneio_itens')
+    .insert(
+      itens.map((item) => ({
+        ...item,
+        romaneio_id: romaneioId,
+      })),
+    )
+    .select('id')
+
+  if (error) {
+    throw new Error(`Erro ao salvar pesos do romaneio: ${formatSupabaseError(error)}`)
+  }
+
+  if (!data?.length) {
+    throw new Error(
+      'Os pesos do romaneio não foram gravados. Verifique as permissões (RLS) no Supabase.',
+    )
+  }
 }
 
 export const romaneiosService = {
@@ -265,6 +346,60 @@ export const romaneiosService = {
     return getByLink('compra_id', compraId)
   },
 
+  async listarResumoPorAbateIds(
+    abateIds: number[],
+  ): Promise<Map<number, RomaneioResumo>> {
+    const map = new Map<number, RomaneioResumo>()
+    if (!abateIds.length) return map
+
+    const user = getUser()
+    const { data, error } = await supabase
+      .from('romaneios')
+      .select('id, abate_id, data_romaneio')
+      .eq('empresa_id', user.empresa_id)
+      .in('abate_id', abateIds)
+
+    if (error) throw error
+
+    for (const row of data || []) {
+      if (row.abate_id) {
+        map.set(row.abate_id, {
+          id: row.id,
+          data_romaneio: row.data_romaneio,
+        })
+      }
+    }
+
+    return map
+  },
+
+  async listarResumoPorCompraIds(
+    compraIds: number[],
+  ): Promise<Map<number, RomaneioResumo>> {
+    const map = new Map<number, RomaneioResumo>()
+    if (!compraIds.length) return map
+
+    const user = getUser()
+    const { data, error } = await supabase
+      .from('romaneios')
+      .select('id, compra_id, data_romaneio')
+      .eq('empresa_id', user.empresa_id)
+      .in('compra_id', compraIds)
+
+    if (error) throw error
+
+    for (const row of data || []) {
+      if (row.compra_id) {
+        map.set(row.compra_id, {
+          id: row.id,
+          data_romaneio: row.data_romaneio,
+        })
+      }
+    }
+
+    return map
+  },
+
   async save(payload: SaveRomaneioPayload): Promise<Romaneio> {
     const user = getUser()
     const itensNormalizados = payload.itens.map(normalizeItem)
@@ -288,27 +423,45 @@ export const romaneiosService = {
     let romaneioId = existente?.id
 
     if (existente?.id) {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from('romaneios')
         .update(romaneioBase)
         .eq('id', existente.id)
+        .eq('empresa_id', user.empresa_id)
+        .select('id')
+        .maybeSingle()
 
-      if (error) throw error
+      if (error) {
+        throw new Error(formatSupabaseError(error))
+      }
+
+      if (!updated?.id) {
+        throw new Error(
+          'Não foi possível atualizar o romaneio. Rode supabase/romaneios-rls-fix.sql no Supabase.',
+        )
+      }
+
+      romaneioId = updated.id
 
       const { error: deleteError } = await supabase
         .from('romaneio_itens')
         .delete()
-        .eq('romaneio_id', existente.id)
+        .eq('romaneio_id', romaneioId)
 
-      if (deleteError) throw deleteError
+      if (deleteError) {
+        throw new Error(formatSupabaseError(deleteError))
+      }
     } else {
       const { data, error } = await supabase
         .from('romaneios')
         .insert([romaneioBase])
-        .select()
+        .select('id')
         .single()
 
-      if (error) throw error
+      if (error) {
+        throw new Error(formatSupabaseError(error))
+      }
+
       romaneioId = data.id
     }
 
@@ -316,20 +469,9 @@ export const romaneiosService = {
       throw new Error('Não foi possível salvar o romaneio')
     }
 
-    if (itensNormalizados.length) {
-      const { error: itensError } = await supabase.from('romaneio_itens').insert(
-        itensNormalizados.map((item) => ({
-          ...item,
-          romaneio_id: romaneioId,
-        })),
-      )
+    await inserirItens(romaneioId, itensNormalizados)
 
-      if (itensError) throw itensError
-    }
-
-    const saved = isCompra
-      ? await romaneiosService.getByCompraId(payload.compra_id)
-      : await romaneiosService.getByAbateId(payload.abate_id)
+    const saved = await getById(romaneioId)
 
     if (!saved) {
       throw new Error('Romaneio salvo, mas não foi possível recarregar')

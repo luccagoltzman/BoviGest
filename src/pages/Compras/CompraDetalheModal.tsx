@@ -5,6 +5,7 @@ import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
 import { comprasService } from '@/services/compras.service'
+import { romaneiosService } from '@/services/romaneios.service'
 import { fornecedoresService } from '@/services/fornecedores.service'
 import { getLogoUrl } from '@/services/theme.service'
 import {
@@ -67,6 +68,10 @@ export type CompraDetalheRow = {
   forma_pagamento?: string | null
   qtd_parcelas?: number
   detalhes_custo?: { total: number }
+  romaneio?:
+    | { id: number; data_romaneio: string }
+    | { id: number; data_romaneio: string }[]
+    | null
 }
 
 type ModalTab = 'pagamento' | 'dados'
@@ -844,6 +849,54 @@ export function CompraDetalheModal({
     })
   }
 
+  async function handleRomaneioSalvo() {
+    if (editar?.id) {
+      try {
+        const romaneio = await romaneiosService.getByCompraId(editar.id)
+        if (romaneio) {
+          setEditar((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  romaneio: {
+                    id: romaneio.id,
+                    data_romaneio: romaneio.data_romaneio,
+                  },
+                }
+              : prev,
+          )
+        }
+      } catch {
+        // mantém fluxo mesmo se não recarregar o vínculo
+      }
+    }
+    onUpdated?.()
+  }
+
+  const romaneioCompraRef = useMemo(
+    () =>
+      editar
+        ? compraToRomaneioRef({
+            id: editar.id,
+            data: editar.data,
+            quantidade_animais: editar.quantidade_animais,
+            tipo_gado: editar.tipo_gado,
+            fornecedor_id: editar.fornecedor_id,
+            fornecedor: editar.fornecedor,
+            observacoes: editar.observacoes,
+          })
+        : null,
+    [
+      editar?.id,
+      editar?.data,
+      editar?.quantidade_animais,
+      editar?.tipo_gado,
+      editar?.fornecedor_id,
+      editar?.fornecedor?.nome,
+      editar?.observacoes,
+    ],
+  )
+
   if (!compra || !editar) return null
 
   const fornecedorNome =
@@ -887,7 +940,10 @@ export function CompraDetalheModal({
       <div className={styles.modalToolbar}>
         <Button variant="outline" onClick={() => setRomaneioOpen(true)}>
           <ClipboardList size={16} aria-hidden />
-          Romaneio de pesagem
+          {editar?.romaneio &&
+          (Array.isArray(editar.romaneio) ? editar.romaneio[0] : editar.romaneio)
+            ? 'Ver romaneio salvo'
+            : 'Romaneio de pesagem'}
         </Button>
       </div>
 
@@ -1537,21 +1593,11 @@ export function CompraDetalheModal({
       )}
 
       <RomaneioModal
+        key={romaneioCompraRef ? `compra-${romaneioCompraRef.id}` : 'compra-fechada'}
         open={romaneioOpen}
-        compra={
-          editar
-            ? compraToRomaneioRef({
-                id: editar.id,
-                data: editar.data,
-                quantidade_animais: editar.quantidade_animais,
-                tipo_gado: editar.tipo_gado,
-                fornecedor_id: editar.fornecedor_id,
-                fornecedor: editar.fornecedor,
-                observacoes: editar.observacoes,
-              })
-            : null
-        }
+        compra={romaneioCompraRef}
         onClose={() => setRomaneioOpen(false)}
+        onSaved={handleRomaneioSalvo}
       />
     </Modal>
   )

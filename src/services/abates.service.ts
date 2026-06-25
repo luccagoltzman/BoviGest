@@ -1,4 +1,5 @@
 import { AuthService } from './auth.service'
+import { romaneiosService } from './romaneios.service'
 import { supabase } from './supabase'
 
 function getUser() {
@@ -56,8 +57,17 @@ export const abatesService = {
         throw error
       }
 
+      const abateIds = (data || []).map((row) => row.id as number)
+      const romaneiosMap =
+        await romaneiosService.listarResumoPorAbateIds(abateIds)
+
+      const dataComRomaneio = (data || []).map((row) => ({
+        ...row,
+        romaneio: romaneiosMap.get(row.id as number) || null,
+      }))
+
       return {
-        data,
+        data: dataComRomaneio,
         total: count || 0,
         page,
         limit,
@@ -152,18 +162,7 @@ export const abatesService = {
 
     let query = supabase
       .from('abates')
-      .select(
-        `
-        *,
-        romaneio:romaneios (
-          data_romaneio,
-          fornecedor_nome,
-          fornecedor:fornecedores (
-            nome
-          )
-        )
-      `,
-      )
+      .select('*')
       .eq('empresa_id', user.empresa_id)
       .order('data_abate', { ascending: true })
 
@@ -179,6 +178,57 @@ export const abatesService = {
 
     if (error) throw error
 
-    return data || []
+    const abateIds = (data || []).map((row) => row.id as number)
+    const romaneiosMap =
+      await romaneiosService.listarResumoPorAbateIds(abateIds)
+
+    const romaneioIds = [...romaneiosMap.values()].map((item) => item.id)
+    let romaneiosDetalhe = new Map<
+      number,
+      {
+        data_romaneio: string
+        fornecedor_nome: string | null
+        fornecedor?: { nome: string } | null
+      }
+    >()
+
+    if (romaneioIds.length) {
+      const { data: romaneiosRows, error: romaneiosError } = await supabase
+        .from('romaneios')
+        .select(
+          'id, data_romaneio, fornecedor_nome, fornecedor:fornecedores(nome)',
+        )
+        .eq('empresa_id', user.empresa_id)
+        .in('id', romaneioIds)
+
+      if (romaneiosError) throw romaneiosError
+
+      for (const row of romaneiosRows || []) {
+        const fornecedor = Array.isArray(row.fornecedor)
+          ? row.fornecedor[0] ?? null
+          : row.fornecedor
+        romaneiosDetalhe.set(row.id, {
+          data_romaneio: row.data_romaneio,
+          fornecedor_nome: row.fornecedor_nome,
+          fornecedor,
+        })
+      }
+    }
+
+    return (data || []).map((row) => {
+      const resumo = romaneiosMap.get(row.id as number)
+      const detalhe = resumo ? romaneiosDetalhe.get(resumo.id) : null
+
+      return {
+        ...row,
+        romaneio: detalhe
+          ? {
+              data_romaneio: detalhe.data_romaneio,
+              fornecedor_nome: detalhe.fornecedor_nome,
+              fornecedor: detalhe.fornecedor,
+            }
+          : null,
+      }
+    })
   },
 }

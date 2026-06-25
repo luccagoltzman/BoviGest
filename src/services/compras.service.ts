@@ -9,6 +9,8 @@ import { AuthService } from './auth.service'
 
 import { pagamentosComprasService } from './pagamentosCompras.service'
 
+import { romaneiosService } from './romaneios.service'
+
 import { supabase } from './supabase'
 
 
@@ -190,9 +192,11 @@ export const comprasService = {
 
 
 
+      let romaneiosMap = new Map<number, { id: number; data_romaneio: string }>()
+
       if (ids.length) {
 
-        const [{ data: viagens }, parcelasResumo] = await Promise.all([
+        const [{ data: viagens }, parcelasResumo, romaneiosResumo] = await Promise.all([
 
           supabase
 
@@ -207,6 +211,8 @@ export const comprasService = {
             .in('referencia_id', ids),
 
           pagamentosComprasService.getResumoByCompraIds(ids),
+
+          romaneiosService.listarResumoPorCompraIds(ids),
 
         ])
 
@@ -225,6 +231,8 @@ export const comprasService = {
         )
 
         parcelasMap = parcelasResumo
+
+        romaneiosMap = romaneiosResumo
 
       }
 
@@ -251,6 +259,8 @@ export const comprasService = {
         return {
 
           ...compra,
+
+          romaneio: romaneiosMap.get(compra.id) || null,
 
           detalhes_custo: {
 

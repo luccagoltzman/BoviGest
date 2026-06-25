@@ -18,6 +18,7 @@ import {
   totaisRomaneio,
   totalItemRomaneio,
   type FornecedorOption,
+  type Romaneio,
   type RomaneioItem,
 } from '@/services/romaneios.service'
 import { gerarRomaneioPdf } from '@/utils/romaneioPdf'
@@ -58,6 +59,7 @@ type RomaneioModalProps = {
   abate?: AbateRomaneioRef | null
   compra?: CompraRomaneioRef | null
   onClose: () => void
+  onSaved?: () => void
 }
 
 type PesoField =
@@ -174,11 +176,74 @@ function aplicarFornecedor(
   return { id: '', nome: '' }
 }
 
+function formatPesoExibicao(value: unknown) {
+  if (value === null || value === undefined || value === '') return ''
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || value === 0) return ''
+    return formatPesoKgInput(String(value).replace('.', ','))
+  }
+  return formatPesoKgInput(String(value))
+}
+
+function itensRomaneioParaForm(itens: RomaneioItem[]) {
+  return itens.map((item) => ({
+    ...item,
+    dianteiro_1: formatPesoExibicao(item.dianteiro_1),
+    dianteiro_2: formatPesoExibicao(item.dianteiro_2),
+    traseiro_1: formatPesoExibicao(item.traseiro_1),
+    traseiro_2: formatPesoExibicao(item.traseiro_2),
+  }))
+}
+
+function aplicarRomaneioCarregado(
+  romaneio: Romaneio,
+  source: RomaneioSource,
+  fornecedores: FornecedorOption[],
+) {
+  const tipoDefault = tipoPadrao(source.tipoAnimal)
+  const fornecedor = aplicarFornecedor(
+    fornecedores,
+    romaneio.fornecedor,
+    romaneio.fornecedor_id,
+    romaneio.fornecedor_nome,
+  )
+
+  return {
+    fornecedorId: fornecedor.id,
+    fornecedorBusca: fornecedor.nome,
+    observacao: romaneio.observacao || '',
+    dataRomaneio:
+      romaneio.data_romaneio?.slice(0, 10) || source.dataRef.slice(0, 10),
+    romaneioSalvo: {
+      id: romaneio.id,
+      data_romaneio: romaneio.data_romaneio?.slice(0, 10) || '',
+    },
+    itens: mergeItensRomaneio(
+      itensRomaneioParaForm(romaneio.itens || []),
+      source.qtdAnimais,
+      tipoDefault,
+    ),
+  }
+}
+
+function estadoRomaneioVazio(source: RomaneioSource) {
+  const tipoDefault = tipoPadrao(source.tipoAnimal)
+  return {
+    fornecedorId: '',
+    fornecedorBusca: '',
+    observacao: '',
+    dataRomaneio: source.dataRef.slice(0, 10),
+    romaneioSalvo: null as { id: number; data_romaneio: string } | null,
+    itens: mergeItensRomaneio([], source.qtdAnimais, tipoDefault),
+  }
+}
+
 export function RomaneioModal({
   open,
   abate = null,
   compra = null,
   onClose,
+  onSaved,
 }: RomaneioModalProps) {
   const source = useMemo(() => resolverSource(abate, compra), [abate, compra])
   const tableRef = useRef<HTMLDivElement>(null)
@@ -191,21 +256,44 @@ export function RomaneioModal({
   const [observacao, setObservacao] = useState('')
   const [dataRomaneio, setDataRomaneio] = useState('')
   const [itens, setItens] = useState<RomaneioItem[]>([])
+  const [romaneioSalvo, setRomaneioSalvo] = useState<{
+    id: number
+    data_romaneio: string
+  } | null>(null)
 
   useEffect(() => {
-    if (!open || !source) return
+    if (!open || !source) {
+      if (!open) {
+        setRomaneioSalvo(null)
+        setItens([])
+        setObservacao('')
+        setFornecedorId('')
+        setFornecedorBusca('')
+        setDataRomaneio('')
+      }
+      return
+    }
 
     let cancelled = false
+    const sourceAtual = source
 
     async function load() {
+      const vazio = estadoRomaneioVazio(sourceAtual)
+      setFornecedorId(vazio.fornecedorId)
+      setFornecedorBusca(vazio.fornecedorBusca)
+      setObservacao(vazio.observacao)
+      setDataRomaneio(vazio.dataRomaneio)
+      setRomaneioSalvo(vazio.romaneioSalvo)
+      setItens(vazio.itens)
+
       try {
         setLoading(true)
         setLoadingFornecedores(true)
 
         const romaneioPromise =
-          source!.kind === 'compra'
-            ? romaneiosService.getByCompraId(source!.id)
-            : romaneiosService.getByAbateId(source!.id)
+          sourceAtual.kind === 'compra'
+            ? romaneiosService.getByCompraId(sourceAtual.id)
+            : romaneiosService.getByAbateId(sourceAtual.id)
 
         const [fornecedoresLista, romaneio] = await Promise.all([
           fornecedoresService.getSelectOptions(),
@@ -217,36 +305,36 @@ export function RomaneioModal({
         setFornecedores(fornecedoresLista || [])
         setLoadingFornecedores(false)
 
-        const tipoDefault = tipoPadrao(source!.tipoAnimal)
-
         if (romaneio) {
-          const fornecedor = aplicarFornecedor(
+          const carregado = aplicarRomaneioCarregado(
+            romaneio,
+            sourceAtual,
             fornecedoresLista || [],
-            romaneio.fornecedor,
-            romaneio.fornecedor_id,
-            romaneio.fornecedor_nome,
           )
-          setFornecedorId(fornecedor.id)
-          setFornecedorBusca(fornecedor.nome)
-          setObservacao(romaneio.observacao || '')
-          setDataRomaneio(
-            romaneio.data_romaneio?.slice(0, 10) || source!.dataRef.slice(0, 10),
+          setFornecedorId(carregado.fornecedorId)
+          setFornecedorBusca(carregado.fornecedorBusca)
+          setObservacao(carregado.observacao)
+          setDataRomaneio(carregado.dataRomaneio)
+          setRomaneioSalvo(carregado.romaneioSalvo)
+          setItens(carregado.itens)
+
+          const temPeso = (romaneio.itens || []).some(
+            (item) => totalItemRomaneio(item) > 0,
           )
-          setItens(
-            mergeItensRomaneio(
-              romaneio.itens || [],
-              source!.qtdAnimais,
-              tipoDefault,
-            ),
-          )
+          if (!temPeso) {
+            toast(
+              'Romaneio encontrado, mas sem pesos salvos. Preencha novamente e salve.',
+              { icon: '⚠️', duration: 7000 },
+            )
+          }
           return
         }
 
-        if (source!.kind === 'abate') {
+        if (sourceAtual.kind === 'abate' && abate) {
           const sugerido = await romaneiosService.suggestFornecedorParaAbate({
-            lote: abate!.lote,
-            dataAbate: abate!.data_abate,
-            qtdAnimais: abate!.qtd_animais,
+            lote: abate.lote,
+            dataAbate: abate.data_abate,
+            qtdAnimais: abate.qtd_animais,
           })
 
           if (cancelled) return
@@ -257,8 +345,8 @@ export function RomaneioModal({
           const fornecedor = aplicarFornecedor(
             fornecedoresLista || [],
             null,
-            source!.fornecedorId,
-            source!.fornecedorNome,
+            sourceAtual.fornecedorId,
+            sourceAtual.fornecedorNome,
           )
 
           if (cancelled) return
@@ -266,12 +354,14 @@ export function RomaneioModal({
           setFornecedorId(fornecedor.id)
           setFornecedorBusca(fornecedor.nome)
         }
-
-        setObservacao('')
-        setDataRomaneio(source!.dataRef.slice(0, 10))
-        setItens(mergeItensRomaneio([], source!.qtdAnimais, tipoDefault))
-      } catch {
-        if (!cancelled) toast.error('Erro ao carregar romaneio')
+      } catch (error) {
+        if (!cancelled) {
+          const msg =
+            error instanceof Error
+              ? error.message
+              : 'Erro ao carregar romaneio salvo'
+          toast.error(msg)
+        }
       } finally {
         if (!cancelled) {
           setLoading(false)
@@ -284,7 +374,7 @@ export function RomaneioModal({
     return () => {
       cancelled = true
     }
-  }, [open, source, abate])
+  }, [open, source?.kind, source?.id, abate?.id, compra?.id])
 
   const totais = useMemo(() => totaisRomaneio(itens), [itens])
 
@@ -380,7 +470,7 @@ export function RomaneioModal({
   }
 
   async function persistirRomaneio() {
-    if (!source) return
+    if (!source) return null
 
     const fornecedor = resolverFornecedor(
       fornecedorBusca,
@@ -397,14 +487,13 @@ export function RomaneioModal({
     }
 
     if (source.kind === 'compra') {
-      await romaneiosService.save({
+      return romaneiosService.save({
         ...payloadBase,
         compra_id: source.id,
       })
-      return
     }
 
-    await romaneiosService.save({
+    return romaneiosService.save({
       ...payloadBase,
       abate_id: source.id,
     })
@@ -434,15 +523,36 @@ export function RomaneioModal({
     })
   }
 
+  function aplicarSalvoNoFormulario(saved: Romaneio) {
+    if (!source) return
+
+    const carregado = aplicarRomaneioCarregado(saved, source, fornecedores)
+    setFornecedorId(carregado.fornecedorId)
+    setFornecedorBusca(carregado.fornecedorBusca)
+    setObservacao(carregado.observacao)
+    setDataRomaneio(carregado.dataRomaneio)
+    setRomaneioSalvo(carregado.romaneioSalvo)
+    setItens(carregado.itens)
+  }
+
   async function handleSave() {
     if (!source) return
 
     try {
       setSaving(true)
-      await persistirRomaneio()
+      const saved = await persistirRomaneio()
+      if (!saved) {
+        toast.error('Não foi possível salvar o romaneio')
+        return
+      }
+
+      aplicarSalvoNoFormulario(saved)
       toast.success('Romaneio salvo')
-    } catch {
-      toast.error('Erro ao salvar romaneio')
+      onSaved?.()
+    } catch (error) {
+      const msg =
+        error instanceof Error ? error.message : 'Erro ao salvar romaneio'
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -464,11 +574,22 @@ export function RomaneioModal({
 
     try {
       setSaving(true)
-      await persistirRomaneio()
+      const saved = await persistirRomaneio()
+      if (!saved) {
+        toast.error('Não foi possível salvar o romaneio')
+        return
+      }
+
+      aplicarSalvoNoFormulario(saved)
       await gerarPdf()
       toast.success('Romaneio salvo e PDF gerado')
-    } catch {
-      toast.error('Erro ao salvar ou gerar PDF')
+      onSaved?.()
+    } catch (error) {
+      const msg =
+        error instanceof Error
+          ? error.message
+          : 'Erro ao salvar ou gerar PDF'
+      toast.error(msg)
     } finally {
       setSaving(false)
     }
@@ -496,6 +617,21 @@ export function RomaneioModal({
         <p className={styles.loading}>Carregando romaneio…</p>
       ) : (
         <div className={styles.wrapper}>
+          {romaneioSalvo && (
+            <div className={styles.savedBanner} role="status">
+              <strong>Romaneio salvo</strong>
+              <span>
+                Registrado em{' '}
+                {new Date(
+                  `${romaneioSalvo.data_romaneio}T12:00:00`,
+                ).toLocaleDateString('pt-BR')}
+                . Para consultar depois, clique em{' '}
+                <strong>Ver romaneio</strong> na listagem do abate ou compra.
+                Use <strong>Baixar PDF</strong> para gerar o arquivo.
+              </span>
+            </div>
+          )}
+
           <p className={styles.hint}>
             Informe o peso de cada peça (kg) por animal: dois dianteiros (DT) e
             dois traseiros (TZ). Use <kbd>Enter</kbd> para ir ao próximo campo.{' '}

@@ -57,6 +57,23 @@ interface AbateRow {
   forma_pagamento?: string | null
   prestador_id?: string | null
   prestador?: { id: string; nome: string } | null
+  romaneio?:
+    | { id: number; data_romaneio: string }
+    | { id: number; data_romaneio: string }[]
+    | null
+}
+
+function resolverRomaneioAbate(
+  romaneio: AbateRow['romaneio'],
+): { id: number; data_romaneio: string } | null {
+  if (!romaneio) return null
+  if (Array.isArray(romaneio)) return romaneio[0] ?? null
+  return romaneio
+}
+
+function formatDateBr(value?: string | null) {
+  if (!value) return '—'
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString('pt-BR')
 }
 
 const emptyForm = () => ({
@@ -582,7 +599,7 @@ export function Abate() {
             className={tableListStyles.acaoBtn}
             onClick={() => setRomaneioAbate(r)}
           >
-            Romaneio
+            {resolverRomaneioAbate(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
           </Button>
         </div>
       ),
@@ -646,6 +663,12 @@ export function Abate() {
       {
         label: 'Prestador (abatedouro)',
         value: r.prestador?.nome || '—',
+      },
+      {
+        label: 'Romaneio de pesagem',
+        value: resolverRomaneioAbate(r.romaneio)
+          ? `Salvo · ${formatDateBr(resolverRomaneioAbate(r.romaneio)?.data_romaneio)}`
+          : 'Não registrado',
       },
     ]
   }
@@ -739,7 +762,9 @@ export function Abate() {
             <ModalDetails items={detalheItems(detalhe)} />
             <div className={styles.actions}>
               <Button onClick={() => setRomaneioAbate(detalhe)}>
-                Emitir romaneio
+                {resolverRomaneioAbate(detalhe.romaneio)
+                  ? 'Ver romaneio salvo'
+                  : 'Emitir romaneio'}
               </Button>
             </div>
           </>
@@ -747,9 +772,11 @@ export function Abate() {
       </Modal>
 
       <RomaneioModal
+        key={romaneioAbate ? `abate-${romaneioAbate.id}` : 'abate-fechado'}
         open={!!romaneioAbate}
         abate={romaneioAbate}
         onClose={() => setRomaneioAbate(null)}
+        onSaved={loadAbates}
       />
 
       <Modal

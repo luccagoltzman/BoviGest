@@ -97,6 +97,18 @@ interface CompraRow {
   forma_pagamento?: string | null
   qtd_parcelas?: number
   pagamento_quitado?: boolean
+  romaneio?:
+    | { id: number; data_romaneio: string }
+    | { id: number; data_romaneio: string }[]
+    | null
+}
+
+function resolverRomaneioCompra(
+  romaneio: CompraRow['romaneio'],
+): { id: number; data_romaneio: string } | null {
+  if (!romaneio) return null
+  if (Array.isArray(romaneio)) return romaneio[0] ?? null
+  return romaneio
 }
 
 const emptyCompraForm = () => ({
@@ -659,7 +671,7 @@ export function Compras() {
               )
             }
           >
-            Romaneio
+            {resolverRomaneioCompra(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
           </Button>
           <Button
             variant="ghost"
@@ -1159,9 +1171,11 @@ export function Compras() {
       />
 
       <RomaneioModal
+        key={romaneioCompra ? `compra-${romaneioCompra.id}` : 'compra-fechada'}
         open={!!romaneioCompra}
         compra={romaneioCompra}
         onClose={() => setRomaneioCompra(null)}
+        onSaved={carregarCompras}
       />
 
       <ModalViagem

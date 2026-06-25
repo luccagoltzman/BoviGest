@@ -6,6 +6,23 @@
   gap: 1rem;
 }
 
+.savedBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 0.9rem;
+  border-radius: $radius-sm;
+  border: 1px solid rgba($color-primary, 0.25);
+  background: rgba($color-primary, 0.08);
+  color: $color-primary-dark;
+  font-size: 0.85rem;
+  line-height: 1.45;
+
+  strong {
+    font-size: 0.9rem;
+  }
+}
+
 .hint {
   margin: 0;
   font-size: 0.85rem;
