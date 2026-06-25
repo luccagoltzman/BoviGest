@@ -11,6 +11,7 @@ import {
   Receipt,
   Route,
   Scissors,
+  HardHat,
   Settings,
   Truck,
   UserCog,
@@ -77,6 +78,12 @@ const sections: SidebarSection[] = [
         to: '/fornecedores',
         label: 'Fornecedores',
         icon: Truck,
+      },
+      {
+        type: 'link',
+        to: '/prestadores-servico',
+        label: 'Prestadores de serviço',
+        icon: HardHat,
       },
       {
         type: 'link',

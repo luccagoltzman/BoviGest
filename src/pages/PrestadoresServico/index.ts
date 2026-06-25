@@ -1,0 +1,1 @@
+export { PrestadoresServico } from './PrestadoresServico'

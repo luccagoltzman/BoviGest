@@ -7,6 +7,7 @@ import {
   contaPagamentoTemDados,
   type ContaPagamentoData,
 } from '@/utils/contaPagamento'
+import { vencimentoSemanalAbate } from '@/utils/abatePagamento'
 
 export type FinanceiroLancamento = {
   id: string
@@ -87,7 +88,27 @@ async function listarAbates(startDate: string, endDate: string) {
 
   let query = supabase
     .from('abates')
-    .select('id, data_abate, lote, valor_total')
+    .select(
+      `
+      id,
+      data_abate,
+      lote,
+      valor_total,
+      pagamento_status,
+      data_pagamento,
+      forma_pagamento,
+      prestador:prestadores_servico(
+        nome,
+        banco,
+        agencia,
+        conta,
+        tipo_conta,
+        titular_conta,
+        pix_tipo,
+        pix_chave
+      )
+    `,
+    )
     .eq('empresa_id', user.empresa_id)
     .order('data_abate', { ascending: true })
 
@@ -252,13 +273,51 @@ export const financeiroService = {
     }
 
     for (const abate of abates) {
+      const prestador = abate.prestador as {
+        nome?: string | null
+        banco?: string | null
+        agencia?: string | null
+        conta?: string | null
+        tipo_conta?: string | null
+        titular_conta?: string | null
+        pix_tipo?: string | null
+        pix_chave?: string | null
+      } | null
+
+      const pago = abate.pagamento_status === 'pago'
+      const vencimento = pago
+        ? isoDateOnly(abate.data_pagamento || abate.data_abate)
+        : vencimentoSemanalAbate(abate.data_abate)
+
+      let status: 'Pago' | 'Pendente' | 'Atrasado' = pago ? 'Pago' : 'Pendente'
+      if (!pago) {
+        const hoje = new Date()
+        hoje.setHours(12, 0, 0, 0)
+        const venc = new Date(`${vencimento}T12:00:00`)
+        if (venc < hoje) status = 'Atrasado'
+      }
+
+      const prestadorNome = prestador?.nome?.trim()
+      const loteLabel = abate.lote || abate.id
+
       lancamentos.push({
         id: `abate-${abate.id}`,
-        descricao: `Abate - Lote ${abate.lote || abate.id}`,
+        descricao: prestadorNome
+          ? `Abate - ${prestadorNome} - Lote ${loteLabel}`
+          : `Abate - Lote ${loteLabel}`,
         tipo: 'pagar',
         valor: Number(abate.valor_total || 0),
-        vencimento: isoDateOnly(abate.data_abate),
-        status: 'Pago',
+        vencimento,
+        dataPagamento: pago
+          ? isoDateOnly(abate.data_pagamento || abate.data_abate)
+          : undefined,
+        status,
+        formaPagamento: abate.forma_pagamento || undefined,
+        contaPagamento: contaPagamentoTemDados(
+          contaPagamentoFromFornecedor(prestador),
+        )
+          ? contaPagamentoFromFornecedor(prestador)
+          : undefined,
         origem: 'abate',
       })
     }

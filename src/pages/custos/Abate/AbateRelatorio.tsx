@@ -1,10 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Download, FileBarChart2, RefreshCw } from 'lucide-react'
+import {
+  Download,
+  FileBarChart2,
+  RefreshCw,
+  Wallet,
+} from 'lucide-react'
 import { Button, Card, Input, Modal, ModalDetails, Table } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { abatesService } from '@/services/abates.service'
+import {
+  pagamentosAbatesService,
+  type AbateBaixa,
+} from '@/services/pagamentosAbates.service'
 import { getLogoUrl } from '@/services/theme.service'
+import { formatSemanaLabel } from '@/utils/abatePagamento'
 import {
   formatCurrencyBr,
   formatDateBr,
@@ -14,6 +24,7 @@ import {
   resumirRelatorioAbate,
   type AbateRelatorioLinha,
 } from '@/utils/abateRelatorio'
+import { AbateBaixaPagamentoModal } from './AbateBaixaPagamentoModal'
 import styles from './Abate.module.scss'
 
 function periodoPadrao() {
@@ -26,16 +37,60 @@ function periodoPadrao() {
   }
 }
 
-export function AbateRelatorio() {
+type Props = {
+  onHistoricoUpdated?: () => void
+}
+
+export function AbateRelatorio({ onHistoricoUpdated }: Props) {
   const defaultPeriod = useMemo(() => periodoPadrao(), [])
   const [startDate, setStartDate] = useState(defaultPeriod.startDate)
   const [endDate, setEndDate] = useState(defaultPeriod.endDate)
   const [loading, setLoading] = useState(false)
+  const [loadingBaixas, setLoadingBaixas] = useState(false)
   const [exportando, setExportando] = useState(false)
+  const [exportandoBaixaId, setExportandoBaixaId] = useState<number | null>(
+    null,
+  )
   const [linhas, setLinhas] = useState<AbateRelatorioLinha[]>([])
+  const [baixas, setBaixas] = useState<AbateBaixa[]>([])
   const [detalhe, setDetalhe] = useState<AbateRelatorioLinha | null>(null)
+  const [baixaModalOpen, setBaixaModalOpen] = useState(false)
 
   const resumo = useMemo(() => resumirRelatorioAbate(linhas), [linhas])
+
+  const resumoBaixas = useMemo(() => {
+    const valorTotal = baixas.reduce(
+      (acc, item) => acc + Number(item.valor_total || 0),
+      0,
+    )
+    const qtdAbates = baixas.reduce(
+      (acc, item) => acc + (item.itens?.length || 0),
+      0,
+    )
+    return {
+      qtdBaixas: baixas.length,
+      qtdAbates,
+      valorTotal,
+    }
+  }, [baixas])
+
+  const carregarBaixas = useCallback(async () => {
+    if (!startDate || !endDate) return
+
+    try {
+      setLoadingBaixas(true)
+      const data = await pagamentosAbatesService.listarBaixasPorPeriodo(
+        startDate,
+        endDate,
+      )
+      setBaixas(data)
+    } catch {
+      toast.error('Erro ao carregar baixas de pagamento')
+      setBaixas([])
+    } finally {
+      setLoadingBaixas(false)
+    }
+  }, [startDate, endDate])
 
   async function carregarRelatorio() {
     if (startDate && endDate && startDate > endDate) {
@@ -45,7 +100,10 @@ export function AbateRelatorio() {
 
     try {
       setLoading(true)
-      const registros = await abatesService.listarRelatorio(startDate, endDate)
+      const [registros] = await Promise.all([
+        abatesService.listarRelatorio(startDate, endDate),
+        carregarBaixas(),
+      ])
       setLinhas(montarLinhasRelatorioAbate(registros))
     } catch {
       toast.error('Erro ao carregar relatório de abates')
@@ -81,6 +139,25 @@ export function AbateRelatorio() {
     } finally {
       setExportando(false)
     }
+  }
+
+  async function exportarComprovanteBaixa(baixaId: number) {
+    try {
+      setExportandoBaixaId(baixaId)
+      const baixa = await pagamentosAbatesService.getById(baixaId)
+      const { gerarAbateBaixaPdf } = await import('@/utils/abateBaixaPdf')
+      await gerarAbateBaixaPdf({ baixa, logoUrl: getLogoUrl() })
+      toast.success('Comprovante baixado')
+    } catch {
+      toast.error('Erro ao gerar comprovante')
+    } finally {
+      setExportandoBaixaId(null)
+    }
+  }
+
+  function handleBaixaSalva() {
+    carregarRelatorio()
+    onHistoricoUpdated?.()
   }
 
   const columns = [
@@ -121,8 +198,59 @@ export function AbateRelatorio() {
     },
   ]
 
+  const baixaColumns = [
+    {
+      key: 'data_pagamento',
+      header: 'Pagamento',
+      render: (r: AbateBaixa) => formatDateBr(r.data_pagamento),
+    },
+    {
+      key: 'prestador',
+      header: 'Prestador',
+      render: (r: AbateBaixa) => r.prestador?.nome || '—',
+    },
+    {
+      key: 'periodo',
+      header: 'Período dos abates',
+      render: (r: AbateBaixa) =>
+        formatSemanaLabel(r.semana_inicio, r.semana_fim),
+    },
+    {
+      key: 'itens',
+      header: 'Abates',
+      render: (r: AbateBaixa) => r.itens?.length || 0,
+    },
+    {
+      key: 'forma',
+      header: 'Forma',
+      render: (r: AbateBaixa) => r.forma_pagamento || '—',
+    },
+    {
+      key: 'valor_total',
+      header: 'Valor pago',
+      render: (r: AbateBaixa) => (
+        <strong>{formatCurrencyBr(Number(r.valor_total))}</strong>
+      ),
+    },
+    {
+      key: 'acoes',
+      header: 'Ações',
+      render: (r: AbateBaixa) => (
+        <Button
+          variant="outline"
+          loading={exportandoBaixaId === r.id}
+          disabled={exportandoBaixaId === r.id}
+          onClick={() => exportarComprovanteBaixa(r.id)}
+        >
+          <Download size={14} aria-hidden />
+          Comprovante
+        </Button>
+      ),
+    },
+  ]
+
   const detalheItems = (r: AbateRelatorioLinha): DetailItem[] => [
-    { label: 'Data do abate (pagamento no abatedouro)', value: formatDateBr(r.dataAbate) },
+    { label: 'Data do abate', value: formatDateBr(r.dataAbate) },
     ...(r.dataRomaneio
       ? [{ label: 'Data do romaneio', value: formatDateBr(r.dataRomaneio) }]
       : []),
@@ -171,8 +299,8 @@ export function AbateRelatorio() {
         }
       >
         <p className={styles.relatorioIntro}>
-          Pagamentos no abatedouro, couro deixado, descontos e valor total pago por
-          abate. Use o filtro de período e exporte em PDF quando precisar.
+          Custos por abate, baixa de pagamentos ao abatedouro e comprovantes em
+          PDF. Use o mesmo período para o relatório e para as baixas registradas.
         </p>
 
         <div className={styles.relatorioToolbar}>
@@ -197,7 +325,11 @@ export function AbateRelatorio() {
             </Button>
             <Button onClick={exportarPdf} disabled={exportando || !linhas.length}>
               <Download size={16} aria-hidden />
-              {exportando ? 'Gerando PDF...' : 'Baixar PDF'}
+              {exportando ? 'Gerando PDF...' : 'Relatório PDF'}
+            </Button>
+            <Button variant="outline" onClick={() => setBaixaModalOpen(true)}>
+              <Wallet size={16} aria-hidden />
+              Registrar baixa
             </Button>
           </div>
         </div>
@@ -220,7 +352,7 @@ export function AbateRelatorio() {
             <strong>{formatCurrencyBr(resumo.descontoTotal)}</strong>
           </article>
           <article className={[styles.relatorioKpi, styles.relatorioKpiDestaque].join(' ')}>
-            <span>Total pago no período</span>
+            <span>Custo total no período</span>
             <strong>{formatCurrencyBr(resumo.valorTotalPago)}</strong>
           </article>
         </div>
@@ -242,7 +374,7 @@ export function AbateRelatorio() {
             {' · '}
             Descontos: <strong>{formatCurrencyBr(resumo.descontoTotal)}</strong>
             {' · '}
-            Total pago: <strong>{formatCurrencyBr(resumo.valorTotalPago)}</strong>
+            Total: <strong>{formatCurrencyBr(resumo.valorTotalPago)}</strong>
           </p>
         )}
 
@@ -251,7 +383,48 @@ export function AbateRelatorio() {
             Nenhum abate encontrado no período selecionado.
           </p>
         )}
+
+        <div className={styles.relatorioSecaoDivider} />
+
+        <h3 className={styles.relatorioSecaoTitulo}>Baixas de pagamento</h3>
+        <p className={styles.relatorioSecaoIntro}>
+          Pagamentos realizados ao prestador de serviço (abatedouro) no período.
+          Baixe o comprovante em PDF para enviar ou arquivar.
+        </p>
+
+        <div className={styles.relatorioKpis}>
+          <article className={styles.relatorioKpi}>
+            <span>Baixas registradas</span>
+            <strong>{resumoBaixas.qtdBaixas}</strong>
+          </article>
+          <article className={styles.relatorioKpi}>
+            <span>Abates quitados</span>
+            <strong>{resumoBaixas.qtdAbates}</strong>
+          </article>
+          <article className={[styles.relatorioKpi, styles.relatorioKpiDestaque].join(' ')}>
+            <span>Total pago no período</span>
+            <strong>{formatCurrencyBr(resumoBaixas.valorTotal)}</strong>
+          </article>
+        </div>
+
+        <div className={styles.relatorioTableWrap}>
+          <Table
+            columns={baixaColumns}
+            data={baixas}
+            keyExtractor={(r) => String(r.id)}
+            loading={loadingBaixas}
+            emptyMessage="Nenhuma baixa de pagamento neste período."
+          />
+        </div>
       </Card>
+
+      <AbateBaixaPagamentoModal
+        open={baixaModalOpen}
+        onClose={() => setBaixaModalOpen(false)}
+        onSaved={handleBaixaSalva}
+        semanaInicioPadrao={startDate}
+        semanaFimPadrao={endDate}
+      />
 
       <Modal
         open={!!detalhe}

@@ -27,7 +27,10 @@ export const abatesService = {
 
       let query = supabase
         .from('abates')
-        .select('*', { count: 'exact' })
+        .select(
+          '*, prestador:prestadores_servico(id, nome)',
+          { count: 'exact' },
+        )
         .eq('empresa_id', user.empresa_id)
         .order('data_abate', { ascending: false })
         .range(from, to)
@@ -35,8 +38,7 @@ export const abatesService = {
       if (search) {
         query = query.or(`
           lote.ilike.%${search}%,
-          tipo_animal.ilike.%${search}%,
-          abatedouro.ilike.%${search}%
+          tipo_animal.ilike.%${search}%
         `)
       }
 

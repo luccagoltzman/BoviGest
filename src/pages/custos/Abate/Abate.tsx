@@ -52,6 +52,11 @@ interface AbateRow {
   tipo_cobranca: TipoCobrancaAbate
   salvar_couro?: boolean
   peso_retalho_kg?: number
+  pagamento_status?: 'pendente' | 'pago' | string
+  data_pagamento?: string | null
+  forma_pagamento?: string | null
+  prestador_id?: string | null
+  prestador?: { id: string; nome: string } | null
 }
 
 const emptyForm = () => ({
@@ -347,7 +352,6 @@ export function Abate() {
   const [showViscerasModal, setShowViscerasModal] = useState(false)
   const [viscerasDefaultValues, setViscerasDefaultValues] = useState<any>(null)
   const [romaneioAbate, setRomaneioAbate] = useState<AbateRow | null>(null)
-
   const parsedForm = useMemo(() => parseForm(form), [form])
 
   const isFormValid =
@@ -541,6 +545,20 @@ export function Abate() {
       render: (r: AbateRow) => formatCurrency(Number(r.valor_total)),
     },
     {
+      key: 'pagamento',
+      header: 'Pagamento',
+      render: (r: AbateRow) => {
+        const pago = r.pagamento_status === 'pago'
+        return (
+          <span className={pago ? styles.statusPago : styles.statusPendente}>
+            {pago
+              ? `Pago${r.data_pagamento ? ` · ${r.data_pagamento.slice(0, 10).split('-').reverse().join('/')}` : ''}`
+              : 'Pendente'}
+          </span>
+        )
+      },
+    },
+    {
       key: 'acoes',
       header: 'Ações',
       render: (r: AbateRow) => (
@@ -618,6 +636,17 @@ export function Abate() {
       { label: 'Taxas', value: formatCurrency(Number(r.taxas)) },
       { label: 'Valor base', value: formatCurrency(calc.valor_base) },
       { label: 'Valor total', value: formatCurrency(Number(r.valor_total)) },
+      {
+        label: 'Pagamento',
+        value:
+          r.pagamento_status === 'pago'
+            ? `Pago em ${r.data_pagamento?.slice(0, 10) || '—'}`
+            : 'Pendente',
+      },
+      {
+        label: 'Prestador (abatedouro)',
+        value: r.prestador?.nome || '—',
+      },
     ]
   }
 
@@ -627,7 +656,7 @@ export function Abate() {
         <div>
           <h1 className="page-title">Custos de abate</h1>
           <p className={styles.subtitle}>
-            Histórico, romaneio e relatório de pagamentos no abatedouro.
+            Histórico, romaneio, baixa de pagamentos no abatedouro e relatório.
           </p>
         </div>
       </header>
@@ -674,7 +703,7 @@ export function Abate() {
         />
       </Card>
 
-      <AbateRelatorio />
+      <AbateRelatorio onHistoricoUpdated={loadAbates} />
 
       <ProcessamentoModal
         open={showEstoqueModal}

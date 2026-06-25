@@ -3,6 +3,7 @@ import { MainLayout } from '@/layouts/MainLayout'
 import { Dashboard } from '@/pages/Dashboard'
 import { Compras } from '@/pages/Compras'
 import { Fornecedores } from '@/pages/Fornecedores'
+import { PrestadoresServico } from '@/pages/PrestadoresServico'
 import { Processamento } from '@/pages/Processamento'
 import { Visceras } from '@/pages/Visceras'
 import { Clientes } from '@/pages/Clientes'
@@ -37,6 +38,7 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="compras" element={<Compras />} />
             <Route path="fornecedores" element={<Fornecedores />} />
+            <Route path="prestadores-servico" element={<PrestadoresServico />} />
             <Route path="processamento" element={<Processamento />} />
             <Route path="visceras" element={<Visceras />} />
             <Route path="clientes" element={<Clientes />} />
