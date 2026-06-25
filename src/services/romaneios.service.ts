@@ -94,6 +94,13 @@ export function totalItemRomaneio(item: RomaneioItem) {
   )
 }
 
+/** Peso do romaneio sem vírgula — ponto decimal, sem separador de milhar. */
+export function formatPesoRomaneio(value: number, withKgSuffix = false) {
+  const n = Number(value || 0)
+  const text = Number.isFinite(n) ? n.toFixed(2) : '0.00'
+  return withKgSuffix ? `${text} kg` : text
+}
+
 export function totaisRomaneio(itens: RomaneioItem[]) {
   return itens.reduce(
     (acc, item) => ({

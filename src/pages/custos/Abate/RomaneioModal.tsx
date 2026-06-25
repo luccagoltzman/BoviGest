@@ -17,12 +17,12 @@ import {
   romaneiosService,
   totaisRomaneio,
   totalItemRomaneio,
+  formatPesoRomaneio,
   type FornecedorOption,
   type Romaneio,
   type RomaneioItem,
 } from '@/services/romaneios.service'
 import { gerarRomaneioPdf } from '@/utils/romaneioPdf'
-import { formatKg } from '@/utils/abateCalc'
 import styles from './RomaneioModal.module.scss'
 
 export type AbateRomaneioRef = {
@@ -723,7 +723,7 @@ export function RomaneioModal({
                       </td>
                     ))}
                     <td className={styles.totalCell}>
-                      {formatKg(totalItemRomaneio(item))}
+                      {formatPesoRomaneio(totalItemRomaneio(item), true)}
                     </td>
                     <td>
                       <input
@@ -746,11 +746,11 @@ export function RomaneioModal({
                 ))}
                 <tr className={styles.totalsRow}>
                   <td className={styles.totalsLabel}>Totais</td>
-                  <td>{formatKg(totais.dianteiro_1)}</td>
-                  <td>{formatKg(totais.dianteiro_2)}</td>
-                  <td>{formatKg(totais.traseiro_1)}</td>
-                  <td>{formatKg(totais.traseiro_2)}</td>
-                  <td>{formatKg(totais.total)}</td>
+                  <td>{formatPesoRomaneio(totais.dianteiro_1, true)}</td>
+                  <td>{formatPesoRomaneio(totais.dianteiro_2, true)}</td>
+                  <td>{formatPesoRomaneio(totais.traseiro_1, true)}</td>
+                  <td>{formatPesoRomaneio(totais.traseiro_2, true)}</td>
+                  <td>{formatPesoRomaneio(totais.total, true)}</td>
                   <td />
                 </tr>
               </tbody>

@@ -5,6 +5,7 @@ import {
   type RomaneioItem,
   totaisRomaneio,
   totalItemRomaneio,
+  formatPesoRomaneio,
 } from '@/services/romaneios.service'
 
 export type RomaneioPdfInput = {
@@ -22,11 +23,7 @@ function formatDate(d: string) {
 }
 
 function formatPeso(v: number) {
-  if (!v) return '0'
-  return v.toLocaleString('pt-BR', {
-    minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
-    maximumFractionDigits: 2,
-  })
+  return formatPesoRomaneio(v)
 }
 
 function sanitizeFilename(name: string) {
