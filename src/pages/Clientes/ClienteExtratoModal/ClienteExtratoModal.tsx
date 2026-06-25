@@ -111,6 +111,10 @@ export function ClienteExtratoModal({
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
+  /** Recebimentos desde o início do filtro até hoje — usados no saldo devedor */
+  const [recebimentosParaSaldo, setRecebimentosParaSaldo] = useState<
+    Recebimento[]
+  >([])
   const [startDate, setStartDate] = useState(
     inicioMes.toISOString().split('T')[0],
   )
@@ -153,22 +157,30 @@ export function ClienteExtratoModal({
   async function carregarDados() {
     try {
       setLoading(true)
-      const [movsPeriodo, recsPeriodo, clienteDetalhe] = await Promise.all([
-        movimentacoesClientesService.getByCliente(
-          cliente.id,
-          startDate,
-          endDate,
-        ),
-        recebimentosClientesService.getByCliente(
-          cliente.id,
-          startDate,
-          endDate,
-        ),
-        clientesService.getById(cliente.id),
-      ])
+      const hojeIso = new Date().toISOString().slice(0, 10)
+      const [movsPeriodo, recsPeriodo, recsParaSaldo, clienteDetalhe] =
+        await Promise.all([
+          movimentacoesClientesService.getByCliente(
+            cliente.id,
+            startDate,
+            endDate,
+          ),
+          recebimentosClientesService.getByCliente(
+            cliente.id,
+            startDate,
+            endDate,
+          ),
+          recebimentosClientesService.getByCliente(
+            cliente.id,
+            startDate,
+            hojeIso,
+          ),
+          clientesService.getById(cliente.id),
+        ])
 
       setMovimentacoes(movsPeriodo as Movimentacao[])
       setRecebimentos(recsPeriodo as Recebimento[])
+      setRecebimentosParaSaldo(recsParaSaldo as Recebimento[])
 
       const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
       setDebitoAnterior(debito)
@@ -330,27 +342,45 @@ export function ClienteExtratoModal({
     (acc, r) => acc + Number(r.valor ?? 0),
     0,
   )
+  const totalRecebidoParaSaldo = recebimentosParaSaldo.reduce(
+    (acc, r) => acc + Number(r.valor ?? 0),
+    0,
+  )
   const saldoPeriodoEmAberto = Math.max(
     0,
     totalComprasPeriodo - totalRecebidoPeriodo,
   )
   const saldoTotal =
-    debitoAnterior + totalComprasPeriodo - totalRecebidoPeriodo
+    debitoAnterior + totalComprasPeriodo - totalRecebidoParaSaldo
   const saldoDevedorExibicao = Math.max(0, saldoTotal)
   const periodoQuitado = saldoTotal <= 0
+  const quitadoComPagamentoPosterior =
+    periodoQuitado &&
+    totalRecebidoParaSaldo > totalRecebidoPeriodo &&
+    totalComprasPeriodo > 0
 
   const saldoDevedorDetalhe = useMemo(() => {
+    if (quitadoComPagamentoPosterior) {
+      return 'Quitado — pagamento registrado após o fim do período filtrado'
+    }
+    if (periodoQuitado) {
+      return 'Quitado no período'
+    }
     if (debitoAnterior > 0 && saldoPeriodoEmAberto > 0) {
       return `Inclui ${formatCurrency(debitoAnterior)} de débito anterior + ${formatCurrency(saldoPeriodoEmAberto)} do período`
     }
     if (debitoAnterior > 0 && saldoDevedorExibicao > 0) {
-      return `Inclui ${formatCurrency(saldoDevedorExibicao)} de débito anterior · período quitado`
+      return `Inclui ${formatCurrency(debitoAnterior)} de débito anterior + ${formatCurrency(Math.max(0, totalComprasPeriodo - totalRecebidoParaSaldo))} em aberto`
     }
     return 'Em aberto no período'
   }, [
+    quitadoComPagamentoPosterior,
+    periodoQuitado,
     debitoAnterior,
     saldoPeriodoEmAberto,
     saldoDevedorExibicao,
+    totalComprasPeriodo,
+    totalRecebidoParaSaldo,
   ])
 
   /**
@@ -749,9 +779,10 @@ export function ClienteExtratoModal({
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
           <p className={styles.extratoHint}>
-            Compras discriminadas por peça no período. O saldo devedor soma débito
-            anterior (quando informado) + compras do período − recebimentos do
-            período.
+            Compras discriminadas por peça no período. O saldo devedor considera
+            compras do período filtrado e recebimentos desde o início do filtro
+            até hoje — pagamentos feitos logo após o período também quitam a
+            dívida exibida.
           </p>
           <div className={styles.extratoTableWrap}>
             <table className={styles.extratoTable}>
