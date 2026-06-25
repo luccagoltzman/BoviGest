@@ -330,9 +330,28 @@ export function ClienteExtratoModal({
     (acc, r) => acc + Number(r.valor ?? 0),
     0,
   )
-  const saldoPeriodo = totalComprasPeriodo - totalRecebidoPeriodo
-  const saldoDevedorExibicao = Math.max(0, saldoPeriodo)
-  const periodoQuitado = saldoPeriodo <= 0
+  const saldoPeriodoEmAberto = Math.max(
+    0,
+    totalComprasPeriodo - totalRecebidoPeriodo,
+  )
+  const saldoTotal =
+    debitoAnterior + totalComprasPeriodo - totalRecebidoPeriodo
+  const saldoDevedorExibicao = Math.max(0, saldoTotal)
+  const periodoQuitado = saldoTotal <= 0
+
+  const saldoDevedorDetalhe = useMemo(() => {
+    if (debitoAnterior > 0 && saldoPeriodoEmAberto > 0) {
+      return `Inclui ${formatCurrency(debitoAnterior)} de débito anterior + ${formatCurrency(saldoPeriodoEmAberto)} do período`
+    }
+    if (debitoAnterior > 0 && saldoDevedorExibicao > 0) {
+      return `Inclui ${formatCurrency(saldoDevedorExibicao)} de débito anterior · período quitado`
+    }
+    return 'Em aberto no período'
+  }, [
+    debitoAnterior,
+    saldoPeriodoEmAberto,
+    saldoDevedorExibicao,
+  ])
 
   /**
    * Resumo de cortes — agora acumula a composição (dianteiro/traseiro)
@@ -721,7 +740,7 @@ export function ClienteExtratoModal({
             <strong className={styles.cardValor}>
               {formatCurrency(saldoDevedorExibicao)}
             </strong>
-            <span className={styles.cardSub}>Em aberto no período</span>
+            <span className={styles.cardSub}>{saldoDevedorDetalhe}</span>
           </div>
           )}
         </div>
@@ -730,9 +749,9 @@ export function ClienteExtratoModal({
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
           <p className={styles.extratoHint}>
-            Compras discriminadas por peça no período. O saldo considera apenas
-            compras e recebimentos do período selecionado — dívidas de outros
-            meses não entram neste cálculo.
+            Compras discriminadas por peça no período. O saldo devedor soma débito
+            anterior (quando informado) + compras do período − recebimentos do
+            período.
           </p>
           <div className={styles.extratoTableWrap}>
             <table className={styles.extratoTable}>
