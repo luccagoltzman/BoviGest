@@ -32,9 +32,31 @@ export type AbateRomaneioRef = {
   qtd_animais: number
 }
 
+export type CompraRomaneioRef = {
+  id: number
+  data: string
+  quantidade_animais: number
+  tipo_gado?: string
+  fornecedor_id?: string
+  fornecedor?: { id: string; nome: string }
+  observacoes?: string
+}
+
+type RomaneioSource = {
+  kind: 'abate' | 'compra'
+  id: number
+  dataRef: string
+  qtdAnimais: number
+  tipoAnimal: string
+  referenciaLabel: string
+  fornecedorId?: string
+  fornecedorNome?: string
+}
+
 type RomaneioModalProps = {
   open: boolean
-  abate: AbateRomaneioRef | null
+  abate?: AbateRomaneioRef | null
+  compra?: CompraRomaneioRef | null
   onClose: () => void
 }
 
@@ -61,6 +83,42 @@ function tipoPadrao(tipoAnimal?: string) {
 
 function cellId(ordem: number, field: PesoField | 'tipo') {
   return `romaneio-${ordem}-${field}`
+}
+
+function resolverSource(
+  abate?: AbateRomaneioRef | null,
+  compra?: CompraRomaneioRef | null,
+): RomaneioSource | null {
+  if (abate) {
+    return {
+      kind: 'abate',
+      id: abate.id,
+      dataRef: abate.data_abate,
+      qtdAnimais: abate.qtd_animais,
+      tipoAnimal: abate.tipo_animal,
+      referenciaLabel: abate.lote || '—',
+    }
+  }
+
+  if (compra) {
+    const obs = compra.observacoes?.trim()
+    return {
+      kind: 'compra',
+      id: compra.id,
+      dataRef: compra.data,
+      qtdAnimais: compra.quantidade_animais,
+      tipoAnimal: compra.tipo_gado || '',
+      referenciaLabel: obs || `Compra #${compra.id}`,
+      fornecedorId: compra.fornecedor_id,
+      fornecedorNome: compra.fornecedor?.nome,
+    }
+  }
+
+  return null
+}
+
+export function compraToRomaneioRef(compra: CompraRomaneioRef): CompraRomaneioRef {
+  return compra
 }
 
 function resolverFornecedor(
@@ -116,7 +174,13 @@ function aplicarFornecedor(
   return { id: '', nome: '' }
 }
 
-export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
+export function RomaneioModal({
+  open,
+  abate = null,
+  compra = null,
+  onClose,
+}: RomaneioModalProps) {
+  const source = useMemo(() => resolverSource(abate, compra), [abate, compra])
   const tableRef = useRef<HTMLDivElement>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -129,7 +193,7 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
   const [itens, setItens] = useState<RomaneioItem[]>([])
 
   useEffect(() => {
-    if (!open || !abate) return
+    if (!open || !source) return
 
     let cancelled = false
 
@@ -138,9 +202,14 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
         setLoading(true)
         setLoadingFornecedores(true)
 
+        const romaneioPromise =
+          source!.kind === 'compra'
+            ? romaneiosService.getByCompraId(source!.id)
+            : romaneiosService.getByAbateId(source!.id)
+
         const [fornecedoresLista, romaneio] = await Promise.all([
           fornecedoresService.getSelectOptions(),
-          romaneiosService.getByAbateId(abate!.id),
+          romaneioPromise,
         ])
 
         if (cancelled) return
@@ -148,7 +217,7 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
         setFornecedores(fornecedoresLista || [])
         setLoadingFornecedores(false)
 
-        const tipoDefault = tipoPadrao(abate!.tipo_animal)
+        const tipoDefault = tipoPadrao(source!.tipoAnimal)
 
         if (romaneio) {
           const fornecedor = aplicarFornecedor(
@@ -161,17 +230,19 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
           setFornecedorBusca(fornecedor.nome)
           setObservacao(romaneio.observacao || '')
           setDataRomaneio(
-            romaneio.data_romaneio?.slice(0, 10) ||
-              abate!.data_abate.slice(0, 10),
+            romaneio.data_romaneio?.slice(0, 10) || source!.dataRef.slice(0, 10),
           )
           setItens(
             mergeItensRomaneio(
               romaneio.itens || [],
-              abate!.qtd_animais,
+              source!.qtdAnimais,
               tipoDefault,
             ),
           )
-        } else {
+          return
+        }
+
+        if (source!.kind === 'abate') {
           const sugerido = await romaneiosService.suggestFornecedorParaAbate({
             lote: abate!.lote,
             dataAbate: abate!.data_abate,
@@ -182,12 +253,23 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
 
           setFornecedorId(sugerido?.id || '')
           setFornecedorBusca(sugerido?.nome || '')
-          setObservacao('')
-          setDataRomaneio(abate!.data_abate.slice(0, 10))
-          setItens(
-            mergeItensRomaneio([], abate!.qtd_animais, tipoDefault),
+        } else {
+          const fornecedor = aplicarFornecedor(
+            fornecedoresLista || [],
+            null,
+            source!.fornecedorId,
+            source!.fornecedorNome,
           )
+
+          if (cancelled) return
+
+          setFornecedorId(fornecedor.id)
+          setFornecedorBusca(fornecedor.nome)
         }
+
+        setObservacao('')
+        setDataRomaneio(source!.dataRef.slice(0, 10))
+        setItens(mergeItensRomaneio([], source!.qtdAnimais, tipoDefault))
       } catch {
         if (!cancelled) toast.error('Erro ao carregar romaneio')
       } finally {
@@ -202,7 +284,7 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
     return () => {
       cancelled = true
     }
-  }, [open, abate])
+  }, [open, source, abate])
 
   const totais = useMemo(() => totaisRomaneio(itens), [itens])
 
@@ -272,7 +354,7 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
 
   function adicionarLinha() {
     const tipoDefault =
-      itens[itens.length - 1]?.tipo || tipoPadrao(abate?.tipo_animal)
+      itens[itens.length - 1]?.tipo || tipoPadrao(source?.tipoAnimal)
     setItens((prev) =>
       renumberItens([
         ...prev,
@@ -286,7 +368,7 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
   }
 
   function adicionarLinhas(quantidade: number) {
-    const tipoDefault = tipoPadrao(abate?.tipo_animal)
+    const tipoDefault = tipoPadrao(source?.tipoAnimal)
     setItens((prev) =>
       renumberItens([...prev, ...buildItensVazios(quantidade, tipoDefault)]),
     )
@@ -297,8 +379,8 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
     setItens((prev) => renumberItens(prev.slice(0, -1)))
   }
 
-  async function handleSave() {
-    if (!abate) return
+  async function persistirRomaneio() {
+    if (!source) return
 
     const fornecedor = resolverFornecedor(
       fornecedorBusca,
@@ -306,16 +388,58 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
       fornecedores,
     )
 
+    const payloadBase = {
+      data_romaneio: dataRomaneio,
+      fornecedor_id: fornecedor.fornecedor_id,
+      fornecedor_nome: fornecedor.fornecedor_nome,
+      observacao,
+      itens,
+    }
+
+    if (source.kind === 'compra') {
+      await romaneiosService.save({
+        ...payloadBase,
+        compra_id: source.id,
+      })
+      return
+    }
+
+    await romaneiosService.save({
+      ...payloadBase,
+      abate_id: source.id,
+    })
+  }
+
+  async function gerarPdf() {
+    if (!source) return
+
+    const fornecedor = resolverFornecedor(
+      fornecedorBusca,
+      fornecedorId,
+      fornecedores,
+    )
+
+    if (!dataRomaneio) {
+      toast.error('Informe a data do romaneio')
+      return
+    }
+
+    await gerarRomaneioPdf({
+      logoUrl: getLogoUrl(),
+      dataRomaneio,
+      lote: source.referenciaLabel,
+      fornecedorNome: fornecedor.fornecedor_nome,
+      observacao: observacao.trim() || null,
+      itens,
+    })
+  }
+
+  async function handleSave() {
+    if (!source) return
+
     try {
       setSaving(true)
-      await romaneiosService.save({
-        abate_id: abate.id,
-        data_romaneio: dataRomaneio,
-        fornecedor_id: fornecedor.fornecedor_id,
-        fornecedor_nome: fornecedor.fornecedor_nome,
-        observacao,
-        itens,
-      })
+      await persistirRomaneio()
       toast.success('Romaneio salvo')
     } catch {
       toast.error('Erro ao salvar romaneio')
@@ -325,28 +449,10 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
   }
 
   async function handlePdf() {
-    if (!abate) return
-
-    const fornecedor = resolverFornecedor(
-      fornecedorBusca,
-      fornecedorId,
-      fornecedores,
-    )
+    if (!source) return
 
     try {
-      if (!dataRomaneio) {
-        toast.error('Informe a data do romaneio')
-        return
-      }
-
-      await gerarRomaneioPdf({
-        logoUrl: getLogoUrl(),
-        dataRomaneio,
-        lote: abate.lote,
-        fornecedorNome: fornecedor.fornecedor_nome,
-        observacao: observacao.trim() || null,
-        itens,
-      })
+      await gerarPdf()
       toast.success('PDF gerado')
     } catch {
       toast.error('Erro ao gerar PDF')
@@ -354,32 +460,12 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
   }
 
   async function handleSaveAndPdf() {
-    if (!abate) return
-
-    const fornecedor = resolverFornecedor(
-      fornecedorBusca,
-      fornecedorId,
-      fornecedores,
-    )
+    if (!source) return
 
     try {
       setSaving(true)
-      await romaneiosService.save({
-        abate_id: abate.id,
-        data_romaneio: dataRomaneio,
-        fornecedor_id: fornecedor.fornecedor_id,
-        fornecedor_nome: fornecedor.fornecedor_nome,
-        observacao,
-        itens,
-      })
-      await gerarRomaneioPdf({
-        logoUrl: getLogoUrl(),
-        dataRomaneio,
-        lote: abate.lote,
-        fornecedorNome: fornecedor.fornecedor_nome,
-        observacao: observacao.trim() || null,
-        itens,
-      })
+      await persistirRomaneio()
+      await gerarPdf()
       toast.success('Romaneio salvo e PDF gerado')
     } catch {
       toast.error('Erro ao salvar ou gerar PDF')
@@ -388,6 +474,17 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
     }
   }
 
+  const referenciaHint =
+    source?.kind === 'compra' ? (
+      <>
+        Compra <strong>{source.referenciaLabel}</strong>
+      </>
+    ) : (
+      <>
+        Lote <strong>{source?.referenciaLabel || '—'}</strong>
+      </>
+    )
+
   return (
     <Modal
       open={open}
@@ -395,14 +492,14 @@ export function RomaneioModal({ open, abate, onClose }: RomaneioModalProps) {
       title="Romaneio de pesagem"
       width="1020px"
     >
-      {!abate ? null : loading ? (
+      {!source ? null : loading ? (
         <p className={styles.loading}>Carregando romaneio…</p>
       ) : (
         <div className={styles.wrapper}>
           <p className={styles.hint}>
             Informe o peso de cada peça (kg) por animal: dois dianteiros (DT) e
-            dois traseiros (TZ). Use <kbd>Enter</kbd> para ir ao próximo campo.
-            Lote <strong>{abate.lote || '—'}</strong> — {itens.length}{' '}
+            dois traseiros (TZ). Use <kbd>Enter</kbd> para ir ao próximo campo.{' '}
+            {referenciaHint} — {itens.length}{' '}
             {itens.length === 1 ? 'linha' : 'linhas'}.
           </p>
 

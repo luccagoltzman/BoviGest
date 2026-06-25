@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Wallet, FileText, Download } from 'lucide-react'
+import { Wallet, FileText, Download, ClipboardList } from 'lucide-react'
 import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
@@ -31,7 +31,10 @@ import {
   formatIntegerInput,
   formatDecimalInput,
 } from '@/utils/masks'
-import styles from './CompraDetalheModal.module.scss'
+import {
+  RomaneioModal,
+  compraToRomaneioRef,
+} from '../custos/Abate/RomaneioModal'
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ContaPagamentoResumo } from './ContaPagamentoResumo'
@@ -42,6 +45,7 @@ import {
   emptyContaPagamento,
   type ContaPagamentoData,
 } from '@/utils/contaPagamento'
+import styles from './CompraDetalheModal.module.scss'
 
 export type CompraDetalheRow = {
   id: number
@@ -247,6 +251,7 @@ export function CompraDetalheModal({
     contaPagamento: ContaPagamentoData
   } | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [romaneioOpen, setRomaneioOpen] = useState(false)
   const [fornecedorDetalhe, setFornecedorDetalhe] = useState<any>(null)
 
   useEffect(() => {
@@ -878,6 +883,13 @@ export function CompraDetalheModal({
           Dados da compra
         </button>
       </nav>
+
+      <div className={styles.modalToolbar}>
+        <Button variant="outline" onClick={() => setRomaneioOpen(true)}>
+          <ClipboardList size={16} aria-hidden />
+          Romaneio de pesagem
+        </Button>
+      </div>
 
       {tab === 'pagamento' && (
         <div className={styles.pagamentoPainel}>
@@ -1523,6 +1535,24 @@ export function CompraDetalheModal({
           </div>
         </div>
       )}
+
+      <RomaneioModal
+        open={romaneioOpen}
+        compra={
+          editar
+            ? compraToRomaneioRef({
+                id: editar.id,
+                data: editar.data,
+                quantidade_animais: editar.quantidade_animais,
+                tipo_gado: editar.tipo_gado,
+                fornecedor_id: editar.fornecedor_id,
+                fornecedor: editar.fornecedor,
+                observacoes: editar.observacoes,
+              })
+            : null
+        }
+        onClose={() => setRomaneioOpen(false)}
+      />
     </Modal>
   )
 }

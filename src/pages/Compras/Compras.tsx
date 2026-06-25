@@ -46,6 +46,11 @@ import { PesoMedioResumo } from './PesoMedioResumo'
 import { CompraDetalheModal } from './CompraDetalheModal'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
+import {
+  RomaneioModal,
+  compraToRomaneioRef,
+  type CompraRomaneioRef,
+} from '../custos/Abate/RomaneioModal'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
@@ -136,6 +141,9 @@ export function Compras() {
 
   const [compraDetalhe, setCompraDetalhe] = useState<CompraRow | null>(null)
   const [detalheTab, setDetalheTab] = useState<'pagamento' | 'dados'>('pagamento')
+  const [romaneioCompra, setRomaneioCompra] = useState<CompraRomaneioRef | null>(
+    null,
+  )
 
   const [pagamento, setPagamento] = useState({
     qtdParcelas: '1',
@@ -637,6 +645,25 @@ export function Compras() {
           <Button
             variant="ghost"
             className={tableListStyles.acaoBtn}
+            onClick={() =>
+              setRomaneioCompra(
+                compraToRomaneioRef({
+                  id: r.id,
+                  data: r.data,
+                  quantidade_animais: r.quantidade_animais,
+                  tipo_gado: r.tipo_gado,
+                  fornecedor_id: r.fornecedor_id,
+                  fornecedor: r.fornecedor,
+                  observacoes: r.observacoes,
+                }),
+              )
+            }
+          >
+            Romaneio
+          </Button>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
             onClick={() => abrirDetalhe(r, 'dados')}
           >
             Dados
@@ -1129,6 +1156,12 @@ export function Compras() {
         fornecedores={fornecedores}
         onClose={() => setCompraDetalhe(null)}
         onUpdated={carregarCompras}
+      />
+
+      <RomaneioModal
+        open={!!romaneioCompra}
+        compra={romaneioCompra}
+        onClose={() => setRomaneioCompra(null)}
       />
 
       <ModalViagem

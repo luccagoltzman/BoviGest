@@ -14,7 +14,8 @@ export type RomaneioItem = {
 
 export type Romaneio = {
   id: number
-  abate_id: number
+  abate_id: number | null
+  compra_id?: number | null
   fornecedor_id?: string | null
   fornecedor?: { id: string; nome: string } | null
   fornecedor_nome: string | null
@@ -23,7 +24,7 @@ export type Romaneio = {
   itens?: RomaneioItem[]
 }
 
-export type SaveRomaneioPayload = {
+export type SaveRomaneioAbatePayload = {
   abate_id: number
   data_romaneio: string
   fornecedor_id?: string | null
@@ -31,6 +32,19 @@ export type SaveRomaneioPayload = {
   observacao?: string
   itens: RomaneioItem[]
 }
+
+export type SaveRomaneioCompraPayload = {
+  compra_id: number
+  data_romaneio: string
+  fornecedor_id?: string | null
+  fornecedor_nome?: string | null
+  observacao?: string
+  itens: RomaneioItem[]
+}
+
+export type SaveRomaneioPayload =
+  | SaveRomaneioAbatePayload
+  | SaveRomaneioCompraPayload
 
 export type FornecedorOption = {
   id: string
@@ -161,6 +175,40 @@ function extrairFornecedor(
   return value.id ? value : null
 }
 
+function mapRomaneioRow(data: Record<string, unknown>): Romaneio {
+  const itens = ((data.itens as RomaneioItem[]) || []).sort(
+    (a, b) => a.ordem - b.ordem,
+  )
+
+  return {
+    ...(data as Romaneio),
+    fornecedor: extrairFornecedor(
+      data.fornecedor as FornecedorOption | FornecedorOption[] | null,
+    ),
+    itens,
+  }
+}
+
+async function getByLink(
+  field: 'abate_id' | 'compra_id',
+  id: number,
+): Promise<Romaneio | null> {
+  getUser()
+
+  const { data, error } = await supabase
+    .from('romaneios')
+    .select(
+      '*, fornecedor:fornecedores(id, nome), itens:romaneio_itens(*)',
+    )
+    .eq(field, id)
+    .maybeSingle()
+
+  if (error) throw error
+  if (!data) return null
+
+  return mapRomaneioRow(data as Record<string, unknown>)
+}
+
 export const romaneiosService = {
   async suggestFornecedorParaAbate(params: {
     lote?: string
@@ -210,39 +258,22 @@ export const romaneiosService = {
   },
 
   async getByAbateId(abateId: number): Promise<Romaneio | null> {
-    getUser()
+    return getByLink('abate_id', abateId)
+  },
 
-    const { data, error } = await supabase
-      .from('romaneios')
-      .select(
-        '*, fornecedor:fornecedores(id, nome), itens:romaneio_itens(*)',
-      )
-      .eq('abate_id', abateId)
-      .maybeSingle()
-
-    if (error) throw error
-    if (!data) return null
-
-    const itens = ((data.itens as RomaneioItem[]) || []).sort(
-      (a, b) => a.ordem - b.ordem,
-    )
-
-    return {
-      ...(data as Romaneio),
-      fornecedor: extrairFornecedor(
-        data.fornecedor as FornecedorOption | FornecedorOption[] | null,
-      ),
-      itens,
-    }
+  async getByCompraId(compraId: number): Promise<Romaneio | null> {
+    return getByLink('compra_id', compraId)
   },
 
   async save(payload: SaveRomaneioPayload): Promise<Romaneio> {
     const user = getUser()
     const itensNormalizados = payload.itens.map(normalizeItem)
+    const isCompra = 'compra_id' in payload
 
     const romaneioBase = {
       empresa_id: user.empresa_id,
-      abate_id: payload.abate_id,
+      abate_id: isCompra ? null : payload.abate_id,
+      compra_id: isCompra ? payload.compra_id : null,
       data_romaneio: payload.data_romaneio,
       fornecedor_id: payload.fornecedor_id || null,
       fornecedor_nome: payload.fornecedor_nome?.trim() || null,
@@ -250,7 +281,9 @@ export const romaneiosService = {
       updated_at: new Date().toISOString(),
     }
 
-    const existente = await romaneiosService.getByAbateId(payload.abate_id)
+    const existente = isCompra
+      ? await romaneiosService.getByCompraId(payload.compra_id)
+      : await romaneiosService.getByAbateId(payload.abate_id)
 
     let romaneioId = existente?.id
 
@@ -294,8 +327,14 @@ export const romaneiosService = {
       if (itensError) throw itensError
     }
 
-    const saved = await romaneiosService.getByAbateId(payload.abate_id)
-    if (!saved) throw new Error('Romaneio salvo, mas não foi possível recarregar')
+    const saved = isCompra
+      ? await romaneiosService.getByCompraId(payload.compra_id)
+      : await romaneiosService.getByAbateId(payload.abate_id)
+
+    if (!saved) {
+      throw new Error('Romaneio salvo, mas não foi possível recarregar')
+    }
+
     return saved
   },
 }

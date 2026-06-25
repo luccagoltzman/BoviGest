@@ -47,6 +47,12 @@
   font-weight: 700;
 }
 
+.modalToolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin: -0.5rem 0 1rem;
+}
+
 .contaPagamentoParcela {
   grid-column: 1 / -1;
 }
