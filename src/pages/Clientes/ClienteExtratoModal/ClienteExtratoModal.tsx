@@ -13,7 +13,11 @@ import {
   formatCurrencyFromNumber,
 } from '@/utils/masks'
 import { buildHistoricoDetalhadoRows } from '@/utils/clienteExtratoPdf'
-import type { ExtratoPdfInput } from '@/utils/clienteExtratoPdf'
+import type {
+  ExtratoPdfInput,
+  RecebimentosPdfInput,
+} from '@/utils/clienteExtratoPdf'
+import { getLogoUrl } from '@/services/theme.service'
 import { enviarPdfViaWhatsApp } from '@/utils/whatsappShare'
 import {
   formatResumoBanda,
@@ -136,6 +140,8 @@ export function ClienteExtratoModal({
   const [editObs, setEditObs] = useState('')
   const [editData, setEditData] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [downloadingRecebimentosPdf, setDownloadingRecebimentosPdf] =
+    useState(false)
   const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false)
   const [telefoneCliente, setTelefoneCliente] = useState('')
 
@@ -541,6 +547,17 @@ export function ClienteExtratoModal({
       : `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Saldo devedor: ${formatCurrency(saldoDevedorExibicao)}.`
   }
 
+  function buildRecebimentosPdfInput(): RecebimentosPdfInput {
+    return {
+      clienteNome: cliente.nome,
+      startDate,
+      endDate,
+      logoUrl: getLogoUrl(),
+      recebimentos,
+      totalRecebido: totalRecebidoPeriodo,
+    }
+  }
+
   async function handleDownloadPdf() {
     try {
       setDownloadingPdf(true)
@@ -551,6 +568,26 @@ export function ClienteExtratoModal({
       toast.error('Erro ao gerar PDF')
     } finally {
       setDownloadingPdf(false)
+    }
+  }
+
+  async function handleDownloadRecebimentosPdf() {
+    if (!recebimentos.length) {
+      toast.error('Não há recebimentos no período para exportar')
+      return
+    }
+
+    try {
+      setDownloadingRecebimentosPdf(true)
+      const { gerarRecebimentosClientePdf } = await import(
+        '@/utils/clienteExtratoPdf'
+      )
+      await gerarRecebimentosClientePdf(buildRecebimentosPdfInput())
+      toast.success('PDF de recebimentos baixado')
+    } catch {
+      toast.error('Erro ao gerar PDF de recebimentos')
+    } finally {
+      setDownloadingRecebimentosPdf(false)
     }
   }
 
@@ -618,17 +655,48 @@ export function ClienteExtratoModal({
             <Button
               variant="outline"
               loading={downloadingPdf}
-              disabled={loading || downloadingPdf || enviandoWhatsApp}
+              disabled={
+                loading ||
+                downloadingPdf ||
+                downloadingRecebimentosPdf ||
+                enviandoWhatsApp
+              }
               onClick={handleDownloadPdf}
               className={styles.btnPdf}
             >
               <Download size={16} aria-hidden />
-              Baixar PDF
+              Extrato PDF
+            </Button>
+            <Button
+              variant="outline"
+              loading={downloadingRecebimentosPdf}
+              disabled={
+                loading ||
+                downloadingPdf ||
+                downloadingRecebimentosPdf ||
+                enviandoWhatsApp ||
+                recebimentos.length === 0
+              }
+              onClick={handleDownloadRecebimentosPdf}
+              className={styles.btnPdf}
+              title={
+                recebimentos.length === 0
+                  ? 'Nenhum recebimento no período'
+                  : 'Baixar relatório só de recebimentos'
+              }
+            >
+              <Download size={16} aria-hidden />
+              Recebimentos PDF
             </Button>
             <Button
               variant="outline"
               loading={enviandoWhatsApp}
-              disabled={loading || downloadingPdf || enviandoWhatsApp}
+              disabled={
+                loading ||
+                downloadingPdf ||
+                downloadingRecebimentosPdf ||
+                enviandoWhatsApp
+              }
               onClick={handleEnviarWhatsApp}
               className={styles.btnWhatsApp}
               title={

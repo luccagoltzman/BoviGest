@@ -9,6 +9,7 @@ import {
   drawPdfTopBar,
   drawSectionSubtitle,
   drawSectionTitle,
+  pdfTableTheme,
 } from '@/utils/pdfTheme'
 import {
   isCorteBanda,
@@ -542,6 +543,124 @@ export async function gerarExtratoClientePdfBlob(input: ExtratoPdfInput) {
 
 export async function gerarExtratoClientePdf(input: ExtratoPdfInput) {
   const { blob, filename } = await gerarExtratoClientePdfBlob(input)
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export interface RecebimentosPdfInput {
+  clienteNome: string
+  startDate: string
+  endDate: string
+  logoUrl?: string | null
+  recebimentos: Recebimento[]
+  totalRecebido: number
+}
+
+export function recebimentosPdfFilename(
+  input: Pick<RecebimentosPdfInput, 'clienteNome' | 'endDate'>,
+) {
+  return `recebimentos-${sanitizeFilename(input.clienteNome) || 'cliente'}-${input.endDate.slice(0, 10)}.pdf`
+}
+
+async function renderRecebimentosClientePdf(input: RecebimentosPdfInput) {
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+  const margin = 14
+  const pageWidth = doc.internal.pageSize.getWidth()
+
+  drawPdfTopBar(doc, pageWidth)
+
+  const logo = await preparePdfLogo(input.logoUrl)
+
+  let y = drawPdfHeader(doc, {
+    margin,
+    pageWidth,
+    title: 'Relatório de recebimentos',
+    clienteNome: input.clienteNome,
+    periodo: `${formatDate(input.startDate)} - ${formatDate(input.endDate)}`,
+    geradoEm: new Date().toLocaleString('pt-BR'),
+    logo,
+  })
+
+  const recebimentosOrdenados = [...input.recebimentos].sort(
+    (a, b) =>
+      new Date(a.data_recebimento).getTime() -
+      new Date(b.data_recebimento).getTime(),
+  )
+
+  y = drawKpiRow(doc, margin, pageWidth, y, [
+    {
+      label: 'PAGAMENTOS NO PERÍODO',
+      value: String(recebimentosOrdenados.length),
+    },
+    {
+      label: 'TOTAL RECEBIDO',
+      value: formatCurrency(input.totalRecebido),
+      highlight: true,
+    },
+  ])
+
+  y += 10
+  drawSectionTitle(doc, margin, y, 'Recebimentos')
+  y += 9
+
+  const tableWidth = pageWidth - margin * 2
+
+  autoTable(doc, {
+    startY: y,
+    tableWidth,
+    head: [['Data', 'Forma de pagamento', 'Observação', 'Valor']],
+    body:
+      recebimentosOrdenados.length > 0
+        ? recebimentosOrdenados.map((r) => [
+            formatDate(r.data_recebimento),
+            r.forma_pagamento || '—',
+            pdfText(r.observacao?.trim() || '—'),
+            formatCurrency(Number(r.valor || 0)),
+          ])
+        : [['—', '—', 'Nenhum recebimento no período.', '—']],
+    foot:
+      recebimentosOrdenados.length > 0
+        ? [['', '', 'Total', formatCurrency(input.totalRecebido)]]
+        : undefined,
+    ...pdfTableTheme(),
+    columnStyles: {
+      0: { cellWidth: tableWidth * 0.16 },
+      1: { cellWidth: tableWidth * 0.22 },
+      2: { cellWidth: tableWidth * 0.4 },
+      3: { halign: 'right', cellWidth: tableWidth * 0.22 },
+    },
+    margin: { left: margin, right: margin },
+    footStyles: {
+      fillColor: PDF_COLORS.primaryLight,
+      textColor: PDF_COLORS.primaryDark,
+      fontStyle: 'bold',
+    },
+    didParseCell(data) {
+      if (data.section === 'body' && data.column.index === 3) {
+        data.cell.styles.textColor = PDF_COLORS.recebimento
+        data.cell.styles.fontStyle = 'bold'
+      }
+    },
+  })
+
+  drawPageFooters(doc, margin, pageWidth)
+
+  return doc
+}
+
+export async function gerarRecebimentosClientePdfBlob(input: RecebimentosPdfInput) {
+  const doc = await renderRecebimentosClientePdf(input)
+  const filename = recebimentosPdfFilename(input)
+  const blob = doc.output('blob')
+  return { blob, filename }
+}
+
+export async function gerarRecebimentosClientePdf(input: RecebimentosPdfInput) {
+  const { blob, filename } = await gerarRecebimentosClientePdfBlob(input)
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = url
