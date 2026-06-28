@@ -77,6 +77,7 @@ interface CompraRow {
   tipo_gado?: string
   observacoes?: string
   status: string
+  adiantamento?: boolean
   detalhes_custo?: any
   pagamento_resumo?: {
     quitado: boolean
@@ -127,6 +128,8 @@ const emptyCompraForm = () => ({
   status: 'Pendente',
 })
 
+type CreateMode = 'compra' | 'adiantamento'
+
 export function Compras() {
   const [compras, setCompras] = useState<CompraRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -168,9 +171,10 @@ export function Compras() {
 
   const [viagemOpen, setViagemOpen] = useState(false)
   const [viagemInitial, setViagemInitial] = useState<any>(null)
-  const [showCreate, setShowCreate] = useState(false)
+  const [createMode, setCreateMode] = useState<CreateMode | null>(null)
 
   const [form, setForm] = useState(emptyCompraForm)
+  const isAdiantamento = createMode === 'adiantamento'
 
   async function carregarContaFornecedor(fornecedorId: string) {
     if (!fornecedorId) {
@@ -193,8 +197,29 @@ export function Compras() {
   }
 
   function closeCreate() {
-    setShowCreate(false)
+    setCreateMode(null)
     setForm(emptyCompraForm())
+    setFornecedorBusca('')
+    setFornecedorConta(emptyContaPagamento())
+    setPagamento({
+      qtdParcelas: '1',
+      parcelas: [],
+      contaPagamento: emptyContaPagamento(),
+    })
+  }
+
+  function openCreate(mode: CreateMode) {
+    if (createMode === mode) {
+      closeCreate()
+      return
+    }
+
+    setCreateMode(mode)
+    setForm(
+      mode === 'adiantamento'
+        ? { ...emptyCompraForm(), status: 'Adiantamento' }
+        : emptyCompraForm(),
+    )
     setFornecedorBusca('')
     setFornecedorConta(emptyContaPagamento())
     setPagamento({
@@ -208,7 +233,7 @@ export function Compras() {
     const qtdParcelas = qtdRaw.replace(/\D/g, '')
     const qtd = parseIntegerInput(qtdParcelas)
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
-    const valorTotal = calcularTotal(form)
+    const valorTotal = calcularTotal(form, isAdiantamento)
 
     setPagamento((prev) => ({
       ...prev,
@@ -223,7 +248,7 @@ export function Compras() {
   function dividirValoresIgualmente() {
     const qtd = parseIntegerInput(pagamento.qtdParcelas || '1')
     const dataBase = form.data || new Date().toISOString().slice(0, 10)
-    const valorTotal = calcularTotal(form)
+    const valorTotal = calcularTotal(form, isAdiantamento)
 
     setPagamento((prev) => ({
       ...prev,
@@ -244,7 +269,7 @@ export function Compras() {
         parcelas = redistribuirParcelasAposIndex(
           parcelas,
           index,
-          calcularTotal(form),
+          calcularTotal(form, isAdiantamento),
         )
       }
 
@@ -257,7 +282,10 @@ export function Compras() {
     [pagamento.parcelas],
   )
 
-  const valorTotalCompra = useMemo(() => calcularTotal(form), [form])
+  const valorTotalCompra = useMemo(
+    () => calcularTotal(form, isAdiantamento),
+    [form, isAdiantamento],
+  )
 
   const parcelasExcedemTotal = somaParcelasExcedeTotal(
     pagamento.parcelas,
@@ -319,13 +347,18 @@ export function Compras() {
         fornecedoresService.getById(compra.fornecedor_id).catch(() => null),
       ])
 
-      const subtotal = Number(compra.subtotal || 0)
-      const imposto = Number(compra.valor_imposto || 0)
-      const gta = Number(compra.gta_valor || 0)
-      const viagem = Number(compra.detalhes_custo?.viagem || 0)
-      const total =
-        compra.detalhes_custo?.total ??
-        subtotal + imposto + gta + viagem
+      const subtotal = compra.adiantamento
+        ? Number(compra.valor_total || 0)
+        : Number(compra.subtotal || 0)
+      const imposto = compra.adiantamento ? 0 : Number(compra.valor_imposto || 0)
+      const gta = compra.adiantamento ? 0 : Number(compra.gta_valor || 0)
+      const viagem = compra.adiantamento
+        ? 0
+        : Number(compra.detalhes_custo?.viagem || 0)
+      const total = compra.adiantamento
+        ? Number(compra.valor_total || 0)
+        : (compra.detalhes_custo?.total ??
+          subtotal + imposto + gta + viagem)
 
       const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
 
@@ -333,6 +366,7 @@ export function Compras() {
         compra: {
           id: compra.id,
           data: compra.data,
+          adiantamento: compra.adiantamento,
           quantidade_animais: compra.quantidade_animais,
           peso_total: compra.peso_total,
           valor_kg: compra.valor_kg,
@@ -379,14 +413,20 @@ export function Compras() {
     return date.toLocaleDateString('pt-BR')
   }
 
-  function calcularSubtotal(data: any) {
+  function calcularSubtotal(data: any, adiantamento = false) {
+    if (adiantamento) {
+      return parseCurrencyInput(data.valor_total || '')
+    }
+
     return (
       parseDecimalInput(data.peso_total || '') *
       parseCurrencyInput(data.valor_kg || '')
     )
   }
 
-  function calcularImposto(data: any) {
+  function calcularImposto(data: any, adiantamento = false) {
+    if (adiantamento) return 0
+
     const subtotal = calcularSubtotal(data)
 
     if (data.tipo_imposto === 'percentual') {
@@ -396,7 +436,11 @@ export function Compras() {
     return parseCurrencyInput(data.valor_imposto || '')
   }
 
-  function calcularTotal(data: any) {
+  function calcularTotal(data: any, adiantamento = false) {
+    if (adiantamento) {
+      return parseCurrencyInput(data.valor_total || '')
+    }
+
     return (
       calcularSubtotal(data) +
       calcularImposto(data) +
@@ -450,28 +494,33 @@ export function Compras() {
   async function salvarCompra() {
     try {
       setLoadingSave(true)
-      const subtotal = calcularSubtotal(form)
-      const valorTotal = calcularTotal(form)
+      const adiantamento = isAdiantamento
+      const subtotal = calcularSubtotal(form, adiantamento)
+      const valorTotal = calcularTotal(form, adiantamento)
 
       await comprasService.create(
         {
           fornecedor_id: form.fornecedor_id,
           data: form.data,
-          quantidade_animais: parseIntegerInput(form.quantidade_animais),
-          condicao_gado: Number(form.condicao_gado),
-          peso_total: parseDecimalInput(form.peso_total),
-          valor_kg: parseCurrencyInput(form.valor_kg),
-          tipo_imposto: form.tipo_imposto,
-          valor_imposto:
-            form.tipo_imposto === 'percentual'
+          adiantamento,
+          quantidade_animais: adiantamento
+            ? 0
+            : parseIntegerInput(form.quantidade_animais),
+          condicao_gado: adiantamento ? 1 : Number(form.condicao_gado),
+          peso_total: adiantamento ? 0 : parseDecimalInput(form.peso_total),
+          valor_kg: adiantamento ? 0 : parseCurrencyInput(form.valor_kg),
+          tipo_imposto: adiantamento ? 'fixo' : form.tipo_imposto,
+          valor_imposto: adiantamento
+            ? 0
+            : form.tipo_imposto === 'percentual'
               ? parseDecimalInput(form.valor_imposto)
               : parseCurrencyInput(form.valor_imposto),
-          gta_valor: parseCurrencyInput(form.gta_valor),
+          gta_valor: adiantamento ? 0 : parseCurrencyInput(form.gta_valor),
           subtotal,
           valor_total: valorTotal,
-          tipo_gado: form.tipo_gado,
+          tipo_gado: adiantamento ? null : form.tipo_gado || null,
           observacoes: form.observacoes,
-          status: form.status,
+          status: adiantamento ? 'Adiantamento' : form.status,
         },
         {
           parcelas: pagamento.parcelas,
@@ -479,7 +528,11 @@ export function Compras() {
         },
       )
 
-      toast.success('Compra cadastrada com sucesso')
+      toast.success(
+        adiantamento
+          ? 'Adiantamento cadastrado com sucesso'
+          : 'Compra cadastrada com sucesso',
+      )
 
       const avisoConta = pagamentosComprasService.consumeAvisoContaPagamento()
       if (avisoConta) {
@@ -518,15 +571,27 @@ export function Compras() {
     }
   }
 
-  const canSaveCompra =
-    form.fornecedor_id &&
-    form.data &&
-    parseDecimalInput(form.quantidade_animais) > 0 &&
-    parseDecimalInput(form.peso_total) > 0 &&
-    parseCurrencyInput(form.valor_kg) > 0 &&
-    pagamento.parcelas.length === parseIntegerInput(pagamento.qtdParcelas || '1') &&
-    parcelasDraftValidas(pagamento.parcelas) &&
-    !parcelasExcedemTotal
+  const canSaveCompra = isAdiantamento
+    ? Boolean(
+        form.fornecedor_id &&
+          form.data &&
+          parseCurrencyInput(form.valor_total) > 0 &&
+          pagamento.parcelas.length ===
+            parseIntegerInput(pagamento.qtdParcelas || '1') &&
+          parcelasDraftValidas(pagamento.parcelas) &&
+          !parcelasExcedemTotal,
+      )
+    : Boolean(
+        form.fornecedor_id &&
+          form.data &&
+          parseDecimalInput(form.quantidade_animais) > 0 &&
+          parseDecimalInput(form.peso_total) > 0 &&
+          parseCurrencyInput(form.valor_kg) > 0 &&
+          pagamento.parcelas.length ===
+            parseIntegerInput(pagamento.qtdParcelas || '1') &&
+          parcelasDraftValidas(pagamento.parcelas) &&
+          !parcelasExcedemTotal,
+      )
 
   const columns = [
     {
@@ -543,21 +608,29 @@ export function Compras() {
     {
       key: 'condicao_gado',
       header: 'Condição',
-      render: (r: CompraRow) => (r.condicao_gado === 1 ? 'Vivo' : 'Abatido'),
+      render: (r: CompraRow) =>
+        r.adiantamento ? (
+          <span className={styles.tipoAdiantamento}>Adiantamento</span>
+        ) : (
+          r.condicao_gado === 1 ? 'Vivo' : 'Abatido'
+        ),
     },
     {
       key: 'quantidade_animais',
       header: 'Qtd',
+      render: (r: CompraRow) => (r.adiantamento ? '—' : r.quantidade_animais),
     },
     {
       key: 'peso_total',
       header: 'Peso',
-      render: (r: CompraRow) => `${Number(r.peso_total).toFixed(2)} KG`,
+      render: (r: CompraRow) =>
+        r.adiantamento ? '—' : `${Number(r.peso_total).toFixed(2)} KG`,
     },
     {
       key: 'peso_medio',
       header: 'Média kg',
       render: (r: CompraRow) => {
+        if (r.adiantamento) return '—'
         const medio = calcularPesoMedioAnimal(r.peso_total, r.quantidade_animais)
         return medio > 0 ? `${formatWeightKg(medio)} kg` : '—'
       },
@@ -565,13 +638,18 @@ export function Compras() {
     {
       key: 'valor_kg',
       header: 'R$/KG',
-      render: (r: CompraRow) => `R$ ${Number(r.valor_kg).toFixed(2)}`,
+      render: (r: CompraRow) =>
+        r.adiantamento ? '—' : `R$ ${Number(r.valor_kg).toFixed(2)}`,
     },
     {
       key: 'valor_total',
       header: 'Total',
       render: (r: CompraRow) => {
         const d = r.detalhes_custo
+
+        if (r.adiantamento) {
+          return formatCurrency(d.total)
+        }
 
         return (
           <TouchTooltip label={formatCurrency(d.total)}>
@@ -657,37 +735,41 @@ export function Compras() {
           <Button
             variant="ghost"
             className={tableListStyles.acaoBtn}
-            onClick={() =>
-              setRomaneioCompra(
-                compraToRomaneioRef({
-                  id: r.id,
-                  data: r.data,
-                  quantidade_animais: r.quantidade_animais,
-                  tipo_gado: r.tipo_gado,
-                  fornecedor_id: r.fornecedor_id,
-                  fornecedor: r.fornecedor,
-                  observacoes: r.observacoes,
-                }),
-              )
-            }
-          >
-            {resolverRomaneioCompra(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
-          </Button>
-          <Button
-            variant="ghost"
-            className={tableListStyles.acaoBtn}
             onClick={() => abrirDetalhe(r, 'dados')}
           >
             Dados
           </Button>
-          <Button
-            disabled={loadingViagem}
-            variant="ghost"
-            className={tableListStyles.acaoBtn}
-            onClick={() => abrirViagem(r)}
-          >
-            Viagem
-          </Button>
+          {!r.adiantamento && (
+            <>
+              <Button
+                variant="outline"
+                className={tableListStyles.acaoBtn}
+                onClick={() =>
+                  setRomaneioCompra(
+                    compraToRomaneioRef({
+                      id: r.id,
+                      data: r.data,
+                      quantidade_animais: r.quantidade_animais,
+                      tipo_gado: r.tipo_gado,
+                      fornecedor_id: r.fornecedor_id,
+                      fornecedor: r.fornecedor,
+                      observacoes: r.observacoes,
+                    }),
+                  )
+                }
+              >
+                {resolverRomaneioCompra(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
+              </Button>
+              <Button
+                disabled={loadingViagem}
+                variant="ghost"
+                className={tableListStyles.acaoBtn}
+                onClick={() => abrirViagem(r)}
+              >
+                Viagem
+              </Button>
+            </>
+          )}
         </div>
       ),
     },
@@ -697,9 +779,16 @@ export function Compras() {
     <div className={styles.page}>
       <h1 className="page-title">Compras de Gado</h1>
 
-      {showCreate && (
-      <Card title="Nova compra">
+      {createMode && (
+      <Card title={isAdiantamento ? 'Novo adiantamento' : 'Nova compra'}>
         <div className={styles.form}>
+          {isAdiantamento && (
+            <p className={styles.adiantamentoIntro}>
+              Registre um pagamento antecipado ao fornecedor, sem peso ou
+              quantidade de animais. O valor informado será usado nas parcelas.
+            </p>
+          )}
+
           <Autocomplete
             label="Fornecedor"
             options={fornecedores.map((f) => f.nome)}
@@ -732,7 +821,7 @@ export function Compras() {
 
               setPagamento((prev) => {
                 const qtd = parseIntegerInput(prev.qtdParcelas) || 1
-                const total = calcularTotal({ ...form, data })
+                const total = calcularTotal({ ...form, data }, isAdiantamento)
 
                 return {
                   ...prev,
@@ -745,6 +834,35 @@ export function Compras() {
             }}
           />
 
+          {isAdiantamento ? (
+            <>
+              <Input
+                label="Valor do adiantamento"
+                mask="currency"
+                value={form.valor_total}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    valor_total: e.target.value,
+                  })
+                }
+              />
+
+              <Input
+                label="Complemento"
+                multiline
+                rows={4}
+                value={form.observacoes}
+                onChange={(e) =>
+                  setForm({
+                    ...form,
+                    observacoes: e.target.value,
+                  })
+                }
+              />
+            </>
+          ) : (
+            <>
           <Select
             label="Condição"
             options={['Vivo', 'Abatido']}
@@ -879,6 +997,8 @@ export function Compras() {
               })
             }
           />
+            </>
+          )}
 
           <div className={styles.pagamentoSection}>
             <h3 className={styles.sectionTitle}>Pagamento parcelado</h3>
@@ -1035,7 +1155,7 @@ export function Compras() {
                 >
                   Soma das parcelas: <strong>{formatCurrency(somaParcelas)}</strong>
                   {' · '}
-                  Total da compra:{' '}
+                  Total {isAdiantamento ? 'do adiantamento' : 'da compra'}:{' '}
                   <strong>{formatCurrency(valorTotalCompra)}</strong>
                   {parcelasExcedemTotal && (
                     <span> — a soma não pode ultrapassar o total</span>
@@ -1050,7 +1170,7 @@ export function Compras() {
               onClick={salvarCompra}
               disabled={!canSaveCompra || loadingSave}
             >
-              Salvar compra
+              {isAdiantamento ? 'Salvar adiantamento' : 'Salvar compra'}
             </Button>
             <Button variant="ghost" onClick={closeCreate}>
               Cancelar
@@ -1063,11 +1183,19 @@ export function Compras() {
       <Card
         title="Compras cadastradas"
         action={
-          <AddNewButton
-            open={showCreate}
-            onClick={() => (showCreate ? closeCreate() : setShowCreate(true))}
-            label="Adicionar nova compra"
-          />
+          <div className={styles.cardActions}>
+            <AddNewButton
+              open={createMode === 'compra'}
+              onClick={() => openCreate('compra')}
+              label="Adicionar nova compra"
+            />
+            <Button
+              variant={createMode === 'adiantamento' ? 'outline' : 'secondary'}
+              onClick={() => openCreate('adiantamento')}
+            >
+              {createMode === 'adiantamento' ? 'Cancelar adiantamento' : 'Adiantamento'}
+            </Button>
+          </div>
         }
       >
         <div className={styles.filters}>

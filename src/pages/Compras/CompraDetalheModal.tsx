@@ -65,6 +65,7 @@ export type CompraDetalheRow = {
   tipo_gado?: string
   observacoes?: string
   status: string
+  adiantamento?: boolean
   forma_pagamento?: string | null
   qtd_parcelas?: number
   detalhes_custo?: { total: number }
@@ -90,6 +91,7 @@ type EditarCampos = {
   valor_kg: string
   valor_imposto: string
   gta_valor: string
+  valor_adiantamento: string
 }
 
 function rowToEditarCampos(row: CompraDetalheRow): EditarCampos {
@@ -102,6 +104,7 @@ function rowToEditarCampos(row: CompraDetalheRow): EditarCampos {
         ? formatDecimalInput(String(row.valor_imposto).replace('.', ','))
         : formatCurrencyFromNumber(row.valor_imposto),
     gta_valor: formatCurrencyFromNumber(row.gta_valor),
+    valor_adiantamento: formatCurrencyFromNumber(Number(row.valor_total || 0)),
   }
 }
 
@@ -163,6 +166,13 @@ function resolverValorTotalCompra(
   row: CompraDetalheRow,
   campos?: EditarCampos,
 ): number {
+  if (row.adiantamento) {
+    if (campos) {
+      return parseCurrencyInput(campos.valor_adiantamento || '')
+    }
+    return Number(row.valor_total || 0)
+  }
+
   const fromDetalhes = row.detalhes_custo?.total
   if (fromDetalhes != null && Number(fromDetalhes) > 0) {
     return Number(fromDetalhes)
@@ -230,6 +240,7 @@ export function CompraDetalheModal({
     valor_kg: '',
     valor_imposto: '',
     gta_valor: '',
+    valor_adiantamento: '',
   })
   const [parcelas, setParcelas] = useState<CompraParcela[]>([])
   const [loadingParcelas, setLoadingParcelas] = useState(false)
@@ -385,13 +396,19 @@ export function CompraDetalheModal({
     try {
       setDownloadingPdf(true)
 
-      const subtotal = calcularSubtotal(dadosParaCalculo(editar, editarCampos))
-      const imposto = calcularImposto(dadosParaCalculo(editar, editarCampos))
-      const gta = Number(
-        dadosParaCalculo(editar, editarCampos).gta_valor || 0,
-      )
       const total = resolverValorTotalCompra(editar, editarCampos)
-      const viagem = Math.max(0, total - subtotal - imposto - gta)
+      const subtotal = editar.adiantamento
+        ? total
+        : calcularSubtotal(dadosParaCalculo(editar, editarCampos))
+      const imposto = editar.adiantamento
+        ? 0
+        : calcularImposto(dadosParaCalculo(editar, editarCampos))
+      const gta = editar.adiantamento
+        ? 0
+        : Number(dadosParaCalculo(editar, editarCampos).gta_valor || 0)
+      const viagem = editar.adiantamento
+        ? 0
+        : Math.max(0, total - subtotal - imposto - gta)
 
       const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
 
@@ -399,6 +416,7 @@ export function CompraDetalheModal({
         compra: {
           id: editar.id,
           data: editar.data,
+          adiantamento: editar.adiantamento,
           quantidade_animais: editar.quantidade_animais,
           peso_total: editar.peso_total,
           valor_kg: editar.valor_kg,
@@ -706,6 +724,38 @@ export function CompraDetalheModal({
 
     try {
       setSalvando(true)
+
+      if (editar.adiantamento) {
+        const valorTotal = parseCurrencyInput(editarCampos.valor_adiantamento)
+
+        if (valorTotal <= 0) {
+          toast.error('Informe um valor válido para o adiantamento')
+          return
+        }
+
+        await comprasService.update(editar.id, {
+          fornecedor_id: editar.fornecedor_id,
+          data: editar.data,
+          adiantamento: true,
+          quantidade_animais: 0,
+          condicao_gado: editar.condicao_gado,
+          peso_total: 0,
+          valor_kg: 0,
+          tipo_imposto: 'fixo',
+          valor_imposto: 0,
+          gta_valor: 0,
+          subtotal: valorTotal,
+          valor_total: valorTotal,
+          tipo_gado: null,
+          observacoes: editar.observacoes,
+          status: 'Adiantamento',
+        })
+
+        toast.success('Adiantamento atualizado')
+        onUpdated()
+        return
+      }
+
       const dados = dadosParaCalculo(editar, editarCampos)
       const subtotal = calcularSubtotal(dados)
       const valorTotal = calcularTotal(dados)
@@ -908,7 +958,11 @@ export function CompraDetalheModal({
     <Modal
       open={!!compra}
       onClose={onClose}
-      title={`Compra — ${fornecedorNome}`}
+      title={
+        editar.adiantamento
+          ? `Adiantamento — ${fornecedorNome}`
+          : `Compra — ${fornecedorNome}`
+      }
       width="920px"
     >
       <nav className={styles.tabs} aria-label="Seções da compra">
@@ -933,10 +987,11 @@ export function CompraDetalheModal({
           onClick={() => setTab('dados')}
         >
           <FileText size={16} aria-hidden />
-          Dados da compra
+          Dados {editar.adiantamento ? 'do adiantamento' : 'da compra'}
         </button>
       </nav>
 
+      {!editar.adiantamento && (
       <div className={styles.modalToolbar}>
         <Button variant="outline" onClick={() => setRomaneioOpen(true)}>
           <ClipboardList size={16} aria-hidden />
@@ -946,6 +1001,7 @@ export function CompraDetalheModal({
             : 'Romaneio de pesagem'}
         </Button>
       </div>
+      )}
 
       {tab === 'pagamento' && (
         <div className={styles.pagamentoPainel}>
@@ -1458,12 +1514,38 @@ export function CompraDetalheModal({
           />
 
           <Input
-            label="Data da compra"
+            label={editar.adiantamento ? 'Data' : 'Data da compra'}
             type="date"
             value={editar.data}
             onChange={(e) => setEditar({ ...editar, data: e.target.value })}
           />
 
+          {editar.adiantamento ? (
+            <>
+              <Input
+                label="Valor do adiantamento"
+                mask="currency"
+                value={editarCampos.valor_adiantamento}
+                onChange={(e) =>
+                  setEditarCampos({
+                    ...editarCampos,
+                    valor_adiantamento: e.target.value,
+                  })
+                }
+              />
+
+              <Input
+                label="Observações"
+                multiline
+                rows={3}
+                value={editar.observacoes || ''}
+                onChange={(e) =>
+                  setEditar({ ...editar, observacoes: e.target.value })
+                }
+              />
+            </>
+          ) : (
+            <>
           <Select
             label="Condição"
             options={['Vivo', 'Abatido']}
@@ -1580,13 +1662,15 @@ export function CompraDetalheModal({
               setEditar({ ...editar, observacoes: e.target.value })
             }
           />
+            </>
+          )}
 
           <div className={styles.dadosActions}>
             <Button onClick={salvarDadosCompra} disabled={salvando}>
               Salvar dados
             </Button>
             <Button variant="danger" onClick={excluirCompra}>
-              Excluir compra
+              Excluir {editar.adiantamento ? 'adiantamento' : 'compra'}
             </Button>
           </div>
         </div>

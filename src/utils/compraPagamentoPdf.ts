@@ -22,6 +22,7 @@ export type CompraPagamentoPdfInput = {
   compra: {
     id: number
     data: string
+    adiantamento?: boolean
     quantidade_animais: number
     peso_total: number
     valor_kg: number
@@ -121,7 +122,9 @@ export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
   doc.setFontSize(8.5)
   doc.setTextColor(...PDF_COLORS.textMuted)
   const linhaInfo = [
-    `Compra em ${formatDate(input.compra.data)}`,
+    input.compra.adiantamento
+      ? `Adiantamento em ${formatDate(input.compra.data)}`
+      : `Compra em ${formatDate(input.compra.data)}`,
     input.fornecedorDoc ? `Doc.: ${input.fornecedorDoc}` : null,
     `Ref. #${input.compra.id}`,
   ]
@@ -145,27 +148,41 @@ export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
     .reduce((acc, p) => acc + Number(p.valor || 0), 0)
   const valorPendente = Math.max(0, totalCompra - valorPago)
 
-  drawSectionTitle(doc, margin, y, 'Resumo da compra')
+  drawSectionTitle(
+    doc,
+    margin,
+    y,
+    input.compra.adiantamento ? 'Resumo do adiantamento' : 'Resumo da compra',
+  )
   y += 9
+
+  const resumoBody = input.compra.adiantamento
+    ? [
+        ['Tipo', 'Adiantamento (pagamento antecipado)'],
+        ...(detalhes
+          ? [['Valor', formatCurrency(detalhes.total)]]
+          : []),
+      ]
+    : [
+        ['Animais', String(input.compra.quantidade_animais)],
+        ['Peso total', `${Number(input.compra.peso_total).toFixed(2)} kg`],
+        ['Valor/kg', formatCurrency(Number(input.compra.valor_kg))],
+        ['Tipo de gado', input.compra.tipo_gado || '—'],
+        ['Condição', input.compra.condicao_gado === 1 ? 'Vivo' : 'Abatido'],
+        ...(detalhes
+          ? [
+              ['Valor do gado', formatCurrency(detalhes.subtotal)],
+              ['Total', formatCurrency(detalhes.total)],
+            ]
+          : []),
+      ]
 
   autoTable(doc, {
     startY: y,
     margin: { left: margin, right: margin },
     ...pdfTableTheme(),
     head: [['Item', 'Valor']],
-    body: [
-      ['Animais', String(input.compra.quantidade_animais)],
-      ['Peso total', `${Number(input.compra.peso_total).toFixed(2)} kg`],
-      ['Valor/kg', formatCurrency(Number(input.compra.valor_kg))],
-      ['Tipo de gado', input.compra.tipo_gado || '—'],
-      ['Condição', input.compra.condicao_gado === 1 ? 'Vivo' : 'Abatido'],
-      ...(detalhes
-        ? [
-            ['Valor do gado', formatCurrency(detalhes.subtotal)],
-            ['Total', formatCurrency(detalhes.total)],
-          ]
-        : []),
-    ],
+    body: resumoBody,
     columnStyles: {
       0: { cellWidth: 55 },
       1: { halign: 'right' },
@@ -178,7 +195,10 @@ export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
   y += 8
 
   y = drawKpiRow(doc, margin, pageWidth, y, [
-    { label: 'Total da compra', value: formatCurrency(totalCompra) },
+    {
+      label: input.compra.adiantamento ? 'Total do adiantamento' : 'Total da compra',
+      value: formatCurrency(totalCompra),
+    },
     { label: 'Já pago', value: formatCurrency(valorPago) },
     {
       label: 'A pagar',

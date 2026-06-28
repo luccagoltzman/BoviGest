@@ -256,3 +256,28 @@
     min-width: 0;
   }
 }
+
+.cardActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.adiantamentoIntro {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--text-muted, #6b7280);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.tipoAdiantamento {
+  display: inline-block;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  color: #1d4ed8;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
