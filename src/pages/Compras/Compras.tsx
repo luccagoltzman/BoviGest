@@ -40,7 +40,10 @@ import {
 import {
   contaPagamentoFromFornecedor,
   emptyContaPagamento,
+  PAGADOR_TIPO_OPCOES,
+  validarPagadorParcela,
   type ContaPagamentoData,
+  type PagadorTipo,
 } from '@/utils/contaPagamento'
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { CompraDetalheModal } from './CompraDetalheModal'
@@ -265,6 +268,14 @@ export function Compras() {
       let parcelas = [...prev.parcelas]
       parcelas[index] = { ...parcelas[index], [campo]: valor }
 
+      if (campo === 'pago' && valor === false) {
+        parcelas[index] = {
+          ...parcelas[index],
+          pagadorTipo: 'proprio',
+          contaOrigem: emptyContaPagamento(),
+        }
+      }
+
       if (campo === 'valor' && typeof valor === 'string') {
         parcelas = redistribuirParcelasAposIndex(
           parcelas,
@@ -275,6 +286,52 @@ export function Compras() {
 
       return { ...prev, parcelas }
     })
+  }
+
+  function atualizarPagadorParcelaDraft(
+    index: number,
+    pagadorTipo: PagadorTipo,
+  ) {
+    setPagamento((prev) => {
+      const parcelas = [...prev.parcelas]
+      parcelas[index] = {
+        ...parcelas[index],
+        pagadorTipo,
+        contaOrigem:
+          pagadorTipo === 'terceiro'
+            ? parcelas[index].contaOrigem || emptyContaPagamento()
+            : emptyContaPagamento(),
+      }
+      return { ...prev, parcelas }
+    })
+  }
+
+  function atualizarContaOrigemParcelaDraft(
+    index: number,
+    contaOrigem: ContaPagamentoData,
+  ) {
+    setPagamento((prev) => {
+      const parcelas = [...prev.parcelas]
+      parcelas[index] = { ...parcelas[index], contaOrigem }
+      return { ...prev, parcelas }
+    })
+  }
+
+  function validarPagadoresParcelasPagas() {
+    for (let index = 0; index < pagamento.parcelas.length; index += 1) {
+      const parcela = pagamento.parcelas[index]
+      if (!parcela.pago) continue
+
+      const erro = validarPagadorParcela(
+        parcela.pagadorTipo || 'proprio',
+        parcela.contaOrigem || emptyContaPagamento(),
+        true,
+      )
+      if (erro) {
+        return `Parcela ${index + 1}: ${erro}`
+      }
+    }
+    return null
   }
 
   const somaParcelas = useMemo(
@@ -492,6 +549,12 @@ export function Compras() {
   }, [])
 
   async function salvarCompra() {
+    const erroPagador = validarPagadoresParcelasPagas()
+    if (erroPagador) {
+      toast.error(erroPagador)
+      return
+    }
+
     try {
       setLoadingSave(true)
       const adiantamento = isAdiantamento
@@ -1012,6 +1075,8 @@ export function Compras() {
 
             <ContaPagamentoFields
               className={styles.contaPagamentoSection}
+              titulo="Conta para pagamento (fornecedor)"
+              hint="Conta de destino — preenchida com os dados do fornecedor. Edite se o pagamento for para outra conta."
               value={pagamento.contaPagamento}
               onChange={(contaPagamento) =>
                 setPagamento((prev) => ({ ...prev, contaPagamento }))
@@ -1047,8 +1112,8 @@ export function Compras() {
                     <span>Data</span>
                   </div>
                   {pagamento.parcelas.map((parcela, index) => (
+                    <div key={index} className={styles.parcelaTabelaGrupo}>
                     <div
-                      key={index}
                       className={styles.parcelasTabelaRow}
                     >
                       <span className={styles.parcelaNumero}>
@@ -1141,6 +1206,42 @@ export function Compras() {
                           atualizarParcelaDraft(index, 'data', e.target.value)
                         }
                       />
+                    </div>
+                    {parcela.pago && (
+                      <div className={styles.parcelaPagadorBox}>
+                        <Select
+                          label="Quem está pagando?"
+                          options={PAGADOR_TIPO_OPCOES.map((o) => o.label)}
+                          value={
+                            PAGADOR_TIPO_OPCOES.find(
+                              (o) =>
+                                o.value === (parcela.pagadorTipo || 'proprio'),
+                            )?.label || PAGADOR_TIPO_OPCOES[0].label
+                          }
+                          onChange={(e) => {
+                            const opcao = PAGADOR_TIPO_OPCOES.find(
+                              (o) => o.label === e.target.value,
+                            )
+                            atualizarPagadorParcelaDraft(
+                              index,
+                              opcao?.value || 'proprio',
+                            )
+                          }}
+                        />
+                        {parcela.pagadorTipo === 'terceiro' && (
+                          <ContaPagamentoFields
+                            titulo="Conta de origem do pagamento"
+                            hint="Informe o banco/conta de onde saiu o valor (quem pagou)."
+                            value={
+                              parcela.contaOrigem || emptyContaPagamento()
+                            }
+                            onChange={(conta) =>
+                              atualizarContaOrigemParcelaDraft(index, conta)
+                            }
+                          />
+                        )}
+                      </div>
+                    )}
                     </div>
                   ))}
                 </div>

@@ -102,18 +102,123 @@ export function stripContaPagamentoDbFields<T extends Record<string, unknown>>(
   return copy
 }
 
+export const AVISO_SQL_CONTA_PAGAMENTO =
+  'Pagamento salvo, mas os dados bancários não foram gravados. Execute os scripts supabase/compras-parcelas-conta-pagamento.sql e supabase/compras-parcelas-pagador.sql no Supabase.'
+
+export type PagadorTipo = 'proprio' | 'terceiro'
+
+export const PAGADOR_TIPO_OPCOES: { value: PagadorTipo; label: string }[] = [
+  { value: 'proprio', label: 'Eu / minha empresa' },
+  { value: 'terceiro', label: 'Outra pessoa' },
+]
+
+export function pagadorTipoLabel(tipo?: string | null) {
+  if (tipo === 'terceiro') return 'Outra pessoa'
+  return 'Eu / minha empresa'
+}
+
+export function contaOrigemFromParcela(
+  parcela: Partial<{
+    origem_banco: string | null
+    origem_agencia: string | null
+    origem_conta: string | null
+    origem_tipo_conta: string | null
+    origem_titular: string | null
+    origem_pix_tipo: string | null
+    origem_pix_chave: string | null
+  }>,
+): ContaPagamentoData {
+  return {
+    banco: parcela.origem_banco || '',
+    agencia: parcela.origem_agencia || '',
+    conta: parcela.origem_conta || '',
+    tipo_conta: parcela.origem_tipo_conta || '',
+    titular_conta: parcela.origem_titular || '',
+    pix_tipo: parcela.origem_pix_tipo || '',
+    pix_chave: parcela.origem_pix_chave || '',
+  }
+}
+
+export function contaOrigemToDb(conta: ContaPagamentoData) {
+  return {
+    origem_banco: conta.banco.trim() || null,
+    origem_agencia: conta.agencia.trim() || null,
+    origem_conta: conta.conta.trim() || null,
+    origem_tipo_conta: conta.tipo_conta || null,
+    origem_titular: conta.titular_conta.trim() || null,
+    origem_pix_tipo: conta.pix_tipo || null,
+    origem_pix_chave: conta.pix_chave.trim() || null,
+  }
+}
+
+export function pagadorParcelaToDb(
+  pagadorTipo: PagadorTipo,
+  contaOrigem?: ContaPagamentoData,
+) {
+  if (pagadorTipo === 'proprio') {
+    return {
+      pagador_tipo: 'proprio' as const,
+      origem_banco: null,
+      origem_agencia: null,
+      origem_conta: null,
+      origem_tipo_conta: null,
+      origem_titular: null,
+      origem_pix_tipo: null,
+      origem_pix_chave: null,
+    }
+  }
+
+  return {
+    pagador_tipo: 'terceiro' as const,
+    ...contaOrigemToDb(contaOrigem || emptyContaPagamento()),
+  }
+}
+
+export function validarPagadorParcela(
+  pagadorTipo: PagadorTipo,
+  contaOrigem: ContaPagamentoData,
+  aoRegistrarPagamento = false,
+) {
+  if (!aoRegistrarPagamento) return null
+  if (pagadorTipo !== 'terceiro') return null
+  if (contaPagamentoTemDados(contaOrigem)) return null
+  return 'Informe a conta bancária de origem quando o pagamento for feito por outra pessoa'
+}
+
+export const PAGADOR_ORIGEM_DB_KEYS = [
+  'pagador_tipo',
+  'origem_banco',
+  'origem_agencia',
+  'origem_conta',
+  'origem_tipo_conta',
+  'origem_titular',
+  'origem_pix_tipo',
+  'origem_pix_chave',
+] as const
+
+export function stripParcelaPagamentoDbFields<T extends Record<string, unknown>>(
+  row: T,
+): T {
+  const copy = stripContaPagamentoDbFields(row)
+  for (const key of PAGADOR_ORIGEM_DB_KEYS) {
+    delete copy[key]
+  }
+  return copy
+}
+
 export function isMissingContaPagamentoColumnError(error: unknown) {
   if (!error || typeof error !== 'object') return false
 
   const record = error as { code?: string; message?: string }
+  if (record.code !== 'PGRST204') return false
+
+  const msg = record.message || ''
   return (
-    record.code === 'PGRST204' &&
-    Boolean(record.message?.includes('pagamento_'))
+    msg.includes('pagamento_') ||
+    msg.includes('origem_') ||
+    msg.includes('pagador_tipo')
   )
 }
-
-export const AVISO_SQL_CONTA_PAGAMENTO =
-  'Pagamento salvo, mas os dados bancários não foram gravados. Execute o script supabase/compras-parcelas-conta-pagamento.sql no Supabase.'
 
 export function contaPagamentoTemDados(conta: ContaPagamentoData) {
   return Boolean(
@@ -124,7 +229,6 @@ export function contaPagamentoTemDados(conta: ContaPagamentoData) {
       conta.pix_chave.trim(),
   )
 }
-
 export function formatContaPagamentoResumo(conta: ContaPagamentoData) {
   const partes: string[] = []
 

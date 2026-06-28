@@ -42,9 +42,15 @@ import { ContaPagamentoResumo } from './ContaPagamentoResumo'
 import {
   contaPagamentoFromFornecedor,
   contaPagamentoFromParcela,
+  contaOrigemFromParcela,
   contaPagamentoTemDados,
   emptyContaPagamento,
+  formatContaPagamentoResumo,
+  pagadorTipoLabel,
+  PAGADOR_TIPO_OPCOES,
+  validarPagadorParcela,
   type ContaPagamentoData,
+  type PagadorTipo,
 } from '@/utils/contaPagamento'
 import styles from './CompraDetalheModal.module.scss'
 
@@ -83,6 +89,18 @@ type ParcelaDraftEdicao = {
   vencimento: string
   formaPagamento: string
   contaPagamento: ContaPagamentoData
+  pagadorTipo: PagadorTipo
+  contaOrigem: ContaPagamentoData
+}
+
+function pagadorPayloadFromDraft(draft: ParcelaDraftEdicao) {
+  return {
+    pagadorTipo: draft.pagadorTipo,
+    contaOrigem:
+      draft.pagadorTipo === 'terceiro'
+        ? draft.contaOrigem
+        : emptyContaPagamento(),
+  }
 }
 
 type EditarCampos = {
@@ -329,6 +347,9 @@ export function CompraDetalheModal({
                   contaPagamento: contaPagamentoTemDados(contaSalva)
                     ? contaSalva
                     : contaFornecedor,
+                  pagadorTipo:
+                    p.pagador_tipo === 'terceiro' ? 'terceiro' : 'proprio',
+                  contaOrigem: contaOrigemFromParcela(p),
                 },
               ]
             }),
@@ -458,6 +479,16 @@ export function CompraDetalheModal({
     const draft = parcelasDraft[parcela.id]
     if (!draft) return
 
+    const erroPagador = validarPagadorParcela(
+      draft.pagadorTipo,
+      draft.contaOrigem,
+      true,
+    )
+    if (erroPagador) {
+      toast.error(erroPagador)
+      return
+    }
+
     try {
       setSalvando(true)
 
@@ -466,6 +497,7 @@ export function CompraDetalheModal({
         data_vencimento: draft.vencimento,
         forma_pagamento: draft.formaPagamento,
         contaPagamento: draft.contaPagamento,
+        ...pagadorPayloadFromDraft(draft),
       })
 
       await pagamentosComprasService.marcarComoPago(parcela.id, {
@@ -473,6 +505,7 @@ export function CompraDetalheModal({
         valor: parseCurrencyInput(draft.valor),
         forma_pagamento: draft.formaPagamento,
         contaPagamento: draft.contaPagamento,
+        ...pagadorPayloadFromDraft(draft),
       })
 
       toast.success(
@@ -498,6 +531,18 @@ export function CompraDetalheModal({
       return
     }
 
+    if (parcela.status === 'pago') {
+      const erroPagador = validarPagadorParcela(
+        draft.pagadorTipo,
+        draft.contaOrigem,
+        true,
+      )
+      if (erroPagador) {
+        toast.error(erroPagador)
+        return
+      }
+    }
+
     try {
       setSalvando(true)
 
@@ -507,6 +552,7 @@ export function CompraDetalheModal({
           data_pagamento: draft.dataPagamento,
           forma_pagamento: draft.formaPagamento,
           contaPagamento: draft.contaPagamento,
+          ...pagadorPayloadFromDraft(draft),
         })
         toast.success('Pagamento atualizado')
       } else {
@@ -592,6 +638,20 @@ export function CompraDetalheModal({
 
   async function salvarConfiguracaoParcelas() {
     if (!compra || !setupPodeSalvar) return
+
+    for (let index = 0; index < setupPagamento.parcelas.length; index += 1) {
+      const parcela = setupPagamento.parcelas[index]
+      if (!parcela.pago) continue
+      const erro = validarPagadorParcela(
+        parcela.pagadorTipo || 'proprio',
+        parcela.contaOrigem || emptyContaPagamento(),
+        true,
+      )
+      if (erro) {
+        toast.error(`Parcela ${index + 1}: ${erro}`)
+        return
+      }
+    }
 
     try {
       setSalvando(true)
@@ -801,6 +861,33 @@ export function CompraDetalheModal({
     }
   }
 
+  function atualizarPagadorDraft(
+    parcelaId: number,
+    pagadorTipo: PagadorTipo,
+  ) {
+    setParcelasDraft((prev) => ({
+      ...prev,
+      [parcelaId]: {
+        ...prev[parcelaId],
+        pagadorTipo,
+        contaOrigem:
+          pagadorTipo === 'terceiro'
+            ? prev[parcelaId].contaOrigem
+            : emptyContaPagamento(),
+      },
+    }))
+  }
+
+  function atualizarContaOrigemDraft(
+    parcelaId: number,
+    contaOrigem: ContaPagamentoData,
+  ) {
+    setParcelasDraft((prev) => ({
+      ...prev,
+      [parcelaId]: { ...prev[parcelaId], contaOrigem },
+    }))
+  }
+
   function atualizarContaDraft(
     parcelaId: number,
     contaPagamento: ContaPagamentoData,
@@ -830,6 +917,14 @@ export function CompraDetalheModal({
     setSetupPagamento((prev) => {
       let parcelasLista = [...prev.parcelas]
       parcelasLista[index] = { ...parcelasLista[index], [campo]: valor }
+
+      if (campo === 'pago' && valor === false) {
+        parcelasLista[index] = {
+          ...parcelasLista[index],
+          pagadorTipo: 'proprio',
+          contaOrigem: emptyContaPagamento(),
+        }
+      }
 
       if (campo === 'valor' && typeof valor === 'string') {
         parcelasLista = redistribuirParcelasAposIndex(
@@ -862,6 +957,8 @@ export function CompraDetalheModal({
             data: dataBase,
             pago: false,
             formaPagamento: formaPadrao,
+            pagadorTipo: 'proprio',
+            contaOrigem: emptyContaPagamento(),
           })
         }
       } else if (qtd > 0 && qtd < parcelasLista.length) {
@@ -1182,6 +1279,59 @@ export function CompraDetalheModal({
                         }
                       />
                     </div>
+                    {parcela.pago && (
+                      <div className={styles.parcelaPagadorSetup}>
+                        <Select
+                          label="Quem está pagando?"
+                          options={PAGADOR_TIPO_OPCOES.map((o) => o.label)}
+                          value={
+                            PAGADOR_TIPO_OPCOES.find(
+                              (o) =>
+                                o.value === (parcela.pagadorTipo || 'proprio'),
+                            )?.label || PAGADOR_TIPO_OPCOES[0].label
+                          }
+                          onChange={(e) => {
+                            const opcao = PAGADOR_TIPO_OPCOES.find(
+                              (o) => o.label === e.target.value,
+                            )
+                            const pagadorTipo = opcao?.value || 'proprio'
+                            setSetupPagamento((prev) => {
+                              const parcelasLista = [...prev.parcelas]
+                              parcelasLista[index] = {
+                                ...parcelasLista[index],
+                                pagadorTipo,
+                                contaOrigem:
+                                  pagadorTipo === 'terceiro'
+                                    ? parcelasLista[index].contaOrigem ||
+                                      emptyContaPagamento()
+                                    : emptyContaPagamento(),
+                              }
+                              return { ...prev, parcelas: parcelasLista }
+                            })
+                          }}
+                        />
+                        {parcela.pagadorTipo === 'terceiro' && (
+                          <ContaPagamentoFields
+                            className={styles.contaPagamentoParcela}
+                            titulo="Conta de origem do pagamento"
+                            hint="Informe o banco/conta de onde saiu o valor (quem pagou)."
+                            value={
+                              parcela.contaOrigem || emptyContaPagamento()
+                            }
+                            onChange={(contaOrigem) =>
+                              setSetupPagamento((prev) => {
+                                const parcelasLista = [...prev.parcelas]
+                                parcelasLista[index] = {
+                                  ...parcelasLista[index],
+                                  contaOrigem,
+                                }
+                                return { ...prev, parcelas: parcelasLista }
+                              })
+                            }
+                          />
+                        )}
+                      </div>
+                    )}
                   </article>
                 ))}
               </div>
@@ -1281,8 +1431,22 @@ export function CompraDetalheModal({
                         {pago && parcela.data_pagamento && (
                           <span className={styles.vencimentoLabel}>
                             Pago em {formatDateBr(parcela.data_pagamento)}
+                            {' · '}
+                            {pagadorTipoLabel(parcela.pagador_tipo)}
                           </span>
                         )}
+                        {pago &&
+                          parcela.pagador_tipo === 'terceiro' &&
+                          contaPagamentoTemDados(
+                            contaOrigemFromParcela(parcela),
+                          ) && (
+                            <span className={styles.pagadorOrigemResumo}>
+                              Origem:{' '}
+                              {formatContaPagamentoResumo(
+                                contaOrigemFromParcela(parcela),
+                              )}
+                            </span>
+                          )}
                       </div>
                       <span
                         className={[
@@ -1348,8 +1512,39 @@ export function CompraDetalheModal({
                             }
                           />
                         </div>
+                        <Select
+                          label="Quem está pagando?"
+                          options={PAGADOR_TIPO_OPCOES.map((o) => o.label)}
+                          value={
+                            PAGADOR_TIPO_OPCOES.find(
+                              (o) => o.value === draft.pagadorTipo,
+                            )?.label || PAGADOR_TIPO_OPCOES[0].label
+                          }
+                          onChange={(e) => {
+                            const opcao = PAGADOR_TIPO_OPCOES.find(
+                              (o) => o.label === e.target.value,
+                            )
+                            atualizarPagadorDraft(
+                              parcela.id,
+                              opcao?.value || 'proprio',
+                            )
+                          }}
+                        />
+                        {draft.pagadorTipo === 'terceiro' && (
+                          <ContaPagamentoFields
+                            className={styles.contaPagamentoParcela}
+                            titulo="Conta de origem do pagamento"
+                            hint="Informe o banco/conta de onde saiu o valor (quem pagou)."
+                            value={draft.contaOrigem}
+                            onChange={(conta) =>
+                              atualizarContaOrigemDraft(parcela.id, conta)
+                            }
+                          />
+                        )}
                         <ContaPagamentoFields
                           className={styles.contaPagamentoParcela}
+                          titulo="Conta para pagamento (fornecedor)"
+                          hint="Conta de destino — dados do fornecedor ou outra conta indicada."
                           value={draft.contaPagamento}
                           onChange={(conta) =>
                             atualizarContaDraft(parcela.id, conta)

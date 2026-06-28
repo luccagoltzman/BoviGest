@@ -106,6 +106,22 @@
   background: var(--surface-muted, #f9fafb);
 }
 
+.parcelaTabelaGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.parcelaPagadorBox {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border: 1px dashed var(--border-color, #d1d5db);
+  border-radius: 8px;
+  background: #fff;
+}
+
 .parcelasTabelaRowDetalhe {
   grid-template-columns: 64px 1fr 120px 160px 90px 140px;
   padding: 0.75rem;

@@ -1,9 +1,11 @@
 import { gerarParcelasCompra, type CompraParcelaConfig } from '@/utils/compraParcelas'
 import {
   contaPagamentoToDb,
-  stripContaPagamentoDbFields,
+  pagadorParcelaToDb,
+  stripParcelaPagamentoDbFields,
   isMissingContaPagamentoColumnError,
   AVISO_SQL_CONTA_PAGAMENTO,
+  type PagadorTipo,
 } from '@/utils/contaPagamento'
 import { AuthService } from './auth.service'
 import { supabase } from './supabase'
@@ -26,6 +28,14 @@ export type CompraParcela = {
   pagamento_titular?: string | null
   pagamento_pix_tipo?: string | null
   pagamento_pix_chave?: string | null
+  pagador_tipo?: PagadorTipo | string | null
+  origem_banco?: string | null
+  origem_agencia?: string | null
+  origem_conta?: string | null
+  origem_tipo_conta?: string | null
+  origem_titular?: string | null
+  origem_pix_tipo?: string | null
+  origem_pix_chave?: string | null
   compra?: {
     id: number
     data: string
@@ -81,7 +91,7 @@ async function insertParcelasRows(rows: Record<string, unknown>[]) {
   }
 
   if (isMissingContaPagamentoColumnError(primeiro.error)) {
-    const stripped = rows.map((row) => stripContaPagamentoDbFields(row))
+    const stripped = rows.map((row) => stripParcelaPagamentoDbFields(row))
     const retry = await supabase
       .from('compras_parcelas')
       .insert(stripped)
@@ -121,7 +131,7 @@ async function updateParcelaRow(
   if (isMissingContaPagamentoColumnError(primeiro.error)) {
     let retryQuery = supabase
       .from('compras_parcelas')
-      .update(stripContaPagamentoDbFields(updateData))
+      .update(stripParcelaPagamentoDbFields(updateData))
       .eq('id', id)
       .eq('empresa_id', empresaId)
 
@@ -147,6 +157,7 @@ export const pagamentosComprasService = {
   },
   async createForCompra(compraId: number, config: CompraParcelaConfig) {
     const user = getUser()
+    const drafts = config.parcelas.filter((p) => p.valor && p.data)
     const parcelas = gerarParcelasCompra(config)
 
     if (!parcelas.length) return []
@@ -155,12 +166,24 @@ export const pagamentosComprasService = {
       ? contaPagamentoToDb(config.contaPagamento)
       : {}
 
-    const rows = parcelas.map((parcela) => ({
-      empresa_id: user.empresa_id,
-      compra_id: compraId,
-      ...parcela,
-      ...contaDb,
-    }))
+    const rows = parcelas.map((parcela, index) => {
+      const draft = drafts[index]
+      const pagadorDb =
+        parcela.status === 'pago' && draft
+          ? pagadorParcelaToDb(
+              draft.pagadorTipo || 'proprio',
+              draft.contaOrigem,
+            )
+          : pagadorParcelaToDb('proprio')
+
+      return {
+        empresa_id: user.empresa_id,
+        compra_id: compraId,
+        ...parcela,
+        ...contaDb,
+        ...pagadorDb,
+      }
+    })
 
     return insertParcelasRows(rows)
   },
@@ -277,6 +300,8 @@ export const pagamentosComprasService = {
       data_vencimento?: string
       forma_pagamento?: string
       contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
+      pagadorTipo?: PagadorTipo
+      contaOrigem?: import('@/utils/contaPagamento').ContaPagamentoData
     },
   ) {
     return this.atualizarParcela(id, payload)
@@ -290,6 +315,8 @@ export const pagamentosComprasService = {
       data_pagamento?: string | null
       forma_pagamento?: string
       contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
+      pagadorTipo?: PagadorTipo
+      contaOrigem?: import('@/utils/contaPagamento').ContaPagamentoData
       status?: 'pendente' | 'pago'
     },
   ) {
@@ -319,11 +346,22 @@ export const pagamentosComprasService = {
       updateData.status = payload.status
       if (payload.status === 'pendente') {
         updateData.data_pagamento = null
+        Object.assign(
+          updateData,
+          pagadorParcelaToDb('proprio'),
+        )
       }
     }
 
     if (payload.contaPagamento) {
       Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
+    }
+
+    if (payload.pagadorTipo) {
+      Object.assign(
+        updateData,
+        pagadorParcelaToDb(payload.pagadorTipo, payload.contaOrigem),
+      )
     }
 
     const data = await updateParcelaRow(id, user.empresa_id!, updateData)
@@ -350,6 +388,8 @@ export const pagamentosComprasService = {
       forma_pagamento?: string
       valor?: number
       contaPagamento?: import('@/utils/contaPagamento').ContaPagamentoData
+      pagadorTipo?: PagadorTipo
+      contaOrigem?: import('@/utils/contaPagamento').ContaPagamentoData
     } = {},
   ) {
     const user = getUser()
@@ -372,6 +412,13 @@ export const pagamentosComprasService = {
 
     if (payload.contaPagamento) {
       Object.assign(updateData, contaPagamentoToDb(payload.contaPagamento))
+    }
+
+    if (payload.pagadorTipo) {
+      Object.assign(
+        updateData,
+        pagadorParcelaToDb(payload.pagadorTipo, payload.contaOrigem),
+      )
     }
 
     const data = await updateParcelaRow(id, user.empresa_id!, updateData)
@@ -441,6 +488,7 @@ export const pagamentosComprasService = {
   async adicionarParcelas(compraId: number, config: CompraParcelaConfig) {
     const user = getUser()
     const existentes = await this.getByCompraId(compraId)
+    const drafts = config.parcelas.filter((p) => p.valor && p.data)
     const novas = gerarParcelasCompra(config)
 
     if (!novas.length) return []
@@ -454,14 +502,26 @@ export const pagamentosComprasService = {
       ? contaPagamentoToDb(config.contaPagamento)
       : {}
 
-    const rows = novas.map((parcela, index) => ({
-      empresa_id: user.empresa_id,
-      compra_id: compraId,
-      ...parcela,
-      numero_parcela: maxNumero + index + 1,
-      total_parcelas: novoTotal,
-      ...contaDb,
-    }))
+    const rows = novas.map((parcela, index) => {
+      const draft = drafts[index]
+      const pagadorDb =
+        parcela.status === 'pago' && draft
+          ? pagadorParcelaToDb(
+              draft.pagadorTipo || 'proprio',
+              draft.contaOrigem,
+            )
+          : pagadorParcelaToDb('proprio')
+
+      return {
+        empresa_id: user.empresa_id,
+        compra_id: compraId,
+        ...parcela,
+        numero_parcela: maxNumero + index + 1,
+        total_parcelas: novoTotal,
+        ...contaDb,
+        ...pagadorDb,
+      }
+    })
 
     const data = await insertParcelasRows(rows)
 

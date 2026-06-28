@@ -227,6 +227,22 @@
   }
 }
 
+.pagadorOrigemResumo {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.8125rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.parcelaPagadorSetup {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed var(--border-color, #e5e7eb);
+}
+
 .parcelaCardGrid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

@@ -3,6 +3,10 @@ import {
   parseCurrencyInput,
 } from '@/utils/masks'
 import type { ContaPagamentoData } from '@/utils/contaPagamento'
+import {
+  emptyContaPagamento,
+  type PagadorTipo,
+} from '@/utils/contaPagamento'
 
 export type CompraParcelaGerada = {
   numero_parcela: number
@@ -19,6 +23,8 @@ export type ParcelaDraft = {
   data: string
   pago: boolean
   formaPagamento?: string
+  pagadorTipo?: PagadorTipo
+  contaOrigem?: ContaPagamentoData
 }
 
 export type CompraParcelaConfig = {
@@ -73,6 +79,8 @@ export function criarParcelasDraft(
     pago: anteriores[index]?.pago ?? false,
     formaPagamento:
       anteriores[index]?.formaPagamento || formaPadrao,
+    pagadorTipo: anteriores[index]?.pagadorTipo ?? 'proprio',
+    contaOrigem: anteriores[index]?.contaOrigem ?? emptyContaPagamento(),
   }))
 }
 
