@@ -390,6 +390,49 @@
   border-top: 1px solid $color-border;
 }
 
+.completarIntro {
+  grid-column: 1 / -1;
+  margin: 0 0 0.75rem;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: $color-text-muted;
+}
+
+.completarAction {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.completarBanner {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba($color-primary, 0.22);
+  border-radius: $radius;
+  background: rgba($color-primary, 0.06);
+
+  strong {
+    color: $color-primary-dark;
+    font-size: 0.92rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.45;
+    color: $color-text;
+  }
+}
+
+.completarBannerHint {
+  color: $color-text-muted !important;
+  font-size: 0.82rem !important;
+}
+
 @media (max-width: 768px) {
   .kpiGrid,
   .parcelaDetalhes,

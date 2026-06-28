@@ -1,6 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Wallet, FileText, Download, ClipboardList } from 'lucide-react'
+import {
+  Wallet,
+  FileText,
+  Download,
+  ClipboardList,
+  Beef,
+} from 'lucide-react'
 import { Button, Input, Modal, Select, Autocomplete } from '@/components/ui'
 import { FORMAS_PAGAMENTO } from '@/constants/formasPagamentos'
 import { opcoesTipoGado } from '@/constants/tiposGado'
@@ -183,8 +189,9 @@ function calcularTotal(data: CompraDetalheRow) {
 function resolverValorTotalCompra(
   row: CompraDetalheRow,
   campos?: EditarCampos,
+  ignorarAdiantamento = false,
 ): number {
-  if (row.adiantamento) {
+  if (row.adiantamento && !ignorarAdiantamento) {
     if (campos) {
       return parseCurrencyInput(campos.valor_adiantamento || '')
     }
@@ -205,6 +212,34 @@ function resolverValorTotalCompra(
   }
 
   return calcularTotal(row)
+}
+
+function validarCamposCompra(
+  editar: CompraDetalheRow,
+  campos: EditarCampos,
+): CompraDetalheRow | null {
+  const dados = dadosParaCalculo(editar, campos)
+
+  if (dados.quantidade_animais <= 0) {
+    toast.error('Informe a quantidade de animais')
+    return null
+  }
+
+  if (dados.peso_total <= 0) {
+    toast.error('Informe o peso total')
+    return null
+  }
+
+  if (dados.valor_kg <= 0) {
+    toast.error('Informe o valor por kg')
+    return null
+  }
+
+  return dados
+}
+
+function statusPosConversaoCompra(valorTotal: number, valorPago: number) {
+  return valorPago >= valorTotal - 0.02 ? 'Pago' : 'Pendente'
 }
 
 function criarSetupPagamentoInicial(row: CompraDetalheRow) {
@@ -287,12 +322,14 @@ export function CompraDetalheModal({
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [romaneioOpen, setRomaneioOpen] = useState(false)
   const [fornecedorDetalhe, setFornecedorDetalhe] = useState<any>(null)
+  const [completandoCompra, setCompletandoCompra] = useState(false)
 
   useEffect(() => {
     if (compra) {
       setEditar(compra)
       setEditarCampos(rowToEditarCampos(compra))
       setTab(initialTab)
+      setCompletandoCompra(false)
     }
   }, [compra, initialTab])
 
@@ -368,8 +405,12 @@ export function CompraDetalheModal({
 
   const valorTotalCompra = useMemo(() => {
     if (!editar) return 0
-    return resolverValorTotalCompra(editar, editarCampos)
-  }, [editar, editarCampos])
+    return resolverValorTotalCompra(
+      editar,
+      editarCampos,
+      completandoCompra,
+    )
+  }, [editar, editarCampos, completandoCompra])
 
   const resumo = useMemo(() => {
     const pagas = parcelas.filter((p) => p.status === 'pago')
@@ -779,13 +820,24 @@ export function CompraDetalheModal({
     setReconfigurando(true)
   }
 
+  function iniciarCompletarCompra() {
+    if (!editar) return
+
+    setCompletandoCompra(true)
+    setEditar({
+      ...editar,
+      condicao_gado: editar.condicao_gado ?? 1,
+      tipo_imposto: editar.tipo_imposto || 'fixo',
+    })
+  }
+
   async function salvarDadosCompra() {
     if (!editar) return
 
     try {
       setSalvando(true)
 
-      if (editar.adiantamento) {
+      if (editar.adiantamento && !completandoCompra) {
         const valorTotal = parseCurrencyInput(editarCampos.valor_adiantamento)
 
         if (valorTotal <= 0) {
@@ -816,13 +868,28 @@ export function CompraDetalheModal({
         return
       }
 
-      const dados = dadosParaCalculo(editar, editarCampos)
+      const dados = validarCamposCompra(editar, editarCampos)
+      if (!dados) return
+
       const subtotal = calcularSubtotal(dados)
       const valorTotal = calcularTotal(dados)
+      const convertendo = editar.adiantamento && completandoCompra
+
+      if (convertendo && valorTotal + 0.02 < resumo.valorPago) {
+        toast.error(
+          `O total da compra não pode ser menor que o valor já pago (${formatCurrency(resumo.valorPago)})`,
+        )
+        return
+      }
+
+      const novoStatus = convertendo
+        ? statusPosConversaoCompra(valorTotal, resumo.valorPago)
+        : editar.status
 
       await comprasService.update(editar.id, {
         fornecedor_id: editar.fornecedor_id,
         data: editar.data,
+        adiantamento: false,
         quantidade_animais: dados.quantidade_animais,
         condicao_gado: editar.condicao_gado,
         peso_total: dados.peso_total,
@@ -834,10 +901,30 @@ export function CompraDetalheModal({
         valor_total: valorTotal,
         tipo_gado: editar.tipo_gado,
         observacoes: editar.observacoes,
-        status: editar.status,
+        status: novoStatus,
+        pagamento_quitado: resumo.valorPago >= valorTotal - 0.02,
       })
 
-      toast.success('Compra atualizada')
+      setEditar({
+        ...editar,
+        adiantamento: false,
+        quantidade_animais: dados.quantidade_animais,
+        peso_total: dados.peso_total,
+        valor_kg: dados.valor_kg,
+        valor_imposto: dados.valor_imposto,
+        gta_valor: dados.gta_valor,
+        subtotal,
+        valor_total: valorTotal,
+        tipo_gado: editar.tipo_gado,
+        status: novoStatus,
+      })
+      setCompletandoCompra(false)
+
+      toast.success(
+        convertendo
+          ? 'Adiantamento convertido em compra'
+          : 'Compra atualizada',
+      )
       onUpdated()
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : 'Erro ao salvar compra'
@@ -1057,7 +1144,9 @@ export function CompraDetalheModal({
       onClose={onClose}
       title={
         editar.adiantamento
-          ? `Adiantamento — ${fornecedorNome}`
+          ? completandoCompra
+            ? `Completar compra — ${fornecedorNome}`
+            : `Adiantamento — ${fornecedorNome}`
           : `Compra — ${fornecedorNome}`
       }
       width="920px"
@@ -1084,7 +1173,10 @@ export function CompraDetalheModal({
           onClick={() => setTab('dados')}
         >
           <FileText size={16} aria-hidden />
-          Dados {editar.adiantamento ? 'do adiantamento' : 'da compra'}
+          Dados{' '}
+          {editar.adiantamento && !completandoCompra
+            ? 'do adiantamento'
+            : 'da compra'}
         </button>
       </nav>
 
@@ -1102,6 +1194,14 @@ export function CompraDetalheModal({
 
       {tab === 'pagamento' && (
         <div className={styles.pagamentoPainel}>
+          {editar.adiantamento && (
+            <p className={styles.completarIntro}>
+              Este registro ainda é um adiantamento. Quando souber quantidade,
+              peso e valor final, vá em <strong>Dados da compra</strong> e use{' '}
+              <strong>Completar com dados do gado</strong>.
+            </p>
+          )}
+
           <div className={styles.pagamentoToolbar}>
             <p className={styles.pagamentoToolbarHint}>
               Exporte o resumo de pagamento para enviar ao fornecedor.
@@ -1709,14 +1809,24 @@ export function CompraDetalheModal({
           />
 
           <Input
-            label={editar.adiantamento ? 'Data' : 'Data da compra'}
+            label={
+              editar.adiantamento && !completandoCompra
+                ? 'Data'
+                : 'Data da compra'
+            }
             type="date"
             value={editar.data}
             onChange={(e) => setEditar({ ...editar, data: e.target.value })}
           />
 
-          {editar.adiantamento ? (
+          {editar.adiantamento && !completandoCompra ? (
             <>
+              <p className={styles.completarIntro}>
+                Registre aqui o pagamento antecipado. Quando souber quantidade,
+                peso e valor final do gado, use o botão abaixo para completar a
+                compra — os pagamentos já lançados serão mantidos.
+              </p>
+
               <Input
                 label="Valor do adiantamento"
                 mask="currency"
@@ -1738,9 +1848,45 @@ export function CompraDetalheModal({
                   setEditar({ ...editar, observacoes: e.target.value })
                 }
               />
+
+              <div className={styles.completarAction}>
+                <Button variant="secondary" onClick={iniciarCompletarCompra}>
+                  <Beef size={16} aria-hidden />
+                  Completar com dados do gado
+                </Button>
+              </div>
             </>
           ) : (
             <>
+          {completandoCompra && (
+            <div className={styles.completarBanner}>
+              <strong>Adiantamento já registrado</strong>
+              <p>
+                Valor do adiantamento:{' '}
+                <strong>
+                  {formatCurrency(
+                    parseCurrencyInput(editarCampos.valor_adiantamento) ||
+                      Number(editar.valor_total || 0),
+                  )}
+                </strong>
+                {' · '}
+                Valor pago: <strong>{formatCurrency(resumo.valorPago)}</strong>
+                {' · '}
+                Total informado:{' '}
+                <strong>{formatCurrency(valorTotalCompra)}</strong>
+                {' · '}
+                Saldo a pagar:{' '}
+                <strong>{formatCurrency(resumo.saldoAberto)}</strong>
+              </p>
+              {resumo.saldoNaoPlanejado > 0.02 && (
+                <p className={styles.completarBannerHint}>
+                  Após salvar, confira a aba Pagamento para planejar o saldo
+                  restante em parcelas.
+                </p>
+              )}
+            </div>
+          )}
+
           <Select
             label="Condição"
             options={['Vivo', 'Abatido']}
@@ -1835,7 +1981,9 @@ export function CompraDetalheModal({
 
           <Input
             label="Valor total"
-            value={calcularTotal(editar).toFixed(2)}
+            value={calcularTotal(
+              dadosParaCalculo(editar, editarCampos),
+            ).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             disabled
           />
 
@@ -1861,11 +2009,27 @@ export function CompraDetalheModal({
           )}
 
           <div className={styles.dadosActions}>
+            {completandoCompra && (
+              <Button
+                variant="outline"
+                onClick={() => setCompletandoCompra(false)}
+                disabled={salvando}
+              >
+                Voltar ao adiantamento
+              </Button>
+            )}
             <Button onClick={salvarDadosCompra} disabled={salvando}>
-              Salvar dados
+              {editar.adiantamento && !completandoCompra
+                ? 'Salvar adiantamento'
+                : completandoCompra
+                  ? 'Salvar compra'
+                  : 'Salvar dados'}
             </Button>
             <Button variant="danger" onClick={excluirCompra}>
-              Excluir {editar.adiantamento ? 'adiantamento' : 'compra'}
+              Excluir{' '}
+              {editar.adiantamento && !completandoCompra
+                ? 'adiantamento'
+                : 'compra'}
             </Button>
           </div>
         </div>
