@@ -144,24 +144,32 @@ export const recebimentosClientesService = {
 
     if (error) throw error
   },
-  async getByCliente(clienteId: string, startDate = '', endDate = '') {
+  async getByCliente(
+    clienteId: string,
+    startDate = '',
+    endDate = '',
+    options?: { filtrarPor?: 'referencia' | 'recebimento' },
+  ) {
     const user = getUser()
+    const filtrarPor = options?.filtrarPor ?? 'referencia'
+    const dateField =
+      filtrarPor === 'recebimento' ? 'data_recebimento' : 'data_referencia'
 
     let query = supabase
       .from('recebimentos_clientes')
       .select('*')
       .eq('empresa_id', user.empresa_id)
       .eq('cliente_id', clienteId)
-      .order('data_recebimento', {
+      .order(dateField, {
         ascending: false,
       })
 
     if (startDate) {
-      query = query.gte('data_recebimento', startDate)
+      query = query.gte(dateField, startDate)
     }
 
     if (endDate) {
-      query = query.lte('data_recebimento', endDate)
+      query = query.lte(dateField, endDate)
     }
 
     const { data, error } = await query

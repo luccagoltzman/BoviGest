@@ -29,6 +29,10 @@ import {
   isVisceraCorte,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
+import {
+  dataReferenciaRecebimento,
+  recebimentoComDatasDistintas,
+} from '@/utils/recebimentoDatas'
 
 interface Composicao {
   id: number
@@ -63,6 +67,7 @@ interface Recebimento {
   forma_pagamento: string
   observacao?: string
   data_recebimento: string
+  data_referencia?: string | null
 }
 
 interface Props {
@@ -131,13 +136,17 @@ export function ClienteExtratoModal({
   const [dataRecebimento, setDataRecebimento] = useState(
     hoje.toISOString().split('T')[0]
   )
+  const [dataReferencia, setDataReferencia] = useState(
+    hoje.toISOString().split('T')[0],
+  )
 
   // Edição inline de recebimento
   const [editandoId, setEditandoId] = useState<string | null>(null)
   const [editValor, setEditValor] = useState('')
   const [editForma, setEditForma] = useState('')
   const [editObs, setEditObs] = useState('')
-  const [editData, setEditData] = useState('')
+  const [editDataRecebimento, setEditDataRecebimento] = useState('')
+  const [editDataReferencia, setEditDataReferencia] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [downloadingRecebimentosPdf, setDownloadingRecebimentosPdf] =
     useState(false)
@@ -156,6 +165,14 @@ export function ClienteExtratoModal({
   useEffect(() => {
     if (open && cliente?.id) carregarDados()
   }, [open, cliente, startDate, endDate])
+
+  useEffect(() => {
+    if (showNovoRecebimento) {
+      const hojeIso = new Date().toISOString().slice(0, 10)
+      setDataRecebimento(hojeIso)
+      setDataReferencia(endDate || hojeIso)
+    }
+  }, [showNovoRecebimento, endDate])
 
   // ─── Carregamento ─────────────────────────────────────────────────────────
 
@@ -267,6 +284,7 @@ export function ClienteExtratoModal({
         forma_pagamento: formaPagamento,
         observacao,
         data_recebimento: dataRecebimento,
+        data_referencia: dataReferencia || dataRecebimento,
       })
       toast.success('Recebimento lançado')
       setValorRecebimento('')
@@ -284,7 +302,8 @@ export function ClienteExtratoModal({
     setEditValor(formatCurrencyFromNumber(rec.valor))
     setEditForma(rec.forma_pagamento ?? 'Pix')
     setEditObs(rec.observacao ?? '')
-    setEditData(rec.data_recebimento?.split('T')[0] ?? '')
+    setEditDataRecebimento(rec.data_recebimento?.split('T')[0] ?? '')
+    setEditDataReferencia(dataReferenciaRecebimento(rec))
   }
 
   async function salvarEdicao() {
@@ -297,7 +316,8 @@ export function ClienteExtratoModal({
         valor: parseCurrencyInput(editValor),
         forma_pagamento: editForma,
         observacao: editObs,
-        data_recebimento: editData,
+        data_recebimento: editDataRecebimento,
+        data_referencia: editDataReferencia || editDataRecebimento,
       })
       toast.success('Recebimento atualizado')
       setEditandoId(null)
@@ -366,7 +386,7 @@ export function ClienteExtratoModal({
 
   const saldoDevedorDetalhe = useMemo(() => {
     if (quitadoComPagamentoPosterior) {
-      return 'Quitado — pagamento registrado após o fim do período filtrado'
+      return 'Quitado — pagamento com referência após o fim do período filtrado'
     }
     if (periodoQuitado) {
       return 'Quitado no período'
@@ -472,7 +492,7 @@ export function ClienteExtratoModal({
     }))
     const recs = recebimentos.map((r) => ({
       tipo: 'recebimento' as const,
-      data: r.data_recebimento,
+      data: dataReferenciaRecebimento(r),
       valor: Number(r.valor),
       id: r.id,
       raw: r,
@@ -832,7 +852,7 @@ export function ClienteExtratoModal({
             </strong>
             <span className={styles.cardSub}>
               {recebimentos.length} pagamento
-              {recebimentos.length !== 1 ? 's' : ''}
+              {recebimentos.length !== 1 ? 's' : ''} · por data de referência
             </span>
           </div>
           {saldoDevedorExibicao > 0 && (
@@ -852,10 +872,11 @@ export function ClienteExtratoModal({
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
           <p className={styles.extratoHint}>
-            Compras discriminadas por peça no período. O saldo devedor considera
-            compras do período filtrado e recebimentos desde o início do filtro
-            até hoje — pagamentos feitos logo após o período também quitam a
-            dívida exibida.
+            Compras discriminadas por peça no período. Pagamentos entram no
+            extrato pela <strong>data de referência</strong> (semana/período que
+            abatem). O saldo devedor usa referências desde o início do filtro
+            até hoje — um pagamento recebido esta semana, mas referente à
+            semana passada, não aparece aqui.
           </p>
           <div className={styles.extratoTableWrap}>
             <table className={styles.extratoTable}>
@@ -1057,10 +1078,16 @@ export function ClienteExtratoModal({
                   </select>
                 </div>
                 <Input
-                  label="Data"
+                  label="Data do recebimento"
                   type="date"
                   value={dataRecebimento}
                   onChange={(e) => setDataRecebimento(e.target.value)}
+                />
+                <Input
+                  label="Referência (período)"
+                  type="date"
+                  value={dataReferencia}
+                  onChange={(e) => setDataReferencia(e.target.value)}
                 />
                 <Input
                   label="Observação"
@@ -1218,10 +1245,16 @@ export function ClienteExtratoModal({
                         </select>
                       </div>
                       <Input
-                        label="Data"
+                        label="Recebido em"
                         type="date"
-                        value={editData}
-                        onChange={(e) => setEditData(e.target.value)}
+                        value={editDataRecebimento}
+                        onChange={(e) => setEditDataRecebimento(e.target.value)}
+                      />
+                      <Input
+                        label="Referência"
+                        type="date"
+                        value={editDataReferencia}
+                        onChange={(e) => setEditDataReferencia(e.target.value)}
                       />
                       <Input
                         label="Obs."
@@ -1250,12 +1283,20 @@ export function ClienteExtratoModal({
                         Recebido
                       </span>
                       <span className={styles.historicoData}>
-                        {formatDate(entry.data)}
+                        ref. {formatDate(entry.data)}
                       </span>
                     </div>
                     <span className={styles.formaTag}>
                       {(entry.raw as Recebimento).forma_pagamento}
                     </span>
+                    {recebimentoComDatasDistintas(entry.raw as Recebimento) && (
+                      <span className={styles.obsText}>
+                        Recebido em{' '}
+                        {formatDate(
+                          (entry.raw as Recebimento).data_recebimento,
+                        )}
+                      </span>
+                    )}
                     {(entry.raw as Recebimento).observacao && (
                       <span className={styles.obsText}>
                         {(entry.raw as Recebimento).observacao}

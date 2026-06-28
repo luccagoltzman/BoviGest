@@ -19,6 +19,11 @@ import {
   labelCorteExibicao,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
+import {
+  dataReferenciaRecebimento,
+  detalheRecebimentoExtrato,
+  formatDateBr,
+} from '@/utils/recebimentoDatas'
 
 interface Composicao {
   tipo_corte: string
@@ -44,6 +49,7 @@ interface Movimentacao {
 interface Recebimento {
   id: string
   data_recebimento: string
+  data_referencia?: string | null
   valor: number
   forma_pagamento: string
   observacao?: string
@@ -274,18 +280,16 @@ function buildHistoricoDetalhadoRows(
   })
 
   recebimentos.forEach((r) => {
-    const detalhe = [r.forma_pagamento, r.observacao]
-      .filter(Boolean)
-      .join(' · ')
+    const ref = dataReferenciaRecebimento(r)
 
     rows.push({
-      data: formatDate(r.data_recebimento),
+      data: formatDate(ref),
       tipo: 'Recebimento',
-      corte: detalhe || empty,
+      corte: pdfText(detalheRecebimentoExtrato(r)),
       peso: empty,
       valorUnitario: empty,
       valor: formatCurrency(-Number(r.valor)),
-      sortTs: new Date(r.data_recebimento).getTime(),
+      sortTs: new Date(ref).getTime(),
     })
   })
 
@@ -587,8 +591,8 @@ async function renderRecebimentosClientePdf(input: RecebimentosPdfInput) {
 
   const recebimentosOrdenados = [...input.recebimentos].sort(
     (a, b) =>
-      new Date(a.data_recebimento).getTime() -
-      new Date(b.data_recebimento).getTime(),
+      new Date(dataReferenciaRecebimento(a)).getTime() -
+      new Date(dataReferenciaRecebimento(b)).getTime(),
   )
 
   y = drawKpiRow(doc, margin, pageWidth, y, [
@@ -612,26 +616,28 @@ async function renderRecebimentosClientePdf(input: RecebimentosPdfInput) {
   autoTable(doc, {
     startY: y,
     tableWidth,
-    head: [['Data', 'Forma de pagamento', 'Observação', 'Valor']],
+    head: [['Referência', 'Recebido em', 'Forma', 'Observação', 'Valor']],
     body:
       recebimentosOrdenados.length > 0
         ? recebimentosOrdenados.map((r) => [
-            formatDate(r.data_recebimento),
+            formatDateBr(dataReferenciaRecebimento(r)),
+            formatDateBr(r.data_recebimento),
             r.forma_pagamento || '—',
             pdfText(r.observacao?.trim() || '—'),
             formatCurrency(Number(r.valor || 0)),
           ])
-        : [['—', '—', 'Nenhum recebimento no período.', '—']],
+        : [['—', '—', '—', 'Nenhum recebimento no período.', '—']],
     foot:
       recebimentosOrdenados.length > 0
-        ? [['', '', 'Total', formatCurrency(input.totalRecebido)]]
+        ? [['', '', '', 'Total', formatCurrency(input.totalRecebido)]]
         : undefined,
     ...pdfTableTheme(),
     columnStyles: {
       0: { cellWidth: tableWidth * 0.16 },
-      1: { cellWidth: tableWidth * 0.22 },
-      2: { cellWidth: tableWidth * 0.4 },
-      3: { halign: 'right', cellWidth: tableWidth * 0.22 },
+      1: { cellWidth: tableWidth * 0.16 },
+      2: { cellWidth: tableWidth * 0.18 },
+      3: { cellWidth: tableWidth * 0.34 },
+      4: { halign: 'right', cellWidth: tableWidth * 0.16 },
     },
     margin: { left: margin, right: margin },
     footStyles: {
