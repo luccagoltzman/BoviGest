@@ -274,6 +274,7 @@
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   gap: 0.75rem;
   padding: 0.85rem 1rem;
+  min-width: 0;
   background: rgba($color-primary, 0.04);
   border: 1px dashed rgba($color-border, 0.9);
   border-radius: $radius;
@@ -285,8 +286,13 @@
   grid-template-columns: auto 1fr 1fr;
   gap: 0.65rem;
   align-items: end;
+  min-width: 0;
   padding: 0.55rem 0;
   border-bottom: 1px solid rgba($color-border, 0.55);
+
+  > * {
+    min-width: 0;
+  }
 
   &:last-child {
     border-bottom: none;
@@ -367,6 +373,21 @@
 
   .dataHojeHint {
     white-space: normal;
+  }
+
+  .casadoPecas {
+    grid-template-columns: 1fr;
+    padding: 0.75rem;
+  }
+
+  .bandaRow {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem;
+  }
+
+  .bandaRowLabel {
+    grid-column: 1 / -1;
+    padding-bottom: 0.15rem;
   }
 
   .actions,
