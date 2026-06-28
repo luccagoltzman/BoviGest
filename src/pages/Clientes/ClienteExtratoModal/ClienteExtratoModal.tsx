@@ -18,7 +18,6 @@ import type {
   RecebimentosPdfInput,
 } from '@/utils/clienteExtratoPdf'
 import { getLogoUrl } from '@/services/theme.service'
-import { enviarPdfViaWhatsApp } from '@/utils/whatsappShare'
 import {
   formatResumoBanda,
   formatResumoCasado,
@@ -536,15 +535,57 @@ export function ClienteExtratoModal({
     }
   }
 
-  function mensagemExtratoWhatsApp() {
-    const periodo =
-      startDate && endDate
-        ? `${formatDate(startDate)} a ${formatDate(endDate)}`
-        : 'período selecionado'
+  async function handleEnviarWhatsApp() {
+    if (!telefoneCliente.trim()) {
+      toast.error('Cadastre o telefone/WhatsApp do cliente para enviar')
+      return
+    }
 
-    return periodoQuitado
-      ? `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Situação: quitado no período.`
-      : `Olá, ${cliente.nome}! Segue o extrato de ${periodo}. Saldo devedor: ${formatCurrency(saldoDevedorExibicao)}.`
+    let whatsappWindow: Window | null = null
+
+    try {
+      setEnviandoWhatsApp(true)
+      const { gerarExtratoClientePdfBlob, extratoPdfFilename } = await import(
+        '@/utils/clienteExtratoPdf'
+      )
+      const pdfInput = buildExtratoPdfInput()
+      const { blob, filename } = await gerarExtratoClientePdfBlob(pdfInput)
+
+      const { enviarPdfViaWhatsApp, pdfCompartilhavel } = await import(
+        '@/utils/whatsappShare'
+      )
+
+      if (!pdfCompartilhavel(blob, filename)) {
+        whatsappWindow = window.open('about:blank', '_blank')
+      }
+
+      const result = await enviarPdfViaWhatsApp({
+        blob,
+        filename: filename || extratoPdfFilename(pdfInput),
+        telefone: telefoneCliente,
+        targetWindow: whatsappWindow,
+      })
+
+      if (result === 'share') {
+        toast.success('Selecione o WhatsApp e o contato para enviar o PDF')
+      } else {
+        toast.success(
+          'PDF baixado e conversa aberta — anexe o arquivo na conversa',
+        )
+      }
+    } catch (error) {
+      whatsappWindow?.close()
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
+      if (error instanceof Error && error.message.includes('Telefone')) {
+        toast.error('Telefone inválido. Verifique o cadastro do cliente')
+        return
+      }
+      toast.error('Erro ao preparar envio pelo WhatsApp')
+    } finally {
+      setEnviandoWhatsApp(false)
+    }
   }
 
   function buildRecebimentosPdfInput(): RecebimentosPdfInput {
@@ -590,42 +631,6 @@ export function ClienteExtratoModal({
       setDownloadingRecebimentosPdf(false)
     }
   }
-
-  async function handleEnviarWhatsApp() {
-    if (!telefoneCliente.trim()) {
-      toast.error('Cadastre o telefone/WhatsApp do cliente para enviar')
-      return
-    }
-
-    let whatsappWindow: Window | null = null
-
-    try {
-      setEnviandoWhatsApp(true)
-      whatsappWindow = window.open('about:blank', '_blank')
-      const { gerarExtratoClientePdfBlob } = await import('@/utils/clienteExtratoPdf')
-      const { blob, filename } = await gerarExtratoClientePdfBlob(buildExtratoPdfInput())
-      await enviarPdfViaWhatsApp({
-        blob,
-        filename,
-        telefone: telefoneCliente,
-        mensagem: mensagemExtratoWhatsApp(),
-        targetWindow: whatsappWindow,
-      })
-
-      toast.success('PDF baixado. WhatsApp Web aberto — anexe o arquivo na conversa')
-    } catch (error) {
-      whatsappWindow?.close()
-      if (error instanceof Error && error.message.includes('Telefone')) {
-        toast.error('Telefone inválido. Verifique o cadastro do cliente')
-        return
-      }
-      toast.error('Erro ao preparar envio pelo WhatsApp')
-    } finally {
-      setEnviandoWhatsApp(false)
-    }
-  }
-
-  // ─── Render ───────────────────────────────────────────────────────────────
 
   return (
     <Modal
@@ -701,7 +706,7 @@ export function ClienteExtratoModal({
               className={styles.btnWhatsApp}
               title={
                 telefoneCliente.trim()
-                  ? 'Enviar extrato pelo WhatsApp'
+                  ? 'Enviar PDF do extrato pelo WhatsApp'
                   : 'Cadastre o telefone do cliente'
               }
             >

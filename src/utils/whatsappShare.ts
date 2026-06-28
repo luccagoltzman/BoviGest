@@ -22,13 +22,15 @@ export function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url)
 }
 
-export function buildWhatsAppWebUrl(telefoneWhatsApp: string, text: string) {
-  return `https://web.whatsapp.com/send?phone=${telefoneWhatsApp}&text=${encodeURIComponent(text)}`
+export function buildWhatsAppWebUrl(telefoneWhatsApp: string, text?: string) {
+  const base = `https://web.whatsapp.com/send?phone=${telefoneWhatsApp}`
+  if (!text?.trim()) return base
+  return `${base}&text=${encodeURIComponent(text)}`
 }
 
 export function abrirWhatsAppChat(
   telefoneWhatsApp: string,
-  text: string,
+  text?: string,
   targetWindow?: Window | null,
 ) {
   const url = buildWhatsAppWebUrl(telefoneWhatsApp, text)
@@ -41,13 +43,29 @@ export function abrirWhatsAppChat(
   window.open(url, '_blank', 'noopener,noreferrer')
 }
 
-export type EnviarPdfWhatsAppResult = 'web'
+function criarArquivoPdf(blob: Blob, filename: string) {
+  return new File([blob], filename, { type: 'application/pdf' })
+}
+
+export function pdfCompartilhavel(blob: Blob, filename: string) {
+  if (typeof navigator.share !== 'function') return false
+  if (typeof navigator.canShare !== 'function') return false
+
+  const file = criarArquivoPdf(blob, filename)
+  return navigator.canShare({ files: [file] })
+}
+
+async function compartilharPdfNativo(blob: Blob, filename: string) {
+  const file = criarArquivoPdf(blob, filename)
+  await navigator.share({ files: [file], title: filename })
+}
+
+export type EnviarPdfWhatsAppResult = 'share' | 'web'
 
 export async function enviarPdfViaWhatsApp(params: {
   blob: Blob
   filename: string
   telefone: string
-  mensagem: string
   targetWindow?: Window | null
 }): Promise<EnviarPdfWhatsAppResult> {
   const telefoneWhatsApp = telefoneParaWhatsApp(params.telefone)
@@ -55,12 +73,19 @@ export async function enviarPdfViaWhatsApp(params: {
     throw new Error('Telefone inválido para WhatsApp')
   }
 
+  if (pdfCompartilhavel(params.blob, params.filename)) {
+    try {
+      await compartilharPdfNativo(params.blob, params.filename)
+      return 'share'
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw error
+      }
+    }
+  }
+
   downloadBlob(params.blob, params.filename)
-  abrirWhatsAppChat(
-    telefoneWhatsApp,
-    `${params.mensagem}\n\nO PDF foi baixado — anexe o arquivo nesta conversa.`,
-    params.targetWindow,
-  )
+  abrirWhatsAppChat(telefoneWhatsApp, undefined, params.targetWindow)
 
   return 'web'
 }
