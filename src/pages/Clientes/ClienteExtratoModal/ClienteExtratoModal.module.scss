@@ -309,6 +309,12 @@
     color: var(--color-secondary);
     background: color-mix(in srgb, var(--color-secondary) 10%, transparent);
   }
+
+  &.pecaSimples {
+    color: var(--color-text);
+    background: color-mix(in srgb, var(--color-primary) 8%, transparent);
+    white-space: normal;
+  }
 }
 
 .corteNumeros {

@@ -17,6 +17,7 @@ import {
   isCortePecaSimples,
   isVisceraCorte,
   labelCorteExibicao,
+  formatLinhasComposicaoExtrato,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
 import {
@@ -62,7 +63,9 @@ interface ResumoCorte {
   isBanda: boolean
   isCasado?: boolean
   isViscera?: boolean
+  isPecaSimples?: boolean
   composicao: { dianteiro: number; traseiro: number }
+  detalhePecas: string[]
 }
 
 export interface ExtratoPdfInput {
@@ -131,35 +134,33 @@ function formatCorteItem(item: MovimentacaoItem) {
     return pdfText(corte)
   }
 
-  if (isCorteCasado(item.tipo_corte) && item.composicoes?.length) {
-    const linhas = item.composicoes
-      .filter((c) => Number(c.peso_kg || 0) > 0)
-      .map(
-        (c) =>
-          `${c.tipo_corte}: ${Number(c.peso_kg || 0).toLocaleString('pt-BR', {
-            minimumFractionDigits: 2,
-            maximumFractionDigits: 2,
-          })} kg`,
-      )
+  const composicoes = item.composicoes || []
+  const numbered = composicoes.some((c) => /\d/.test(c.tipo_corte))
+
+  if (
+    (isCorteCasado(item.tipo_corte) ||
+      (isCorteBanda(item.tipo_corte) && numbered) ||
+      isCortePecaSimples(item.tipo_corte)) &&
+    composicoes.length
+  ) {
+    const linhas = formatLinhasComposicaoExtrato(composicoes)
     if (linhas.length) corte += `\n${linhas.join('\n')}`
     return pdfText(corte)
   }
 
-  if (isCorteBanda(item.tipo_corte) && item.composicoes?.length) {
-    const numbered = item.composicoes.some((c) => /\d/.test(c.tipo_corte))
-    if (numbered) {
-      const linhas = item.composicoes
-        .filter((c) => Number(c.peso_kg || 0) > 0)
-        .map(
-          (c) =>
-            `${c.tipo_corte}: ${Number(c.peso_kg || 0).toLocaleString('pt-BR', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })} kg`,
-        )
-      if (linhas.length) corte += `\n${linhas.join('\n')}`
-      return pdfText(corte)
+  if (isCorteBanda(item.tipo_corte) && composicoes.length) {
+    const comp = getBandaComposicao(item)
+    if (comp) {
+      const partes: string[] = []
+      if (comp.dianteiro > 0) {
+        partes.push(`Diant.: ${comp.dianteiro.toFixed(2)} kg`)
+      }
+      if (comp.traseiro > 0) {
+        partes.push(`Tras.: ${comp.traseiro.toFixed(2)} kg`)
+      }
+      if (partes.length) corte += `\n${partes.join(' · ')}`
     }
+    return pdfText(corte)
   }
 
   const comp = getBandaComposicao(item)
@@ -363,6 +364,8 @@ async function renderExtratoClientePdf(input: ExtratoPdfInput) {
             partes.push(`Tras. ${dados.composicao.traseiro.toFixed(1)} kg`)
           }
           if (partes.length) corteLabel += `\n${partes.join(' · ')}`
+        } else if (dados.detalhePecas?.length) {
+          corteLabel += `\n${dados.detalhePecas.join('\n')}`
         }
         const pesoTotal =
           dados.composicao.dianteiro + dados.composicao.traseiro

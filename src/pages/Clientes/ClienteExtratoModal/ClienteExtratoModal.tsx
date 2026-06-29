@@ -22,6 +22,7 @@ import {
   formatResumoBanda,
   formatResumoCasado,
   formatResumoPecas,
+  formatLinhasComposicaoExtrato,
   isCorteBanda,
   isCorteCasado,
   isCortePecaSimples,
@@ -422,7 +423,9 @@ export function ClienteExtratoModal({
         isBanda: boolean
         isCasado: boolean
         isViscera: boolean
+        isPecaSimples: boolean
         composicao: { dianteiro: number; traseiro: number }
+        detalhePecas: string[]
       }
     > = {}
 
@@ -432,6 +435,7 @@ export function ClienteExtratoModal({
         const isBandaCorte = isCorteBanda(item.tipo_corte || '')
         const isCasado = isCorteCasado(item.tipo_corte || '')
         const isVisceraItem = isVisceraCorte(item.tipo_corte || '')
+        const isPecaSimples = isCortePecaSimples(item.tipo_corte || '')
 
         if (!acc[corte]) {
           acc[corte] = {
@@ -441,7 +445,9 @@ export function ClienteExtratoModal({
             isBanda: isBandaCorte,
             isCasado: isCasado && !isVisceraItem,
             isViscera: isVisceraItem,
+            isPecaSimples,
             composicao: { dianteiro: 0, traseiro: 0 },
+            detalhePecas: [],
           }
         }
 
@@ -457,9 +463,13 @@ export function ClienteExtratoModal({
             acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
           }
           acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
-        } else if (isCortePecaSimples(item.tipo_corte || '') && item.composicoes?.length) {
-          acc[corte].quantidade += Number(item.peso_total_kg ?? 0) || item.composicoes.length
+        } else if (isPecaSimples && item.composicoes?.length) {
+          acc[corte].quantidade +=
+            Number(item.peso_total_kg ?? 0) || item.composicoes.length
           acc[corte].peso += pesoTotalComposicao(item.composicoes || [])
+          acc[corte].detalhePecas.push(
+            ...formatLinhasComposicaoExtrato(item.composicoes),
+          )
         } else {
           acc[corte].quantidade += 1
           acc[corte].peso += Number(item.peso_total_kg ?? 0)
@@ -986,6 +996,18 @@ export function ClienteExtratoModal({
                           </div>
                         )}
                       </>
+                    )}
+                    {dados.isPecaSimples && dados.detalhePecas.length > 0 && (
+                      <div className={styles.bandaComposicao}>
+                        {dados.detalhePecas.map((linha, idx) => (
+                          <span
+                            key={`${linha}-${idx}`}
+                            className={`${styles.composicaoTag} ${styles.pecaSimples}`}
+                          >
+                            {linha}
+                          </span>
+                        ))}
+                      </div>
                     )}
                   </div>
                   <div className={styles.corteNumeros}>

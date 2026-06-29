@@ -324,6 +324,22 @@ export function pesoTotalComposicao(composicoes: ComposicaoItem[] = []) {
   return composicoes.reduce((acc, c) => acc + parseKg(c.peso_kg), 0)
 }
 
+/** Composições com peso informado (> 0). */
+export function composicoesComPeso(composicoes: ComposicaoItem[] = []) {
+  return composicoes.filter((c) => parseKg(c.peso_kg) > 0)
+}
+
+/** Linhas "Peça N: XX,XX kg" para extrato/PDF (banda, casado, traseiro, etc.). */
+export function formatLinhasComposicaoExtrato(composicoes: ComposicaoItem[] = []) {
+  return composicoesComPeso(composicoes).map(
+    (c) =>
+      `${c.tipo_corte}: ${parseKg(c.peso_kg).toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} kg`,
+  )
+}
+
 export function formatResumoCasado(
   quantidadeCasados: number,
   composicoes: ComposicaoItem[] = [],
