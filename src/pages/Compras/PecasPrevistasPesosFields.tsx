@@ -36,7 +36,8 @@ export function PecasPrevistasPesosFields({
       {qtd > 0 ? (
         <p className={styles.animaisHint}>
           {qtd} {qtd === 1 ? 'animal' : 'animais'} · 2 dianteiros e 2 traseiros
-          por animal
+          por animal. Ao salvar a compra, os pesos informados entram no estoque
+          (use o romaneio para detalhar peça a peça).
         </p>
       ) : (
         <p className={styles.animaisHint}>

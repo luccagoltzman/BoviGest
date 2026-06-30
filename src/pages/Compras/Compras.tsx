@@ -49,6 +49,10 @@ import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInp
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { PecasPrevistasPesosFields } from './PecasPrevistasPesosFields'
 import { pecasPrevistasPorAnimais } from '@/constants/cortes'
+import {
+  sincronizarEntradaEstoqueCompraRomaneio,
+  sincronizarEntradaEstoqueCompraSimples,
+} from '@/utils/compraEstoque'
 import { CompraDetalheModal } from './CompraDetalheModal'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
@@ -57,7 +61,6 @@ import {
   compraToRomaneioRef,
   type CompraRomaneioRef,
 } from '../custos/Abate/RomaneioModal'
-import { CompraEntradaEstoqueModal } from './CompraEntradaEstoqueModal'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
@@ -185,8 +188,6 @@ export function Compras() {
   const [romaneioCompra, setRomaneioCompra] = useState<CompraRomaneioRef | null>(
     null,
   )
-  const [entradaEstoqueCompra, setEntradaEstoqueCompra] =
-    useState<CompraRomaneioRef | null>(null)
 
   const [pagamento, setPagamento] = useState({
     qtdParcelas: '1',
@@ -546,8 +547,14 @@ export function Compras() {
         ? 0
         : parseIntegerInput(form.quantidade_animais)
       const pecasPrevistas = pecasPrevistasPorAnimais(qtdAnimais)
+      const pesoBrutoDianteiro = adiantamento
+        ? 0
+        : parseDecimalInput(form.peso_bruto_dianteiro_kg)
+      const pesoBrutoTraseiro = adiantamento
+        ? 0
+        : parseDecimalInput(form.peso_bruto_traseiro_kg)
 
-      await comprasService.create(
+      const created = await comprasService.create(
         {
           fornecedor_id: form.fornecedor_id,
           data: form.data,
@@ -555,12 +562,8 @@ export function Compras() {
           quantidade_animais: qtdAnimais,
           qtd_dianteiro: pecasPrevistas.qtd_dianteiro,
           qtd_traseiro: pecasPrevistas.qtd_traseiro,
-          peso_bruto_dianteiro_kg: adiantamento
-            ? 0
-            : parseDecimalInput(form.peso_bruto_dianteiro_kg),
-          peso_bruto_traseiro_kg: adiantamento
-            ? 0
-            : parseDecimalInput(form.peso_bruto_traseiro_kg),
+          peso_bruto_dianteiro_kg: pesoBrutoDianteiro,
+          peso_bruto_traseiro_kg: pesoBrutoTraseiro,
           condicao_gado: adiantamento ? 1 : Number(form.condicao_gado),
           peso_total: adiantamento ? 0 : parseDecimalInput(form.peso_total),
           valor_kg: adiantamento ? 0 : parseCurrencyInput(form.valor_kg),
@@ -582,6 +585,24 @@ export function Compras() {
           contaPagamento: pagamento.contaPagamento,
         },
       )
+
+      if (!adiantamento) {
+        try {
+          await sincronizarEntradaEstoqueCompraSimples({
+            compraId: created.id,
+            data: form.data,
+            observacoes: form.observacoes,
+            pesoBrutoDianteiroKg: pesoBrutoDianteiro,
+            pesoBrutoTraseiroKg: pesoBrutoTraseiro,
+            qtdDianteiro: pecasPrevistas.qtd_dianteiro,
+            qtdTraseiro: pecasPrevistas.qtd_traseiro,
+          })
+        } catch {
+          toast.error(
+            'Compra salva, mas falhou ao registrar a entrada no estoque',
+          )
+        }
+      }
 
       toast.success(
         adiantamento
@@ -804,13 +825,6 @@ export function Compras() {
                 }
               >
                 {resolverRomaneioCompra(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
-              </Button>
-              <Button
-                variant="ghost"
-                className={tableListStyles.acaoBtn}
-                onClick={() => setEntradaEstoqueCompra(compraRowToRomaneioRef(r))}
-              >
-                Entrada estoque
               </Button>
               <Button
                 disabled={loadingViagem}
@@ -1406,20 +1420,28 @@ export function Compras() {
         open={!!romaneioCompra}
         compra={romaneioCompra}
         onClose={() => setRomaneioCompra(null)}
-        onSaved={(compraRef) => {
+        onSaved={async (compraRef) => {
           carregarCompras()
           if (compraRef) {
-            setEntradaEstoqueCompra(compraRef)
+            try {
+              const mov = await sincronizarEntradaEstoqueCompraRomaneio({
+                compraId: compraRef.id,
+                data: compraRef.data,
+                observacoes: compraRef.observacoes,
+              })
+              if (mov) {
+                toast.success('Romaneio salvo — entrada no estoque atualizada')
+              } else {
+                toast.success('Romaneio salvo')
+              }
+            } catch {
+              toast.error(
+                'Romaneio salvo, mas falhou ao atualizar a entrada no estoque',
+              )
+            }
             setRomaneioCompra(null)
           }
         }}
-      />
-
-      <CompraEntradaEstoqueModal
-        open={!!entradaEstoqueCompra}
-        compra={entradaEstoqueCompra}
-        onClose={() => setEntradaEstoqueCompra(null)}
-        onSaved={carregarCompras}
       />
 
       <ModalViagem

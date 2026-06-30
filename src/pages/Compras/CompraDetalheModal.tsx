@@ -42,10 +42,14 @@ import {
   compraToRomaneioRef,
   type CompraRomaneioRef,
 } from '../custos/Abate/RomaneioModal'
-import { CompraEntradaEstoqueModal } from './CompraEntradaEstoqueModal'
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { PecasPrevistasPesosFields } from './PecasPrevistasPesosFields'
 import { pecasPrevistasPorAnimais } from '@/constants/cortes'
+import {
+  compraTemRomaneioComPesos,
+  sincronizarEntradaEstoqueCompraRomaneio,
+  sincronizarEntradaEstoqueCompraSimples,
+} from '@/utils/compraEstoque'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ContaPagamentoResumo } from './ContaPagamentoResumo'
 import {
@@ -346,8 +350,6 @@ export function CompraDetalheModal({
   } | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [romaneioOpen, setRomaneioOpen] = useState(false)
-  const [entradaEstoqueCompra, setEntradaEstoqueCompra] =
-    useState<CompraRomaneioRef | null>(null)
   const [fornecedorDetalhe, setFornecedorDetalhe] = useState<any>(null)
   const [completandoCompra, setCompletandoCompra] = useState(false)
 
@@ -958,6 +960,25 @@ export function CompraDetalheModal({
       })
       setCompletandoCompra(false)
 
+      try {
+        const usaRomaneio = await compraTemRomaneioComPesos(editar.id)
+        if (!usaRomaneio) {
+          await sincronizarEntradaEstoqueCompraSimples({
+            compraId: editar.id,
+            data: editar.data,
+            observacoes: editar.observacoes,
+            pesoBrutoDianteiroKg: dados.peso_bruto_dianteiro_kg ?? 0,
+            pesoBrutoTraseiroKg: dados.peso_bruto_traseiro_kg ?? 0,
+            qtdDianteiro: dados.qtd_dianteiro ?? 0,
+            qtdTraseiro: dados.qtd_traseiro ?? 0,
+          })
+        }
+      } catch {
+        toast.error(
+          'Compra salva, mas falhou ao atualizar a entrada no estoque',
+        )
+      }
+
       toast.success(
         convertendo
           ? 'Adiantamento convertido em compra'
@@ -1142,11 +1163,28 @@ export function CompraDetalheModal({
         // mantém fluxo mesmo se não recarregar o vínculo
       }
     }
-    onUpdated?.()
+
     if (compraRef) {
       setRomaneioOpen(false)
-      setEntradaEstoqueCompra(compraRef)
+      try {
+        const mov = await sincronizarEntradaEstoqueCompraRomaneio({
+          compraId: compraRef.id,
+          data: compraRef.data,
+          observacoes: compraRef.observacoes,
+        })
+        if (mov) {
+          toast.success('Romaneio salvo — entrada no estoque atualizada')
+        } else {
+          toast.success('Romaneio salvo')
+        }
+      } catch {
+        toast.error(
+          'Romaneio salvo, mas falhou ao atualizar a entrada no estoque',
+        )
+      }
     }
+
+    onUpdated?.()
   }
 
   const romaneioCompraRef = useMemo(
@@ -1232,15 +1270,6 @@ export function CompraDetalheModal({
           (Array.isArray(editar.romaneio) ? editar.romaneio[0] : editar.romaneio)
             ? 'Ver romaneio salvo'
             : 'Romaneio de pesagem'}
-        </Button>
-        <Button
-          variant="ghost"
-          onClick={() =>
-            romaneioCompraRef && setEntradaEstoqueCompra(romaneioCompraRef)
-          }
-        >
-          <Beef size={16} aria-hidden />
-          Entrada estoque
         </Button>
       </div>
       )}
@@ -2113,13 +2142,6 @@ export function CompraDetalheModal({
         compra={romaneioCompraRef}
         onClose={() => setRomaneioOpen(false)}
         onSaved={handleRomaneioSalvo}
-      />
-
-      <CompraEntradaEstoqueModal
-        open={!!entradaEstoqueCompra}
-        compra={entradaEstoqueCompra}
-        onClose={() => setEntradaEstoqueCompra(null)}
-        onSaved={onUpdated}
       />
     </Modal>
   )

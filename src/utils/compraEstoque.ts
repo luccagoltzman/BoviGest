@@ -1,4 +1,5 @@
 import type { RomaneioItem } from '@/services/romaneios.service'
+import { romaneiosService } from '@/services/romaneios.service'
 import { estoqueService } from '@/services/estoque.service'
 import { parseDecimalInput } from '@/utils/masks'
 
@@ -48,6 +49,8 @@ export function romaneioItensParaEstoque(itens: RomaneioItem[]): EstoqueItemEntr
 export function pesosSimplesParaEstoque(
   pesoDianteiro: number,
   pesoTraseiro: number,
+  qtdDianteiro?: number,
+  qtdTraseiro?: number,
 ): EstoqueItemEntrada[] {
   const result: EstoqueItemEntrada[] = []
 
@@ -56,7 +59,7 @@ export function pesosSimplesParaEstoque(
       corte: 'Dianteiro',
       peso_bruto_kg: pesoDianteiro,
       peso_liquido_kg: pesoDianteiro,
-      quantidade_pecas: 1,
+      quantidade_pecas: qtdDianteiro && qtdDianteiro > 0 ? qtdDianteiro : 1,
       agrupamento_id: null,
     })
   }
@@ -66,12 +69,17 @@ export function pesosSimplesParaEstoque(
       corte: 'Traseiro',
       peso_bruto_kg: pesoTraseiro,
       peso_liquido_kg: pesoTraseiro,
-      quantidade_pecas: 1,
+      quantidade_pecas: qtdTraseiro && qtdTraseiro > 0 ? qtdTraseiro : 1,
       agrupamento_id: null,
     })
   }
 
   return result
+}
+
+export function loteCompra(compra: { id: number; observacoes?: string | null }) {
+  const obs = compra.observacoes?.trim()
+  return obs || `compra-${compra.id}`
 }
 
 export function somarPesoItensEstoque(itens: EstoqueItemEntrada[]) {
@@ -116,4 +124,64 @@ export async function criarEntradaEstoqueCompra(params: {
   )
 
   return mov
+}
+
+export async function compraTemRomaneioComPesos(compraId: number) {
+  const romaneio = await romaneiosService.getByCompraId(compraId)
+  if (!romaneio?.itens?.length) return false
+  return romaneioItensParaEstoque(romaneio.itens).length > 0
+}
+
+export async function sincronizarEntradaEstoqueCompraSimples(params: {
+  compraId: number
+  data: string
+  observacoes?: string | null
+  pesoBrutoDianteiroKg: number
+  pesoBrutoTraseiroKg: number
+  qtdDianteiro?: number
+  qtdTraseiro?: number
+}) {
+  const dianteiro = Number(params.pesoBrutoDianteiroKg) || 0
+  const traseiro = Number(params.pesoBrutoTraseiroKg) || 0
+
+  if (dianteiro <= 0 && traseiro <= 0) {
+    await estoqueService.deleteByReferenciaCompra(params.compraId).catch(() => undefined)
+    return null
+  }
+
+  const itens = pesosSimplesParaEstoque(
+    dianteiro,
+    traseiro,
+    params.qtdDianteiro,
+    params.qtdTraseiro,
+  )
+
+  return criarEntradaEstoqueCompra({
+    compraId: params.compraId,
+    lote: loteCompra({ id: params.compraId, observacoes: params.observacoes }),
+    dataMovimentacao:
+      params.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    itens,
+  })
+}
+
+export async function sincronizarEntradaEstoqueCompraRomaneio(params: {
+  compraId: number
+  data: string
+  observacoes?: string | null
+}) {
+  const romaneio = await romaneiosService.getByCompraId(params.compraId)
+  if (!romaneio?.itens?.length) return null
+
+  const itens = romaneioItensParaEstoque(romaneio.itens)
+  if (!itens.length) return null
+
+  return criarEntradaEstoqueCompra({
+    compraId: params.compraId,
+    lote: loteCompra({ id: params.compraId, observacoes: params.observacoes }),
+    dataMovimentacao:
+      params.data?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+    itens,
+    observacao: `Entrada via romaneio — compra #${params.compraId}`,
+  })
 }
