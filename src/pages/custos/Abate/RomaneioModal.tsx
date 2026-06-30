@@ -6,8 +6,10 @@ import {
   type KeyboardEvent,
 } from 'react'
 import toast from 'react-hot-toast'
+import { MessageCircle } from 'lucide-react'
 import { Autocomplete, Button, Input, Modal } from '@/components/ui'
 import { fornecedoresService } from '@/services/fornecedores.service'
+import { comprasService } from '@/services/compras.service'
 import { getLogoUrl } from '@/services/theme.service'
 import {
   buildItensVazios,
@@ -23,6 +25,7 @@ import {
   type RomaneioItem,
 } from '@/services/romaneios.service'
 import { gerarRomaneioPdf } from '@/utils/romaneioPdf'
+import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInput'
 import styles from './RomaneioModal.module.scss'
 
 export type AbateRomaneioRef = {
@@ -260,6 +263,7 @@ export function RomaneioModal({
     id: number
     data_romaneio: string
   } | null>(null)
+  const [enviandoWhatsApp, setEnviandoWhatsApp] = useState(false)
 
   useEffect(() => {
     if (!open || !source) {
@@ -595,6 +599,63 @@ export function RomaneioModal({
     }
   }
 
+  async function enviarPagamentoWhatsApp() {
+    if (!source || source.kind !== 'compra') return
+
+    let whatsappWindow: Window | null = null
+
+    try {
+      setEnviandoWhatsApp(true)
+
+      const compra = await comprasService.getById(source.id)
+      const { pdfInput, telefone } = await buildCompraPagamentoPdfInput(compra)
+
+      if (!telefone.trim()) {
+        toast.error('Cadastre o telefone/WhatsApp do fornecedor para enviar')
+        return
+      }
+
+      const { gerarCompraPagamentoPdfBlob, compraPagamentoPdfFilename } =
+        await import('@/utils/compraPagamentoPdf')
+      const { blob, filename } = await gerarCompraPagamentoPdfBlob(pdfInput)
+
+      const { enviarPdfViaWhatsApp, pdfCompartilhavel } = await import(
+        '@/utils/whatsappShare'
+      )
+
+      if (!pdfCompartilhavel(blob, filename)) {
+        whatsappWindow = window.open('about:blank', '_blank')
+      }
+
+      const result = await enviarPdfViaWhatsApp({
+        blob,
+        filename: filename || compraPagamentoPdfFilename(pdfInput),
+        telefone,
+        targetWindow: whatsappWindow,
+      })
+
+      if (result === 'share') {
+        toast.success('Selecione o WhatsApp e o contato para enviar o PDF')
+      } else {
+        toast.success(
+          'PDF baixado e conversa aberta — anexe o arquivo na conversa',
+        )
+      }
+    } catch (error) {
+      whatsappWindow?.close()
+      if (error instanceof Error && error.name === 'AbortError') {
+        return
+      }
+      if (error instanceof Error && error.message.includes('Telefone')) {
+        toast.error('Telefone inválido. Verifique o cadastro do fornecedor')
+        return
+      }
+      toast.error('Erro ao preparar envio pelo WhatsApp')
+    } finally {
+      setEnviandoWhatsApp(false)
+    }
+  }
+
   const referenciaHint =
     source?.kind === 'compra' ? (
       <>
@@ -758,16 +819,29 @@ export function RomaneioModal({
           </div>
 
           <div className={styles.actions}>
-            <Button variant="outline" onClick={onClose} disabled={saving}>
+            <Button variant="outline" onClick={onClose} disabled={saving || enviandoWhatsApp}>
               Fechar
             </Button>
-            <Button variant="ghost" onClick={handlePdf} disabled={saving}>
+            <Button variant="ghost" onClick={handlePdf} disabled={saving || enviandoWhatsApp}>
               Baixar PDF
             </Button>
-            <Button loading={saving} onClick={handleSave} disabled={saving}>
+            {source.kind === 'compra' && (
+              <Button
+                variant="outline"
+                className={styles.btnWhatsApp}
+                loading={enviandoWhatsApp}
+                disabled={saving || enviandoWhatsApp}
+                onClick={enviarPagamentoWhatsApp}
+                title="Enviar PDF de pagamento pelo WhatsApp"
+              >
+                <MessageCircle size={16} aria-hidden />
+                WhatsApp
+              </Button>
+            )}
+            <Button loading={saving} onClick={handleSave} disabled={saving || enviandoWhatsApp}>
               Salvar
             </Button>
-            <Button loading={saving} onClick={handleSaveAndPdf} disabled={saving}>
+            <Button loading={saving} onClick={handleSaveAndPdf} disabled={saving || enviandoWhatsApp}>
               Salvar e baixar PDF
             </Button>
           </div>

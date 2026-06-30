@@ -45,6 +45,7 @@ import {
   type ContaPagamentoData,
   type PagadorTipo,
 } from '@/utils/contaPagamento'
+import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInput'
 import { PesoMedioResumo } from './PesoMedioResumo'
 import { CompraDetalheModal } from './CompraDetalheModal'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
@@ -58,7 +59,6 @@ import {
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
 import { viagensService } from '@/services/viagem.service'
-import { getLogoUrl } from '@/services/theme.service'
 
 interface CompraRow {
   id: number
@@ -399,53 +399,10 @@ export function Compras() {
     try {
       setExportandoPdfId(compra.id)
 
-      const [parcelas, fornecedor] = await Promise.all([
-        pagamentosComprasService.getByCompraId(compra.id),
-        fornecedoresService.getById(compra.fornecedor_id).catch(() => null),
-      ])
-
-      const subtotal = compra.adiantamento
-        ? Number(compra.valor_total || 0)
-        : Number(compra.subtotal || 0)
-      const imposto = compra.adiantamento ? 0 : Number(compra.valor_imposto || 0)
-      const gta = compra.adiantamento ? 0 : Number(compra.gta_valor || 0)
-      const viagem = compra.adiantamento
-        ? 0
-        : Number(compra.detalhes_custo?.viagem || 0)
-      const total = compra.adiantamento
-        ? Number(compra.valor_total || 0)
-        : (compra.detalhes_custo?.total ??
-          subtotal + imposto + gta + viagem)
-
+      const { pdfInput } = await buildCompraPagamentoPdfInput(compra)
       const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
 
-      await gerarCompraPagamentoPdf({
-        compra: {
-          id: compra.id,
-          data: compra.data,
-          adiantamento: compra.adiantamento,
-          quantidade_animais: compra.quantidade_animais,
-          peso_total: compra.peso_total,
-          valor_kg: compra.valor_kg,
-          tipo_gado: compra.tipo_gado,
-          condicao_gado: compra.condicao_gado,
-          observacoes: compra.observacoes,
-          detalhes_custo: {
-            subtotal,
-            imposto,
-            gta,
-            viagem,
-            total,
-          },
-        },
-        fornecedorNome: compra.fornecedor?.nome || fornecedor?.nome || 'Fornecedor',
-        fornecedorDoc: fornecedor?.doc || null,
-        fornecedorConta: fornecedor
-          ? contaPagamentoFromFornecedor(fornecedor)
-          : undefined,
-        parcelas,
-        logoUrl: getLogoUrl(),
-      })
+      await gerarCompraPagamentoPdf(pdfInput)
 
       toast.success('PDF baixado')
     } catch {

@@ -179,3 +179,16 @@
   text-align: center;
   color: $color-text-muted;
 }
+
+.btnWhatsApp {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #128c7e;
+  border-color: color-mix(in srgb, #128c7e 35%, var(--color-border));
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, #128c7e 8%, transparent);
+    border-color: #128c7e;
+  }
+}

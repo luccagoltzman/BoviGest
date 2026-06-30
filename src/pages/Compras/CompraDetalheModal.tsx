@@ -13,7 +13,6 @@ import { opcoesTipoGado } from '@/constants/tiposGado'
 import { comprasService } from '@/services/compras.service'
 import { romaneiosService } from '@/services/romaneios.service'
 import { fornecedoresService } from '@/services/fornecedores.service'
-import { getLogoUrl } from '@/services/theme.service'
 import {
   pagamentosComprasService,
   type CompraParcela,
@@ -59,6 +58,7 @@ import {
   type PagadorTipo,
 } from '@/utils/contaPagamento'
 import styles from './CompraDetalheModal.module.scss'
+import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInput'
 
 export type CompraDetalheRow = {
   id: number
@@ -458,47 +458,46 @@ export function CompraDetalheModal({
     try {
       setDownloadingPdf(true)
 
+      const dados = dadosParaCalculo(editar, editarCampos)
       const total = resolverValorTotalCompra(editar, editarCampos)
       const subtotal = editar.adiantamento
         ? total
-        : calcularSubtotal(dadosParaCalculo(editar, editarCampos))
+        : calcularSubtotal(dados)
       const imposto = editar.adiantamento
         ? 0
-        : calcularImposto(dadosParaCalculo(editar, editarCampos))
-      const gta = editar.adiantamento
-        ? 0
-        : Number(dadosParaCalculo(editar, editarCampos).gta_valor || 0)
+        : calcularImposto(dados)
+      const gta = editar.adiantamento ? 0 : Number(dados.gta_valor || 0)
       const viagem = editar.adiantamento
         ? 0
         : Math.max(0, total - subtotal - imposto - gta)
 
+      const { pdfInput } = await buildCompraPagamentoPdfInput({
+        ...editar,
+        quantidade_animais: dados.quantidade_animais,
+        peso_total: dados.peso_total,
+        valor_kg: dados.valor_kg,
+        valor_imposto: dados.valor_imposto,
+        gta_valor: dados.gta_valor,
+        valor_total: total,
+        subtotal,
+        detalhes_custo: { viagem, total },
+        fornecedor: fornecedorDetalhe
+          ? {
+              id: fornecedorDetalhe.id,
+              nome: fornecedorDetalhe.nome,
+              doc: fornecedorDetalhe.doc,
+              telefone: fornecedorDetalhe.telefone,
+            }
+          : editar.fornecedor
+            ? {
+                id: editar.fornecedor.id,
+                nome: editar.fornecedor.nome,
+              }
+            : undefined,
+      })
       const { gerarCompraPagamentoPdf } = await import('@/utils/compraPagamentoPdf')
 
-      await gerarCompraPagamentoPdf({
-        compra: {
-          id: editar.id,
-          data: editar.data,
-          adiantamento: editar.adiantamento,
-          quantidade_animais: editar.quantidade_animais,
-          peso_total: editar.peso_total,
-          valor_kg: editar.valor_kg,
-          tipo_gado: editar.tipo_gado,
-          condicao_gado: editar.condicao_gado,
-          observacoes: editar.observacoes,
-          detalhes_custo: {
-            subtotal,
-            imposto,
-            gta,
-            viagem,
-            total,
-          },
-        },
-        fornecedorNome: fornecedorNome,
-        fornecedorDoc: fornecedorDetalhe?.doc || null,
-        fornecedorConta: fornecedorConta,
-        parcelas,
-        logoUrl: getLogoUrl(),
-      })
+      await gerarCompraPagamentoPdf(pdfInput)
 
       toast.success('PDF baixado')
     } catch {

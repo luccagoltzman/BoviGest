@@ -75,7 +75,13 @@ function statusParcelaLabel(parcela: CompraParcela) {
   return 'Pendente'
 }
 
-export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
+export function compraPagamentoPdfFilename(
+  input: Pick<CompraPagamentoPdfInput, 'fornecedorNome' | 'compra'>,
+) {
+  return `pagamento-${sanitizeFilename(input.fornecedorNome) || 'compra'}-${input.compra.data.slice(0, 10)}.pdf`
+}
+
+async function renderCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
   const margin = 12
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -328,6 +334,17 @@ export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
 
   drawPageFooters(doc, margin, pageWidth)
 
-  const filename = `pagamento-${sanitizeFilename(input.fornecedorNome) || 'compra'}-${input.compra.data.slice(0, 10)}.pdf`
-  doc.save(filename)
+  return doc
+}
+
+export async function gerarCompraPagamentoPdf(input: CompraPagamentoPdfInput) {
+  const doc = await renderCompraPagamentoPdf(input)
+  doc.save(compraPagamentoPdfFilename(input))
+}
+
+export async function gerarCompraPagamentoPdfBlob(input: CompraPagamentoPdfInput) {
+  const doc = await renderCompraPagamentoPdf(input)
+  const filename = compraPagamentoPdfFilename(input)
+
+  return { blob: doc.output('blob'), filename }
 }
