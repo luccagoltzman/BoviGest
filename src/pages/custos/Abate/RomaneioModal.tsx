@@ -44,6 +44,8 @@ export type CompraRomaneioRef = {
   fornecedor_id?: string
   fornecedor?: { id: string; nome: string }
   observacoes?: string
+  peso_bruto_dianteiro_kg?: number
+  peso_bruto_traseiro_kg?: number
 }
 
 type RomaneioSource = {

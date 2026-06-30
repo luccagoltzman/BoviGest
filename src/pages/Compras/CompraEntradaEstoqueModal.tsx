@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
-import { Button, Input, Modal } from '@/components/ui'
+import { Button, Modal } from '@/components/ui'
+import { PecasPrevistasPesosFields } from './PecasPrevistasPesosFields'
 import type { CompraRomaneioRef } from '@/pages/custos/Abate/RomaneioModal'
 import { romaneiosService } from '@/services/romaneios.service'
 import { estoqueService } from '@/services/estoque.service'
@@ -11,7 +12,7 @@ import {
   somarPesoItensEstoque,
 } from '@/utils/compraEstoque'
 import { pecasPrevistasPorAnimais } from '@/constants/cortes'
-import { parseDecimalInput } from '@/utils/masks'
+import { formatDecimalInput, parseDecimalInput } from '@/utils/masks'
 import styles from './CompraEntradaEstoqueModal.module.scss'
 
 type ModoEntrada = 'escolha' | 'romaneio' | 'simples'
@@ -49,8 +50,16 @@ export function CompraEntradaEstoqueModal({
     if (!open || !compra) return
 
     setModo('escolha')
-    setPesoDianteiro('')
-    setPesoTraseiro('')
+    setPesoDianteiro(
+      compra?.peso_bruto_dianteiro_kg
+        ? formatDecimalInput(String(compra.peso_bruto_dianteiro_kg).replace('.', ','))
+        : '',
+    )
+    setPesoTraseiro(
+      compra?.peso_bruto_traseiro_kg
+        ? formatDecimalInput(String(compra.peso_bruto_traseiro_kg).replace('.', ','))
+        : '',
+    )
     setItensRomaneio([])
     setJaRegistrado(false)
     setTemRomaneioSalvo(false)
@@ -86,7 +95,7 @@ export function CompraEntradaEstoqueModal({
     return () => {
       cancelled = true
     }
-  }, [open, compra?.id])
+  }, [open, compra?.id, compra?.peso_bruto_dianteiro_kg, compra?.peso_bruto_traseiro_kg])
 
   const pesoRomaneio = useMemo(
     () => somarPesoItensEstoque(itensRomaneio),
@@ -240,17 +249,12 @@ export function CompraEntradaEstoqueModal({
           </div>
         ) : (
           <div className={styles.form}>
-            <Input
-              label="Peso bruto dianteiro (kg)"
-              mask="decimal"
-              value={pesoDianteiro}
-              onChange={(e) => setPesoDianteiro(e.target.value)}
-            />
-            <Input
-              label="Peso bruto traseiro (kg)"
-              mask="decimal"
-              value={pesoTraseiro}
-              onChange={(e) => setPesoTraseiro(e.target.value)}
+            <PecasPrevistasPesosFields
+              quantidadeAnimais={compra.quantidade_animais}
+              pesoBrutoDianteiro={pesoDianteiro}
+              pesoBrutoTraseiro={pesoTraseiro}
+              onChangePesoDianteiro={setPesoDianteiro}
+              onChangePesoTraseiro={setPesoTraseiro}
             />
             <div className={styles.actions}>
               <Button variant="ghost" onClick={() => setModo('escolha')}>

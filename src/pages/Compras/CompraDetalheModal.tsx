@@ -44,7 +44,7 @@ import {
 } from '../custos/Abate/RomaneioModal'
 import { CompraEntradaEstoqueModal } from './CompraEntradaEstoqueModal'
 import { PesoMedioResumo } from './PesoMedioResumo'
-import { PecasPrevistasResumo } from './PecasPrevistasResumo'
+import { PecasPrevistasPesosFields } from './PecasPrevistasPesosFields'
 import { pecasPrevistasPorAnimais } from '@/constants/cortes'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ContaPagamentoResumo } from './ContaPagamentoResumo'
@@ -84,6 +84,8 @@ export type CompraDetalheRow = {
   adiantamento?: boolean
   qtd_dianteiro?: number
   qtd_traseiro?: number
+  peso_bruto_dianteiro_kg?: number
+  peso_bruto_traseiro_kg?: number
   forma_pagamento?: string | null
   qtd_parcelas?: number
   detalhes_custo?: { total: number }
@@ -117,6 +119,8 @@ function pagadorPayloadFromDraft(draft: ParcelaDraftEdicao) {
 
 type EditarCampos = {
   quantidade_animais: string
+  peso_bruto_dianteiro_kg: string
+  peso_bruto_traseiro_kg: string
   peso_total: string
   valor_kg: string
   valor_imposto: string
@@ -127,6 +131,12 @@ type EditarCampos = {
 function rowToEditarCampos(row: CompraDetalheRow): EditarCampos {
   return {
     quantidade_animais: formatIntegerInput(String(row.quantidade_animais)),
+    peso_bruto_dianteiro_kg: formatDecimalInput(
+      String(row.peso_bruto_dianteiro_kg ?? 0).replace('.', ','),
+    ),
+    peso_bruto_traseiro_kg: formatDecimalInput(
+      String(row.peso_bruto_traseiro_kg ?? 0).replace('.', ','),
+    ),
     peso_total: formatDecimalInput(String(row.peso_total).replace('.', ',')),
     valor_kg: formatCurrencyFromNumber(row.valor_kg),
     valor_imposto:
@@ -150,6 +160,8 @@ function dadosParaCalculo(
     quantidade_animais,
     qtd_dianteiro: pecas.qtd_dianteiro,
     qtd_traseiro: pecas.qtd_traseiro,
+    peso_bruto_dianteiro_kg: parseDecimalInput(campos.peso_bruto_dianteiro_kg),
+    peso_bruto_traseiro_kg: parseDecimalInput(campos.peso_bruto_traseiro_kg),
     peso_total: parseDecimalInput(campos.peso_total),
     valor_kg: parseCurrencyInput(campos.valor_kg),
     valor_imposto:
@@ -300,6 +312,8 @@ export function CompraDetalheModal({
   const [editar, setEditar] = useState<CompraDetalheRow | null>(null)
   const [editarCampos, setEditarCampos] = useState<EditarCampos>({
     quantidade_animais: '',
+    peso_bruto_dianteiro_kg: '',
+    peso_bruto_traseiro_kg: '',
     peso_total: '',
     valor_kg: '',
     valor_imposto: '',
@@ -864,6 +878,8 @@ export function CompraDetalheModal({
           quantidade_animais: 0,
           qtd_dianteiro: 0,
           qtd_traseiro: 0,
+          peso_bruto_dianteiro_kg: 0,
+          peso_bruto_traseiro_kg: 0,
           condicao_gado: editar.condicao_gado,
           peso_total: 0,
           valor_kg: 0,
@@ -907,6 +923,8 @@ export function CompraDetalheModal({
         quantidade_animais: dados.quantidade_animais,
         qtd_dianteiro: dados.qtd_dianteiro,
         qtd_traseiro: dados.qtd_traseiro,
+        peso_bruto_dianteiro_kg: dados.peso_bruto_dianteiro_kg,
+        peso_bruto_traseiro_kg: dados.peso_bruto_traseiro_kg,
         condicao_gado: editar.condicao_gado,
         peso_total: dados.peso_total,
         valor_kg: dados.valor_kg,
@@ -927,6 +945,8 @@ export function CompraDetalheModal({
         quantidade_animais: dados.quantidade_animais,
         qtd_dianteiro: dados.qtd_dianteiro,
         qtd_traseiro: dados.qtd_traseiro,
+        peso_bruto_dianteiro_kg: dados.peso_bruto_dianteiro_kg,
+        peso_bruto_traseiro_kg: dados.peso_bruto_traseiro_kg,
         peso_total: dados.peso_total,
         valor_kg: dados.valor_kg,
         valor_imposto: dados.valor_imposto,
@@ -1140,6 +1160,8 @@ export function CompraDetalheModal({
             fornecedor_id: editar.fornecedor_id,
             fornecedor: editar.fornecedor,
             observacoes: editar.observacoes,
+            peso_bruto_dianteiro_kg: editar.peso_bruto_dianteiro_kg,
+            peso_bruto_traseiro_kg: editar.peso_bruto_traseiro_kg,
           })
         : null,
     [
@@ -1942,9 +1964,23 @@ export function CompraDetalheModal({
             }
           />
 
-          <PecasPrevistasResumo
+          <PecasPrevistasPesosFields
             className={styles.pesoMedioResumo}
             quantidadeAnimais={editarCampos.quantidade_animais}
+            pesoBrutoDianteiro={editarCampos.peso_bruto_dianteiro_kg}
+            pesoBrutoTraseiro={editarCampos.peso_bruto_traseiro_kg}
+            onChangePesoDianteiro={(value) =>
+              setEditarCampos({
+                ...editarCampos,
+                peso_bruto_dianteiro_kg: value,
+              })
+            }
+            onChangePesoTraseiro={(value) =>
+              setEditarCampos({
+                ...editarCampos,
+                peso_bruto_traseiro_kg: value,
+              })
+            }
           />
 
           <Input

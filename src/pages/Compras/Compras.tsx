@@ -47,7 +47,7 @@ import {
 } from '@/utils/contaPagamento'
 import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInput'
 import { PesoMedioResumo } from './PesoMedioResumo'
-import { PecasPrevistasResumo } from './PecasPrevistasResumo'
+import { PecasPrevistasPesosFields } from './PecasPrevistasPesosFields'
 import { pecasPrevistasPorAnimais } from '@/constants/cortes'
 import { CompraDetalheModal } from './CompraDetalheModal'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
@@ -86,6 +86,8 @@ interface CompraRow {
   adiantamento?: boolean
   qtd_dianteiro?: number
   qtd_traseiro?: number
+  peso_bruto_dianteiro_kg?: number
+  peso_bruto_traseiro_kg?: number
   detalhes_custo?: any
   pagamento_resumo?: {
     quitado: boolean
@@ -124,6 +126,8 @@ const emptyCompraForm = () => ({
   fornecedor_id: '',
   data: '',
   quantidade_animais: '',
+  peso_bruto_dianteiro_kg: '',
+  peso_bruto_traseiro_kg: '',
   condicao_gado: '1',
   peso_total: '',
   valor_kg: '',
@@ -147,6 +151,8 @@ function compraRowToRomaneioRef(r: CompraRow): CompraRomaneioRef {
     fornecedor_id: r.fornecedor_id,
     fornecedor: r.fornecedor,
     observacoes: r.observacoes,
+    peso_bruto_dianteiro_kg: r.peso_bruto_dianteiro_kg,
+    peso_bruto_traseiro_kg: r.peso_bruto_traseiro_kg,
   })
 }
 
@@ -549,6 +555,12 @@ export function Compras() {
           quantidade_animais: qtdAnimais,
           qtd_dianteiro: pecasPrevistas.qtd_dianteiro,
           qtd_traseiro: pecasPrevistas.qtd_traseiro,
+          peso_bruto_dianteiro_kg: adiantamento
+            ? 0
+            : parseDecimalInput(form.peso_bruto_dianteiro_kg),
+          peso_bruto_traseiro_kg: adiantamento
+            ? 0
+            : parseDecimalInput(form.peso_bruto_traseiro_kg),
           condicao_gado: adiantamento ? 1 : Number(form.condicao_gado),
           peso_total: adiantamento ? 0 : parseDecimalInput(form.peso_total),
           valor_kg: adiantamento ? 0 : parseCurrencyInput(form.valor_kg),
@@ -927,9 +939,17 @@ export function Compras() {
             }
           />
 
-          <PecasPrevistasResumo
+          <PecasPrevistasPesosFields
             className={styles.pesoMedioResumo}
             quantidadeAnimais={form.quantidade_animais}
+            pesoBrutoDianteiro={form.peso_bruto_dianteiro_kg}
+            pesoBrutoTraseiro={form.peso_bruto_traseiro_kg}
+            onChangePesoDianteiro={(value) =>
+              setForm({ ...form, peso_bruto_dianteiro_kg: value })
+            }
+            onChangePesoTraseiro={(value) =>
+              setForm({ ...form, peso_bruto_traseiro_kg: value })
+            }
           />
 
           <Input
