@@ -301,4 +301,77 @@ export const pagamentosAbatesService = {
       contaPagamento: payload.contaPagamento,
     })
   },
+
+  async desfazerBaixa(baixaId: number) {
+    const user = getUser()
+
+    const baixa = await this.getById(baixaId)
+    const abateIds = (baixa.itens || []).map((item) => item.abate_id)
+
+    if (!abateIds.length) {
+      throw new Error('Esta baixa não possui abates vinculados')
+    }
+
+    const { data: abates, error: abatesError } = await supabase
+      .from('abates')
+      .select('id, pagamento_status, baixa_id')
+      .eq('empresa_id', user.empresa_id)
+      .in('id', abateIds)
+
+    if (abatesError) throw abatesError
+
+    const lista = abates || []
+    if (lista.length !== abateIds.length) {
+      throw new Error('Um ou mais abates desta baixa não foram encontrados')
+    }
+
+    const inconsistentes = lista.filter(
+      (abate) =>
+        abate.pagamento_status !== 'pago' || Number(abate.baixa_id) !== baixaId,
+    )
+    if (inconsistentes.length) {
+      throw new Error('Há abates desta baixa com status inconsistente')
+    }
+
+    const { error: updateError } = await supabase
+      .from('abates')
+      .update({
+        pagamento_status: 'pendente',
+        data_pagamento: null,
+        forma_pagamento: null,
+        baixa_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('empresa_id', user.empresa_id)
+      .in('id', abateIds)
+
+    if (updateError) throw updateError
+
+    const { error: deleteError } = await supabase
+      .from('abates_baixas')
+      .delete()
+      .eq('id', baixaId)
+      .eq('empresa_id', user.empresa_id)
+
+    if (deleteError) throw deleteError
+  },
+
+  async desfazerPagamentoAbate(abateId: number) {
+    const user = getUser()
+
+    const { data: abate, error: abateError } = await supabase
+      .from('abates')
+      .select('id, pagamento_status, baixa_id')
+      .eq('id', abateId)
+      .eq('empresa_id', user.empresa_id)
+      .single()
+
+    if (abateError) throw abateError
+
+    if (abate.pagamento_status !== 'pago' || !abate.baixa_id) {
+      throw new Error('Este abate não possui pagamento registrado')
+    }
+
+    await this.desfazerBaixa(Number(abate.baixa_id))
+  },
 }

@@ -14,6 +14,7 @@ import {
 import type { DetailItem } from '@/components/ui'
 import { opcoesTipoGado } from '@/constants/tiposGado'
 import { abatesService } from '@/services/abates.service'
+import { pagamentosAbatesService } from '@/services/pagamentosAbates.service'
 import { estoqueService } from '@/services/estoque.service'
 import { ProcessamentoModal } from '@/pages/Processamento/ProcessamentoModal'
 import { ViscerasModal } from '@/pages/Visceras/ViscerasModal'
@@ -55,6 +56,7 @@ interface AbateRow {
   pagamento_status?: 'pendente' | 'pago' | string
   data_pagamento?: string | null
   forma_pagamento?: string | null
+  baixa_id?: number | null
   prestador_id?: string | null
   prestador?: { id: string; nome: string } | null
   romaneio?:
@@ -369,6 +371,9 @@ export function Abate() {
   const [showViscerasModal, setShowViscerasModal] = useState(false)
   const [viscerasDefaultValues, setViscerasDefaultValues] = useState<any>(null)
   const [romaneioAbate, setRomaneioAbate] = useState<AbateRow | null>(null)
+  const [desfazendoAbateId, setDesfazendoAbateId] = useState<number | null>(
+    null,
+  )
   const parsedForm = useMemo(() => parseForm(form), [form])
 
   const isFormValid =
@@ -394,6 +399,29 @@ export function Abate() {
   useEffect(() => {
     loadAbates()
   }, [page])
+
+  async function desfazerPagamentoAbate(abate: AbateRow) {
+    if (
+      !confirm(
+        'Desfazer o pagamento deste abate? Ele voltará a ficar pendente. Se fizer parte de uma baixa com outros abates, todos serão desfeitos.',
+      )
+    ) {
+      return
+    }
+
+    try {
+      setDesfazendoAbateId(abate.id)
+      await pagamentosAbatesService.desfazerPagamentoAbate(abate.id)
+      toast.success('Pagamento desfeito')
+      await loadAbates()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Erro ao desfazer pagamento',
+      )
+    } finally {
+      setDesfazendoAbateId(null)
+    }
+  }
 
   function closeCreate() {
     setShowCreate(false)
@@ -601,6 +629,17 @@ export function Abate() {
           >
             {resolverRomaneioAbate(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
           </Button>
+          {r.pagamento_status === 'pago' && r.baixa_id && (
+            <Button
+              variant="ghost"
+              className={tableListStyles.acaoBtn}
+              loading={desfazendoAbateId === r.id}
+              disabled={desfazendoAbateId === r.id}
+              onClick={() => desfazerPagamentoAbate(r)}
+            >
+              Desfazer pagamento
+            </Button>
+          )}
         </div>
       ),
     },

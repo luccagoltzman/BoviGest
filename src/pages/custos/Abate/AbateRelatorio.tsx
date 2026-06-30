@@ -4,9 +4,10 @@ import {
   Download,
   FileBarChart2,
   RefreshCw,
+  Undo2,
   Wallet,
 } from 'lucide-react'
-import { Button, Card, Input, Modal, ModalDetails, Table } from '@/components/ui'
+import { Button, Card, Input, Modal, ModalDetails, Table, tableListStyles } from '@/components/ui'
 import type { DetailItem } from '@/components/ui'
 import { abatesService } from '@/services/abates.service'
 import {
@@ -49,6 +50,9 @@ export function AbateRelatorio({ onHistoricoUpdated }: Props) {
   const [loadingBaixas, setLoadingBaixas] = useState(false)
   const [exportando, setExportando] = useState(false)
   const [exportandoBaixaId, setExportandoBaixaId] = useState<number | null>(
+    null,
+  )
+  const [desfazendoBaixaId, setDesfazendoBaixaId] = useState<number | null>(
     null,
   )
   const [linhas, setLinhas] = useState<AbateRelatorioLinha[]>([])
@@ -160,6 +164,29 @@ export function AbateRelatorio({ onHistoricoUpdated }: Props) {
     onHistoricoUpdated?.()
   }
 
+  async function desfazerBaixa(baixa: AbateBaixa) {
+    const qtdAbates = baixa.itens?.length || 0
+    const mensagem =
+      qtdAbates > 1
+        ? `Desfazer este pagamento? Os ${qtdAbates} abates voltarão a ficar pendentes e a baixa será removida.`
+        : 'Desfazer este pagamento? O abate voltará a ficar pendente e a baixa será removida.'
+
+    if (!confirm(mensagem)) return
+
+    try {
+      setDesfazendoBaixaId(baixa.id)
+      await pagamentosAbatesService.desfazerBaixa(baixa.id)
+      toast.success('Pagamento desfeito')
+      handleBaixaSalva()
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Erro ao desfazer pagamento',
+      )
+    } finally {
+      setDesfazendoBaixaId(null)
+    }
+  }
+
   const columns = [
     {
       key: 'dataAbate',
@@ -236,15 +263,32 @@ export function AbateRelatorio({ onHistoricoUpdated }: Props) {
       key: 'acoes',
       header: 'Ações',
       render: (r: AbateBaixa) => (
-        <Button
-          variant="outline"
-          loading={exportandoBaixaId === r.id}
-          disabled={exportandoBaixaId === r.id}
-          onClick={() => exportarComprovanteBaixa(r.id)}
-        >
-          <Download size={14} aria-hidden />
-          Comprovante
-        </Button>
+        <div className={tableListStyles.acoesRow}>
+          <Button
+            variant="outline"
+            className={tableListStyles.acaoBtn}
+            loading={exportandoBaixaId === r.id}
+            disabled={
+              exportandoBaixaId === r.id || desfazendoBaixaId === r.id
+            }
+            onClick={() => exportarComprovanteBaixa(r.id)}
+          >
+            <Download size={14} aria-hidden />
+            Comprovante
+          </Button>
+          <Button
+            variant="ghost"
+            className={tableListStyles.acaoBtn}
+            loading={desfazendoBaixaId === r.id}
+            disabled={
+              exportandoBaixaId === r.id || desfazendoBaixaId === r.id
+            }
+            onClick={() => desfazerBaixa(r)}
+          >
+            <Undo2 size={14} aria-hidden />
+            Desfazer
+          </Button>
+        </div>
       ),
     },
   ]
@@ -389,7 +433,8 @@ export function AbateRelatorio({ onHistoricoUpdated }: Props) {
         <h3 className={styles.relatorioSecaoTitulo}>Baixas de pagamento</h3>
         <p className={styles.relatorioSecaoIntro}>
           Pagamentos realizados ao prestador de serviço (abatedouro) no período.
-          Baixe o comprovante em PDF para enviar ou arquivar.
+          Baixe o comprovante em PDF ou desfaça a baixa para voltar os abates
+          ao status pendente.
         </p>
 
         <div className={styles.relatorioKpis}>
