@@ -28,9 +28,16 @@ export function formatDateBr(value: string) {
 
 export function detalheRecebimentoExtrato(recebimento: RecebimentoDatas & {
   forma_pagamento?: string
+  nome_pagador?: string | null
   observacao?: string
 }) {
-  const partes = [recebimento.forma_pagamento, recebimento.observacao]
+  const partes = [
+    recebimento.forma_pagamento,
+    recebimento.nome_pagador?.trim()
+      ? `Pagador: ${recebimento.nome_pagador.trim()}`
+      : null,
+    recebimento.observacao,
+  ]
     .filter(Boolean)
 
   if (recebimentoComDatasDistintas(recebimento)) {

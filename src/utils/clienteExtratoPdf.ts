@@ -53,6 +53,7 @@ interface Recebimento {
   data_referencia?: string | null
   valor: number
   forma_pagamento: string
+  nome_pagador?: string | null
   observacao?: string
 }
 
@@ -619,28 +620,30 @@ async function renderRecebimentosClientePdf(input: RecebimentosPdfInput) {
   autoTable(doc, {
     startY: y,
     tableWidth,
-    head: [['Referência', 'Recebido em', 'Forma', 'Observação', 'Valor']],
+    head: [['Referência', 'Recebido em', 'Forma', 'Pagador', 'Observação', 'Valor']],
     body:
       recebimentosOrdenados.length > 0
         ? recebimentosOrdenados.map((r) => [
             formatDateBr(dataReferenciaRecebimento(r)),
             formatDateBr(r.data_recebimento),
             r.forma_pagamento || '—',
+            pdfText(r.nome_pagador?.trim() || '—'),
             pdfText(r.observacao?.trim() || '—'),
             formatCurrency(Number(r.valor || 0)),
           ])
-        : [['—', '—', '—', 'Nenhum recebimento no período.', '—']],
+        : [['—', '—', '—', '—', 'Nenhum recebimento no período.', '—']],
     foot:
       recebimentosOrdenados.length > 0
-        ? [['', '', '', 'Total', formatCurrency(input.totalRecebido)]]
+        ? [['', '', '', '', 'Total', formatCurrency(input.totalRecebido)]]
         : undefined,
     ...pdfTableTheme(),
     columnStyles: {
-      0: { cellWidth: tableWidth * 0.16 },
-      1: { cellWidth: tableWidth * 0.16 },
-      2: { cellWidth: tableWidth * 0.18 },
-      3: { cellWidth: tableWidth * 0.34 },
-      4: { halign: 'right', cellWidth: tableWidth * 0.16 },
+      0: { cellWidth: tableWidth * 0.13 },
+      1: { cellWidth: tableWidth * 0.13 },
+      2: { cellWidth: tableWidth * 0.14 },
+      3: { cellWidth: tableWidth * 0.16 },
+      4: { cellWidth: tableWidth * 0.28 },
+      5: { halign: 'right', cellWidth: tableWidth * 0.16 },
     },
     margin: { left: margin, right: margin },
     footStyles: {
@@ -649,7 +652,7 @@ async function renderRecebimentosClientePdf(input: RecebimentosPdfInput) {
       fontStyle: 'bold',
     },
     didParseCell(data) {
-      if (data.section === 'body' && data.column.index === 3) {
+      if (data.section === 'body' && data.column.index === 5) {
         data.cell.styles.textColor = PDF_COLORS.recebimento
         data.cell.styles.fontStyle = 'bold'
       }

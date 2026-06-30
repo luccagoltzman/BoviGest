@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Button, Input, Modal } from '@/components/ui'
 import toast from 'react-hot-toast'
-import { Download, MessageCircle } from 'lucide-react'
+import { Download, MessageCircle, Star } from 'lucide-react'
 import styles from './ClienteExtratoModal.module.scss'
 import { movimentacoesClientesService } from '@/services/movimentacoesClientes.service'
 import { recebimentosClientesService } from '@/services/recebimentosClientes.service'
+import {
+  pagadoresFavoritosService,
+  type PagadorFavorito,
+} from '@/services/pagadoresFavoritos.service'
 import { estoqueService } from '@/services/estoque.service'
 import { clientesService } from '@/services/cliente.service'
 import { FORMAS_PAGAMENTO } from '../../../constants/formasPagamentos'
@@ -66,6 +70,7 @@ interface Recebimento {
   cliente_id: string
   valor: number
   forma_pagamento: string
+  nome_pagador?: string | null
   observacao?: string
   data_recebimento: string
   data_referencia?: string | null
@@ -105,6 +110,72 @@ function getBandaComposicao(item: MovimentacaoItem) {
   return { dianteiro, traseiro }
 }
 
+type CampoPagadorProps = {
+  nome: string
+  favoritar: boolean
+  favoritos: PagadorFavorito[]
+  onNomeChange: (value: string) => void
+  onFavoritarChange: (value: boolean) => void
+}
+
+function CampoPagadorRecebimento({
+  nome,
+  favoritar,
+  favoritos,
+  onNomeChange,
+  onFavoritarChange,
+}: CampoPagadorProps) {
+  return (
+    <div className={styles.pagadorField}>
+      {favoritos.length > 0 && (
+        <div className={styles.pagadoresFavoritos}>
+          <span className={styles.pagadoresFavoritosLabel}>Favoritos</span>
+          <div className={styles.pagadoresFavoritosLista}>
+            {favoritos.map((favorito) => (
+              <button
+                key={favorito.id}
+                type="button"
+                className={styles.pagadorChip}
+                onClick={() => onNomeChange(favorito.nome)}
+              >
+                {favorito.nome}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      <Input
+        label="Quem efetuou o pagamento"
+        placeholder="Nome de quem pagou (opcional)"
+        value={nome}
+        onChange={(e) => onNomeChange(e.target.value)}
+      />
+      {nome.trim() && (
+        <label className={styles.favoritarPagador}>
+          <input
+            type="checkbox"
+            checked={favoritar}
+            onChange={(e) => onFavoritarChange(e.target.checked)}
+          />
+          <Star size={14} aria-hidden />
+          Salvar nos favoritos
+        </label>
+      )}
+    </div>
+  )
+}
+
+async function registrarFavoritoPagador(
+  clienteId: string,
+  nome: string,
+  favoritar: boolean,
+) {
+  if (!favoritar) return
+  const nomeNormalizado = nome.trim()
+  if (!nomeNormalizado) return
+  await pagadoresFavoritosService.add(clienteId, nomeNormalizado)
+}
+
 // ─── Componente principal ────────────────────────────────────────────────────
 
 export function ClienteExtratoModal({
@@ -134,6 +205,11 @@ export function ClienteExtratoModal({
   const [valorRecebimento, setValorRecebimento] = useState('')
   const [formaPagamento, setFormaPagamento] = useState('Pix')
   const [observacao, setObservacao] = useState('')
+  const [nomePagador, setNomePagador] = useState('')
+  const [favoritarPagador, setFavoritarPagador] = useState(false)
+  const [pagadoresFavoritos, setPagadoresFavoritos] = useState<PagadorFavorito[]>(
+    [],
+  )
   const [dataRecebimento, setDataRecebimento] = useState(
     hoje.toISOString().split('T')[0]
   )
@@ -146,6 +222,8 @@ export function ClienteExtratoModal({
   const [editValor, setEditValor] = useState('')
   const [editForma, setEditForma] = useState('')
   const [editObs, setEditObs] = useState('')
+  const [editNomePagador, setEditNomePagador] = useState('')
+  const [editFavoritarPagador, setEditFavoritarPagador] = useState(false)
   const [editDataRecebimento, setEditDataRecebimento] = useState('')
   const [editDataReferencia, setEditDataReferencia] = useState('')
   const [downloadingPdf, setDownloadingPdf] = useState(false)
@@ -172,6 +250,8 @@ export function ClienteExtratoModal({
       const hojeIso = new Date().toISOString().slice(0, 10)
       setDataRecebimento(hojeIso)
       setDataReferencia(endDate || hojeIso)
+      setNomePagador('')
+      setFavoritarPagador(false)
     }
   }, [showNovoRecebimento, endDate])
 
@@ -181,7 +261,7 @@ export function ClienteExtratoModal({
     try {
       setLoading(true)
       const hojeIso = new Date().toISOString().slice(0, 10)
-      const [movsPeriodo, recsPeriodo, recsParaSaldo, clienteDetalhe] =
+      const [movsPeriodo, recsPeriodo, recsParaSaldo, clienteDetalhe, favoritos] =
         await Promise.all([
           movimentacoesClientesService.getByCliente(
             cliente.id,
@@ -199,11 +279,13 @@ export function ClienteExtratoModal({
             hojeIso,
           ),
           clientesService.getById(cliente.id),
+          pagadoresFavoritosService.listByCliente(cliente.id),
         ])
 
       setMovimentacoes(movsPeriodo as Movimentacao[])
       setRecebimentos(recsPeriodo as Recebimento[])
       setRecebimentosParaSaldo(recsParaSaldo as Recebimento[])
+      setPagadoresFavoritos(favoritos)
 
       const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
       setDebitoAnterior(debito)
@@ -283,13 +365,21 @@ export function ClienteExtratoModal({
         cliente_id: cliente.id,
         valor: parseCurrencyInput(valorRecebimento),
         forma_pagamento: formaPagamento,
+        nome_pagador: nomePagador.trim() || null,
         observacao,
         data_recebimento: dataRecebimento,
         data_referencia: dataReferencia || dataRecebimento,
       })
+      await registrarFavoritoPagador(
+        cliente.id,
+        nomePagador,
+        favoritarPagador,
+      )
       toast.success('Recebimento lançado')
       setValorRecebimento('')
       setObservacao('')
+      setNomePagador('')
+      setFavoritarPagador(false)
       setFormaPagamento('Pix')
       setShowNovoRecebimento(false)
       carregarDados()
@@ -303,6 +393,8 @@ export function ClienteExtratoModal({
     setEditValor(formatCurrencyFromNumber(rec.valor))
     setEditForma(rec.forma_pagamento ?? 'Pix')
     setEditObs(rec.observacao ?? '')
+    setEditNomePagador(rec.nome_pagador ?? '')
+    setEditFavoritarPagador(false)
     setEditDataRecebimento(rec.data_recebimento?.split('T')[0] ?? '')
     setEditDataReferencia(dataReferenciaRecebimento(rec))
   }
@@ -316,10 +408,16 @@ export function ClienteExtratoModal({
       await recebimentosClientesService.update(editandoId, {
         valor: parseCurrencyInput(editValor),
         forma_pagamento: editForma,
+        nome_pagador: editNomePagador.trim() || null,
         observacao: editObs,
         data_recebimento: editDataRecebimento,
         data_referencia: editDataReferencia || editDataRecebimento,
       })
+      await registrarFavoritoPagador(
+        cliente.id,
+        editNomePagador,
+        editFavoritarPagador,
+      )
       toast.success('Recebimento atualizado')
       setEditandoId(null)
       carregarDados()
@@ -1111,6 +1209,13 @@ export function ClienteExtratoModal({
                   value={dataReferencia}
                   onChange={(e) => setDataReferencia(e.target.value)}
                 />
+                <CampoPagadorRecebimento
+                  nome={nomePagador}
+                  favoritar={favoritarPagador}
+                  favoritos={pagadoresFavoritos}
+                  onNomeChange={setNomePagador}
+                  onFavoritarChange={setFavoritarPagador}
+                />
                 <Input
                   label="Observação"
                   value={observacao}
@@ -1278,6 +1383,13 @@ export function ClienteExtratoModal({
                         value={editDataReferencia}
                         onChange={(e) => setEditDataReferencia(e.target.value)}
                       />
+                      <CampoPagadorRecebimento
+                        nome={editNomePagador}
+                        favoritar={editFavoritarPagador}
+                        favoritos={pagadoresFavoritos}
+                        onNomeChange={setEditNomePagador}
+                        onFavoritarChange={setEditFavoritarPagador}
+                      />
                       <Input
                         label="Obs."
                         value={editObs}
@@ -1317,6 +1429,11 @@ export function ClienteExtratoModal({
                         {formatDate(
                           (entry.raw as Recebimento).data_recebimento,
                         )}
+                      </span>
+                    )}
+                    {(entry.raw as Recebimento).nome_pagador && (
+                      <span className={styles.pagadorTag}>
+                        Pagador: {(entry.raw as Recebimento).nome_pagador}
                       </span>
                     )}
                     {(entry.raw as Recebimento).observacao && (

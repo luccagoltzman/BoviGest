@@ -44,6 +44,7 @@ export const recebimentosClientesService = {
     if (search) {
       query = query.or(`
         observacao.ilike.%${search}%,
+        nome_pagador.ilike.%${search}%,
         forma_pagamento.ilike.%${search}%,
         cliente.nome.ilike.%${search}%
       `)
