@@ -36,6 +36,7 @@ import {
   formatCurrencyFromNumber,
   formatIntegerInput,
   formatDecimalInput,
+  pesoTotalFromPecasBrutas,
 } from '@/utils/masks'
 import {
   RomaneioModal,
@@ -2002,12 +2003,20 @@ export function CompraDetalheModal({
               setEditarCampos({
                 ...editarCampos,
                 peso_bruto_dianteiro_kg: value,
+                peso_total: pesoTotalFromPecasBrutas(
+                  value,
+                  editarCampos.peso_bruto_traseiro_kg,
+                ),
               })
             }
             onChangePesoTraseiro={(value) =>
               setEditarCampos({
                 ...editarCampos,
                 peso_bruto_traseiro_kg: value,
+                peso_total: pesoTotalFromPecasBrutas(
+                  editarCampos.peso_bruto_dianteiro_kg,
+                  value,
+                ),
               })
             }
           />
@@ -2020,6 +2029,10 @@ export function CompraDetalheModal({
               setEditarCampos({ ...editarCampos, peso_total: e.target.value })
             }
           />
+          <p className={styles.setupHint}>
+            Preenchido automaticamente com a soma dianteiro + traseiro; ajuste se
+            precisar de outro valor.
+          </p>
 
           <PesoMedioResumo
             className={styles.pesoMedioResumo}

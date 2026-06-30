@@ -128,6 +128,17 @@ export function parseDecimalInput(value: string) {
   return Number.isFinite(num) ? num : 0
 }
 
+/** Soma dianteiro + traseiro para preencher o peso total (campo ainda editável). */
+export function pesoTotalFromPecasBrutas(
+  pesoDianteiro: string,
+  pesoTraseiro: string,
+): string {
+  const soma =
+    parseDecimalInput(pesoDianteiro) + parseDecimalInput(pesoTraseiro)
+  if (soma <= 0) return ''
+  return formatDecimalInput(String(soma).replace('.', ','))
+}
+
 export function parseCurrencyInput(value: string) {
   return parseDecimalInput(value)
 }

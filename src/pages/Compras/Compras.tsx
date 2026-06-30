@@ -36,6 +36,7 @@ import {
   formatCurrencyFromNumber,
   calcularPesoMedioAnimal,
   formatWeightKg,
+  pesoTotalFromPecasBrutas,
 } from '@/utils/masks'
 import {
   contaPagamentoFromFornecedor,
@@ -959,10 +960,24 @@ export function Compras() {
             pesoBrutoDianteiro={form.peso_bruto_dianteiro_kg}
             pesoBrutoTraseiro={form.peso_bruto_traseiro_kg}
             onChangePesoDianteiro={(value) =>
-              setForm({ ...form, peso_bruto_dianteiro_kg: value })
+              setForm({
+                ...form,
+                peso_bruto_dianteiro_kg: value,
+                peso_total: pesoTotalFromPecasBrutas(
+                  value,
+                  form.peso_bruto_traseiro_kg,
+                ),
+              })
             }
             onChangePesoTraseiro={(value) =>
-              setForm({ ...form, peso_bruto_traseiro_kg: value })
+              setForm({
+                ...form,
+                peso_bruto_traseiro_kg: value,
+                peso_total: pesoTotalFromPecasBrutas(
+                  form.peso_bruto_dianteiro_kg,
+                  value,
+                ),
+              })
             }
           />
 
@@ -977,6 +992,10 @@ export function Compras() {
               })
             }
           />
+          <p className={styles.parcelasHint}>
+            Preenchido automaticamente com a soma dianteiro + traseiro; ajuste se
+            precisar de outro valor.
+          </p>
 
           <PesoMedioResumo
             className={styles.pesoMedioResumo}
