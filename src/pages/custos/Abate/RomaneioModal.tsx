@@ -62,7 +62,7 @@ type RomaneioModalProps = {
   abate?: AbateRomaneioRef | null
   compra?: CompraRomaneioRef | null
   onClose: () => void
-  onSaved?: () => void
+  onSaved?: (compraRef?: CompraRomaneioRef) => void
 }
 
 type PesoField =
@@ -552,7 +552,7 @@ export function RomaneioModal({
 
       aplicarSalvoNoFormulario(saved)
       toast.success('Romaneio salvo')
-      onSaved?.()
+      onSaved?.(source?.kind === 'compra' ? compra ?? undefined : undefined)
     } catch (error) {
       const msg =
         error instanceof Error ? error.message : 'Erro ao salvar romaneio'
@@ -587,7 +587,7 @@ export function RomaneioModal({
       aplicarSalvoNoFormulario(saved)
       await gerarPdf()
       toast.success('Romaneio salvo e PDF gerado')
-      onSaved?.()
+      onSaved?.(source?.kind === 'compra' ? compra ?? undefined : undefined)
     } catch (error) {
       const msg =
         error instanceof Error

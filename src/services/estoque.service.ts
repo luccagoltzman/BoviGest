@@ -117,6 +117,10 @@ export const estoqueService = {
       insertPayload.referencia_abate_id = payload.referencia_abate_id
     }
 
+    if (payload.referencia_compra_id != null) {
+      insertPayload.referencia_compra_id = payload.referencia_compra_id
+    }
+
     const { data, error } = await supabase
       .from('estoque_movimentacoes')
       .insert(insertPayload)
@@ -286,6 +290,32 @@ export const estoqueService = {
       .from('estoque_movimentacoes')
       .delete()
       .eq('referencia_abate_id', abateId)
+      .eq('empresa_id', user.empresa_id)
+
+    if (error) throw error
+  },
+
+  async getByReferenciaCompra(compraId: number) {
+    const user = getUser()
+
+    const { data, error } = await supabase
+      .from('estoque_movimentacoes')
+      .select('id')
+      .eq('referencia_compra_id', compraId)
+      .eq('empresa_id', user.empresa_id)
+      .maybeSingle()
+
+    if (error) throw error
+    return data
+  },
+
+  async deleteByReferenciaCompra(compraId: number) {
+    const user = getUser()
+
+    const { error } = await supabase
+      .from('estoque_movimentacoes')
+      .delete()
+      .eq('referencia_compra_id', compraId)
       .eq('empresa_id', user.empresa_id)
 
     if (error) throw error

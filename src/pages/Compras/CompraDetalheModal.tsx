@@ -40,8 +40,12 @@ import {
 import {
   RomaneioModal,
   compraToRomaneioRef,
+  type CompraRomaneioRef,
 } from '../custos/Abate/RomaneioModal'
+import { CompraEntradaEstoqueModal } from './CompraEntradaEstoqueModal'
 import { PesoMedioResumo } from './PesoMedioResumo'
+import { PecasPrevistasResumo } from './PecasPrevistasResumo'
+import { pecasPrevistasPorAnimais } from '@/constants/cortes'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ContaPagamentoResumo } from './ContaPagamentoResumo'
 import {
@@ -78,6 +82,8 @@ export type CompraDetalheRow = {
   observacoes?: string
   status: string
   adiantamento?: boolean
+  qtd_dianteiro?: number
+  qtd_traseiro?: number
   forma_pagamento?: string | null
   qtd_parcelas?: number
   detalhes_custo?: { total: number }
@@ -136,9 +142,14 @@ function dadosParaCalculo(
   editar: CompraDetalheRow,
   campos: EditarCampos,
 ): CompraDetalheRow {
+  const quantidade_animais = parseIntegerInput(campos.quantidade_animais)
+  const pecas = pecasPrevistasPorAnimais(quantidade_animais)
+
   return {
     ...editar,
-    quantidade_animais: parseIntegerInput(campos.quantidade_animais),
+    quantidade_animais,
+    qtd_dianteiro: pecas.qtd_dianteiro,
+    qtd_traseiro: pecas.qtd_traseiro,
     peso_total: parseDecimalInput(campos.peso_total),
     valor_kg: parseCurrencyInput(campos.valor_kg),
     valor_imposto:
@@ -321,6 +332,8 @@ export function CompraDetalheModal({
   } | null>(null)
   const [downloadingPdf, setDownloadingPdf] = useState(false)
   const [romaneioOpen, setRomaneioOpen] = useState(false)
+  const [entradaEstoqueCompra, setEntradaEstoqueCompra] =
+    useState<CompraRomaneioRef | null>(null)
   const [fornecedorDetalhe, setFornecedorDetalhe] = useState<any>(null)
   const [completandoCompra, setCompletandoCompra] = useState(false)
 
@@ -849,6 +862,8 @@ export function CompraDetalheModal({
           data: editar.data,
           adiantamento: true,
           quantidade_animais: 0,
+          qtd_dianteiro: 0,
+          qtd_traseiro: 0,
           condicao_gado: editar.condicao_gado,
           peso_total: 0,
           valor_kg: 0,
@@ -890,6 +905,8 @@ export function CompraDetalheModal({
         data: editar.data,
         adiantamento: false,
         quantidade_animais: dados.quantidade_animais,
+        qtd_dianteiro: dados.qtd_dianteiro,
+        qtd_traseiro: dados.qtd_traseiro,
         condicao_gado: editar.condicao_gado,
         peso_total: dados.peso_total,
         valor_kg: dados.valor_kg,
@@ -908,6 +925,8 @@ export function CompraDetalheModal({
         ...editar,
         adiantamento: false,
         quantidade_animais: dados.quantidade_animais,
+        qtd_dianteiro: dados.qtd_dianteiro,
+        qtd_traseiro: dados.qtd_traseiro,
         peso_total: dados.peso_total,
         valor_kg: dados.valor_kg,
         valor_imposto: dados.valor_imposto,
@@ -1082,7 +1101,7 @@ export function CompraDetalheModal({
     })
   }
 
-  async function handleRomaneioSalvo() {
+  async function handleRomaneioSalvo(compraRef?: CompraRomaneioRef) {
     if (editar?.id) {
       try {
         const romaneio = await romaneiosService.getByCompraId(editar.id)
@@ -1104,6 +1123,10 @@ export function CompraDetalheModal({
       }
     }
     onUpdated?.()
+    if (compraRef) {
+      setRomaneioOpen(false)
+      setEntradaEstoqueCompra(compraRef)
+    }
   }
 
   const romaneioCompraRef = useMemo(
@@ -1187,6 +1210,15 @@ export function CompraDetalheModal({
           (Array.isArray(editar.romaneio) ? editar.romaneio[0] : editar.romaneio)
             ? 'Ver romaneio salvo'
             : 'Romaneio de pesagem'}
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() =>
+            romaneioCompraRef && setEntradaEstoqueCompra(romaneioCompraRef)
+          }
+        >
+          <Beef size={16} aria-hidden />
+          Entrada estoque
         </Button>
       </div>
       )}
@@ -1910,6 +1942,11 @@ export function CompraDetalheModal({
             }
           />
 
+          <PecasPrevistasResumo
+            className={styles.pesoMedioResumo}
+            quantidadeAnimais={editarCampos.quantidade_animais}
+          />
+
           <Input
             label="Peso total (kg)"
             mask="decimal"
@@ -2040,6 +2077,13 @@ export function CompraDetalheModal({
         compra={romaneioCompraRef}
         onClose={() => setRomaneioOpen(false)}
         onSaved={handleRomaneioSalvo}
+      />
+
+      <CompraEntradaEstoqueModal
+        open={!!entradaEstoqueCompra}
+        compra={entradaEstoqueCompra}
+        onClose={() => setEntradaEstoqueCompra(null)}
+        onSaved={onUpdated}
       />
     </Modal>
   )

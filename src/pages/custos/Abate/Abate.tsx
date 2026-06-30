@@ -16,8 +16,6 @@ import { opcoesTipoGado } from '@/constants/tiposGado'
 import { abatesService } from '@/services/abates.service'
 import { pagamentosAbatesService } from '@/services/pagamentosAbates.service'
 import { estoqueService } from '@/services/estoque.service'
-import { ProcessamentoModal } from '@/pages/Processamento/ProcessamentoModal'
-import { ViscerasModal } from '@/pages/Visceras/ViscerasModal'
 import {
   calcularAbate,
   formatCurrency,
@@ -25,10 +23,6 @@ import {
   formatPercent,
   type TipoCobrancaAbate,
 } from '@/utils/abateCalc'
-import {
-  gerarItemBandaModalAbate,
-  viscerasDefaultValuesPorAbate,
-} from '@/utils/abateEstoque'
 import { RomaneioModal } from './RomaneioModal'
 import { AbateRelatorio } from './AbateRelatorio'
 import styles from './Abate.module.scss'
@@ -118,6 +112,19 @@ function rowToForm(row: AbateRow): ReturnType<typeof emptyForm> {
   }
 }
 
+function pesosAbateValidos(parsed: ReturnType<typeof parseForm>) {
+  if (parsed.peso_bruto_kg <= 0 || parsed.peso_liquido_kg <= 0) return true
+  return parsed.peso_liquido_kg <= parsed.peso_bruto_kg
+}
+
+function abateFormValido(parsed: ReturnType<typeof parseForm>) {
+  return (
+    !!parsed.data_abate &&
+    parsed.qtd_animais > 0 &&
+    parsed.valor_unitario > 0 &&
+    pesosAbateValidos(parsed)
+  )
+}
 function buildPayload(form: ReturnType<typeof emptyForm>) {
   const parsed = parseForm(form)
   const calc = calcularAbate(parsed)
@@ -138,7 +145,7 @@ function ResumoCalculo({
   const parsed = parseForm(form)
   const calc = calcularAbate(parsed)
 
-  const formula = `${(parsed.qtd_animais)} Animais × ${formatCurrency(parsed.valor_unitario)}`
+  const formula = `${parsed.qtd_animais} Animais × ${formatCurrency(parsed.valor_unitario)}`
 
   const rendimentoClass =
     calc.rendimento >= 48 && calc.rendimento <= 58
@@ -235,7 +242,8 @@ function AbateFormFields({
       <section className={styles.section}>
         <h3 className={styles.sectionTitle}>Pesos</h3>
         <p className={styles.sectionHint}>
-          Peso vivo na chegada ao abatedouro e peso de carcaça quente após o abate.
+          Opcional — peso vivo na chegada ao abatedouro e peso de carcaça quente
+          após o abate (para cálculo de rendimento).
         </p>
         <div className={styles.formGrid}>
           <Input
@@ -332,21 +340,14 @@ export function Abate() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editForm, setEditForm] = useState(emptyForm)
-  const [showEstoqueModal, setShowEstoqueModal] = useState(false)
-  const [estoqueInitialData, setEstoqueInitialData] = useState<any>(null)
-  const [showViscerasModal, setShowViscerasModal] = useState(false)
-  const [viscerasDefaultValues, setViscerasDefaultValues] = useState<any>(null)
   const [romaneioAbate, setRomaneioAbate] = useState<AbateRow | null>(null)
   const [desfazendoAbateId, setDesfazendoAbateId] = useState<number | null>(
     null,
   )
   const parsedForm = useMemo(() => parseForm(form), [form])
 
-  const isFormValid =
-    parsedForm.data_abate &&
-    parsedForm.qtd_animais > 0 &&
-    parsedForm.peso_bruto_kg > 0 &&
-    parsedForm.valor_unitario > 0
+  const isFormValid = abateFormValido(parsedForm)
+  const isEditFormValid = abateFormValido(parseForm(editForm))
 
   async function loadAbates() {
     try {
@@ -394,76 +395,30 @@ export function Abate() {
     setForm(emptyForm())
   }
 
-  function abrirConfirmacaoEstoque() {
+  async function handleCreate() {
     if (!isFormValid) {
       toast.error('Preencha os campos obrigatórios corretamente')
       return
     }
 
-    const parsed = parseForm(form)
-    const itens = gerarItemBandaModalAbate(
-      parsed.qtd_animais,
-      parsed.peso_liquido_kg,
-    )
-
-    if (itens.length === 0) {
-      toast.error('Informe a quantidade de animais para gerar as peças')
-      return
-    }
-
-    setEstoqueInitialData({
-      lote: parsed.lote.trim() || `abate-${parsed.data_abate}`,
-      tipo_movimentacao: 1,
-      data_movimentacao: parsed.data_abate,
-      observacoes: 'Entrada automática — abate',
-      itens,
-    })
-    setShowEstoqueModal(true)
-  }
-
-  async function handleEstoqueConfirmado() {
-    const parsed = parseForm(form)
-    const lote = parsed.lote.trim() || `abate-${parsed.data_abate}`
-
-    setShowEstoqueModal(false)
-    setEstoqueInitialData(null)
-    setViscerasDefaultValues(
-      viscerasDefaultValuesPorAbate(parsed.qtd_animais, lote),
-    )
-    setShowViscerasModal(true)
-  }
-
-  async function handleViscerasConfirmado() {
     try {
       setSaving(true)
       await abatesService.create(buildPayload(form))
-
+      toast.success('Abate registrado')
       closeCreate()
-      setViscerasDefaultValues(null)
       await loadAbates()
     } catch {
-      toast.error('Vísceras salvas, mas falhou ao registrar o abate')
+      toast.error('Erro ao registrar abate')
     } finally {
       setSaving(false)
     }
-  }
-
-  function handleCreate() {
-    abrirConfirmacaoEstoque()
   }
 
   async function handleSaveEdit() {
     if (!editarId) return
 
     const parsed = parseForm(editForm)
-    if (
-      !parsed.data_abate ||
-      parsed.qtd_animais <= 0 ||
-      parsed.peso_bruto_kg <= 0 ||
-      parsed.peso_liquido_kg <= 0 ||
-      parsed.valor_unitario <= 0 ||
-      parsed.peso_liquido_kg > parsed.peso_bruto_kg
-    ) {
+    if (!abateFormValido(parsed)) {
       toast.error('Preencha os campos obrigatórios corretamente')
       return
     }
@@ -691,30 +646,6 @@ export function Abate() {
 
       <AbateRelatorio onHistoricoUpdated={loadAbates} />
 
-      <ProcessamentoModal
-        open={showEstoqueModal}
-        initialData={estoqueInitialData}
-        title="Confirmar entrada em estoque"
-        successMessage="Peças entraram em estoque"
-        onClose={() => {
-          setShowEstoqueModal(false)
-          setEstoqueInitialData(null)
-        }}
-        onSuccess={handleEstoqueConfirmado}
-      />
-
-      <ViscerasModal
-        open={showViscerasModal}
-        defaultValues={viscerasDefaultValues}
-        title="Confirmar entrada de vísceras"
-        successMessage="Abate registrado — peças e vísceras entraram em estoque"
-        onClose={() => {
-          setShowViscerasModal(false)
-          setViscerasDefaultValues(null)
-        }}
-        onSaved={handleViscerasConfirmado}
-      />
-
       <Modal
         open={!!detalhe}
         onClose={() => setDetalhe(null)}
@@ -751,7 +682,7 @@ export function Abate() {
         <div className={styles.formCard}>
           <AbateFormFields form={editForm} onChange={setEditForm} />
           <div className={styles.actions}>
-            <Button loading={saving} onClick={handleSaveEdit} disabled={saving}>
+            <Button loading={saving} onClick={handleSaveEdit} disabled={saving || !isEditFormValid}>
               Salvar alterações
             </Button>
             <Button

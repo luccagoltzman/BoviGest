@@ -43,6 +43,13 @@ export const PECAS_POR_LADO_CASADO = 2
 export const REGRA_CASADO =
   'Cada unidade (Boi casado, Vaca casada ou Bubalino casado) = 2 dianteiros + 2 traseiros. Informe o peso (kg) de cada peça.'
 
+/** Romaneio/compra: N animais → 2N dianteiros + 2N traseiros */
+export function pecasPrevistasPorAnimais(quantidadeAnimais: number) {
+  const qtd = Math.max(0, Math.floor(Number(quantidadeAnimais) || 0))
+  const porLado = qtd * PECAS_POR_LADO_CASADO
+  return { qtd_dianteiro: porLado, qtd_traseiro: porLado }
+}
+
 /** Carnes em excesso do processamento — vendido por peso (kg) */
 export const CORTE_RETALHO = 'Retalho'
 export const REGRA_RETALHO =

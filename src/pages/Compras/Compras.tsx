@@ -47,6 +47,8 @@ import {
 } from '@/utils/contaPagamento'
 import { buildCompraPagamentoPdfInput } from '@/utils/buildCompraPagamentoPdfInput'
 import { PesoMedioResumo } from './PesoMedioResumo'
+import { PecasPrevistasResumo } from './PecasPrevistasResumo'
+import { pecasPrevistasPorAnimais } from '@/constants/cortes'
 import { CompraDetalheModal } from './CompraDetalheModal'
 import { ContaPagamentoFields } from './ContaPagamentoFields'
 import { ModalViagem } from '../custos/Viagens/ModalViagem'
@@ -55,6 +57,7 @@ import {
   compraToRomaneioRef,
   type CompraRomaneioRef,
 } from '../custos/Abate/RomaneioModal'
+import { CompraEntradaEstoqueModal } from './CompraEntradaEstoqueModal'
 
 import styles from './Compras.module.scss'
 import toast from 'react-hot-toast'
@@ -81,6 +84,8 @@ interface CompraRow {
   observacoes?: string
   status: string
   adiantamento?: boolean
+  qtd_dianteiro?: number
+  qtd_traseiro?: number
   detalhes_custo?: any
   pagamento_resumo?: {
     quitado: boolean
@@ -133,6 +138,18 @@ const emptyCompraForm = () => ({
 
 type CreateMode = 'compra' | 'adiantamento'
 
+function compraRowToRomaneioRef(r: CompraRow): CompraRomaneioRef {
+  return compraToRomaneioRef({
+    id: r.id,
+    data: r.data,
+    quantidade_animais: r.quantidade_animais,
+    tipo_gado: r.tipo_gado,
+    fornecedor_id: r.fornecedor_id,
+    fornecedor: r.fornecedor,
+    observacoes: r.observacoes,
+  })
+}
+
 export function Compras() {
   const [compras, setCompras] = useState<CompraRow[]>([])
   const [loading, setLoading] = useState(false)
@@ -162,6 +179,8 @@ export function Compras() {
   const [romaneioCompra, setRomaneioCompra] = useState<CompraRomaneioRef | null>(
     null,
   )
+  const [entradaEstoqueCompra, setEntradaEstoqueCompra] =
+    useState<CompraRomaneioRef | null>(null)
 
   const [pagamento, setPagamento] = useState({
     qtdParcelas: '1',
@@ -517,15 +536,19 @@ export function Compras() {
       const adiantamento = isAdiantamento
       const subtotal = calcularSubtotal(form, adiantamento)
       const valorTotal = calcularTotal(form, adiantamento)
+      const qtdAnimais = adiantamento
+        ? 0
+        : parseIntegerInput(form.quantidade_animais)
+      const pecasPrevistas = pecasPrevistasPorAnimais(qtdAnimais)
 
       await comprasService.create(
         {
           fornecedor_id: form.fornecedor_id,
           data: form.data,
           adiantamento,
-          quantidade_animais: adiantamento
-            ? 0
-            : parseIntegerInput(form.quantidade_animais),
+          quantidade_animais: qtdAnimais,
+          qtd_dianteiro: pecasPrevistas.qtd_dianteiro,
+          qtd_traseiro: pecasPrevistas.qtd_traseiro,
           condicao_gado: adiantamento ? 1 : Number(form.condicao_gado),
           peso_total: adiantamento ? 0 : parseDecimalInput(form.peso_total),
           valor_kg: adiantamento ? 0 : parseCurrencyInput(form.valor_kg),
@@ -765,20 +788,17 @@ export function Compras() {
                 variant="outline"
                 className={tableListStyles.acaoBtn}
                 onClick={() =>
-                  setRomaneioCompra(
-                    compraToRomaneioRef({
-                      id: r.id,
-                      data: r.data,
-                      quantidade_animais: r.quantidade_animais,
-                      tipo_gado: r.tipo_gado,
-                      fornecedor_id: r.fornecedor_id,
-                      fornecedor: r.fornecedor,
-                      observacoes: r.observacoes,
-                    }),
-                  )
+                  setRomaneioCompra(compraRowToRomaneioRef(r))
                 }
               >
                 {resolverRomaneioCompra(r.romaneio) ? 'Ver romaneio' : 'Romaneio'}
+              </Button>
+              <Button
+                variant="ghost"
+                className={tableListStyles.acaoBtn}
+                onClick={() => setEntradaEstoqueCompra(compraRowToRomaneioRef(r))}
+              >
+                Entrada estoque
               </Button>
               <Button
                 disabled={loadingViagem}
@@ -905,6 +925,11 @@ export function Compras() {
                 quantidade_animais: e.target.value,
               })
             }
+          />
+
+          <PecasPrevistasResumo
+            className={styles.pesoMedioResumo}
+            quantidadeAnimais={form.quantidade_animais}
           />
 
           <Input
@@ -1361,6 +1386,19 @@ export function Compras() {
         open={!!romaneioCompra}
         compra={romaneioCompra}
         onClose={() => setRomaneioCompra(null)}
+        onSaved={(compraRef) => {
+          carregarCompras()
+          if (compraRef) {
+            setEntradaEstoqueCompra(compraRef)
+            setRomaneioCompra(null)
+          }
+        }}
+      />
+
+      <CompraEntradaEstoqueModal
+        open={!!entradaEstoqueCompra}
+        compra={entradaEstoqueCompra}
+        onClose={() => setEntradaEstoqueCompra(null)}
         onSaved={carregarCompras}
       />
 
