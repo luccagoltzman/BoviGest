@@ -328,10 +328,6 @@ export function AbateRelatorio({ onHistoricoUpdated }: Props) {
       label: 'Fórmula',
       value: `${formatCurrencyBr(r.valorBase)} + taxas ${formatCurrencyBr(r.taxas)} − desconto ${formatCurrencyBr(r.descontoTotal)} = ${formatCurrencyBr(r.valorTotalPago)}`,
     },
-    {
-      label: 'Retalho',
-      value: r.pesoRetalhoKg > 0 ? formatKgBr(r.pesoRetalhoKg) : '—',
-    },
   ]
 
   return (

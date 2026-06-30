@@ -22,7 +22,9 @@ import {
   formatResumoBanda,
   formatResumoCasado,
   formatResumoPecas,
+  formatResumoRetalho,
   hydratePecaSimplesParaForm,
+  hydrateRetalhoParaForm,
   indiceComposicaoBanda,
   isCorteBanda,
   isCorteCasado,
@@ -38,6 +40,7 @@ import {
   syncComposicoesCasado,
   syncComposicoesPecas,
 } from '@/utils/corteComposicao'
+import { PesoMedioResumo } from '@/pages/Compras/PesoMedioResumo'
 import {
   parseCurrencyInput,
   parseDecimalInput,
@@ -66,6 +69,7 @@ import {
 const createEmptyItem = (dataVenda = hojeIso()) => ({
   tipo_corte: '',
   peso_total_kg: '',
+  qtd_animais_abate: '',
   valor_kg: '',
   composicoes: [] as { tipo_corte: string; peso_kg: string }[],
   data_movimentacao: dataVenda,
@@ -226,6 +230,13 @@ export function Vendas() {
   }
 
   function recalcItemValores(item: any) {
+    if (isRetalho(item.tipo_corte)) {
+      const peso = parseDecimalInput(String(item.peso_total_kg || ''))
+      const valorKg = parseValorUnitario(item.valor_kg)
+      item.valor_total = peso * valorKg
+      return
+    }
+
     if (isCasado(item.tipo_corte)) {
       const qty = parseQuantidadeCasados(item.peso_total_kg)
       item.composicoes = syncComposicoesCasado(qty, item.composicoes)
@@ -353,10 +364,15 @@ export function Vendas() {
     return partes.join(' · ')
   }
 
+  function hydrateItemParaForm(item: any) {
+    if (isRetalho(item.tipo_corte)) return hydrateRetalhoParaForm(item)
+    return hydratePecaSimplesParaForm(item)
+  }
+
   function abrirEdicaoVenda(venda: any) {
     const copia = structuredClone(venda)
     copia.itens = (copia.itens ?? []).map((item: any) => {
-      const hydrated = hydratePecaSimplesParaForm(item)
+      const hydrated = hydrateItemParaForm(item)
 
       return {
         ...hydrated,
@@ -395,6 +411,7 @@ export function Vendas() {
     return {
       tipo_corte: item.tipo_corte || '',
       peso_total_kg: item.peso_total_kg ?? '',
+      qtd_animais_abate: item.qtd_animais_abate ?? '',
       valor_kg: item.valor_kg ?? '',
       valor_total: item.valor_total ?? '',
       data_movimentacao: item.data_movimentacao || hojeIso(),
@@ -446,6 +463,10 @@ export function Vendas() {
     } else if (isBanda(tipo)) {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = syncComposicoesBanda(0, [])
+    } else if (isRetalho(tipo)) {
+      itens[index].peso_total_kg = ''
+      itens[index].qtd_animais_abate = ''
+      itens[index].composicoes = []
     } else if (isPecaSimples(tipo)) {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = buildComposicoesPecasVazia(tipo)
@@ -491,6 +512,9 @@ export function Vendas() {
         const pesoComp = pesoTotalComposicao(item.composicoes || [])
         return acc + pesoComp
       }
+      if (isRetalho(item.tipo_corte)) {
+        return acc + parseDecimalInput(String(item.peso_total_kg || ''))
+      }
       return acc + parseDecimalInput(String(item.peso_total_kg || ''))
     }, 0)
   }
@@ -512,6 +536,61 @@ export function Vendas() {
       maximumFractionDigits: 2,
     })} kg`
 
+  function mapItemPayload(i: any, modoRetro: boolean) {
+    const itemBase = {
+      tipo_corte: i.tipo_corte,
+      peso_total_kg: isRetalho(i.tipo_corte)
+        ? parseDecimalInput(String(i.peso_total_kg || ''))
+        : isCasado(i.tipo_corte)
+          ? parseQuantidadeCasados(i.peso_total_kg)
+          : isBanda(i.tipo_corte)
+            ? quantidadeBandiasItem(i)
+            : isPecaSimples(i.tipo_corte)
+              ? quantidadePecasItem(i)
+              : isViscera(i.tipo_corte)
+                ? parseIntegerInput(String(i.peso_total_kg || ''))
+                : Number(i.peso_total_kg || 0),
+      qtd_animais_abate: isRetalho(i.tipo_corte)
+        ? parseIntegerInput(String(i.qtd_animais_abate || '')) || null
+        : null,
+      valor_kg: isViscera(i.tipo_corte)
+        ? parseCurrencyInput(String(i.valor_kg || ''))
+        : parseValorUnitario(i.valor_kg),
+      valor_total: Number(i.valor_total || 0),
+      composicoes: isRetalho(i.tipo_corte)
+        ? []
+        : (i.composicoes || []).map((c: any) => ({
+            tipo_corte: c.tipo_corte,
+            peso_kg: parseDecimalInput(String(c.peso_kg || '')),
+          })),
+    }
+
+    if (!modoRetro) return itemBase
+
+    return {
+      ...itemBase,
+      data_movimentacao: resolverDataItemVenda(i, true),
+    }
+  }
+
+  function validarItemRetalho(item: any, index: number) {
+    if (!isRetalho(item.tipo_corte)) return null
+
+    if (!parseIntegerInput(String(item.qtd_animais_abate || ''))) {
+      return `Peça ${index + 1}: informe quantos animais foram abatidos no dia`
+    }
+
+    if (!parseDecimalInput(String(item.peso_total_kg || ''))) {
+      return `Peça ${index + 1}: informe o peso do retalho`
+    }
+
+    if (!parseValorUnitario(item.valor_kg)) {
+      return `Peça ${index + 1}: informe o valor por kg`
+    }
+
+    return null
+  }
+
   async function handleCreate() {
     const temViscera = hasViscera(form.itens)
     const temNormal = hasNormal(form.itens)
@@ -530,6 +609,11 @@ export function Vendas() {
       if (modoRetroativo) {
         for (let index = 0; index < form.itens.length; index += 1) {
           const item = form.itens[index]
+          const erroRetalho = validarItemRetalho(item, index)
+          if (erroRetalho) {
+            toast.error(erroRetalho)
+            return
+          }
           const erroData = validarDataRetroativa(
             resolverDataItemVenda(item, true),
             periodoRetroativo.inicio,
@@ -540,37 +624,17 @@ export function Vendas() {
             return
           }
         }
+      } else {
+        for (let index = 0; index < form.itens.length; index += 1) {
+          const erroRetalho = validarItemRetalho(form.itens[index], index)
+          if (erroRetalho) {
+            toast.error(erroRetalho)
+            return
+          }
+        }
       }
 
-      const itensPayload = form.itens.map((i: any) => {
-        const itemBase = {
-          tipo_corte: i.tipo_corte,
-          peso_total_kg: isCasado(i.tipo_corte)
-            ? parseQuantidadeCasados(i.peso_total_kg)
-            : isBanda(i.tipo_corte)
-              ? quantidadeBandiasItem(i)
-              : isPecaSimples(i.tipo_corte)
-                ? quantidadePecasItem(i)
-                : isViscera(i.tipo_corte)
-                  ? parseIntegerInput(String(i.peso_total_kg || ''))
-                  : Number(i.peso_total_kg || 0),
-          valor_kg: isViscera(i.tipo_corte)
-            ? parseCurrencyInput(String(i.valor_kg || ''))
-            : parseValorUnitario(i.valor_kg),
-          valor_total: Number(i.valor_total || 0),
-          composicoes: (i.composicoes || []).map((c: any) => ({
-            tipo_corte: c.tipo_corte,
-            peso_kg: parseDecimalInput(String(c.peso_kg || '')),
-          })),
-        }
-
-        if (!modoRetroativo) return itemBase
-
-        return {
-          ...itemBase,
-          data_movimentacao: resolverDataItemVenda(i, true),
-        }
-      })
+      const itensPayload = form.itens.map((i: any) => mapItemPayload(i, modoRetroativo))
 
       const payload = {
         cliente_id: form.cliente_id,
@@ -834,6 +898,10 @@ export function Vendas() {
     } else if (isBanda(tipo)) {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = syncComposicoesBanda(0, [])
+    } else if (isRetalho(tipo)) {
+      itens[index].peso_total_kg = ''
+      itens[index].qtd_animais_abate = ''
+      itens[index].composicoes = []
     } else if (isPecaSimples(tipo)) {
       itens[index].peso_total_kg = ''
       itens[index].composicoes = buildComposicoesPecasVazia(tipo)
@@ -1033,6 +1101,41 @@ export function Vendas() {
             )}
             <p className={styles.casadoRegra}>{REGRA_BD}</p>
           </>
+        ) : isRetalho(item.tipo_corte) ? (
+          <>
+            <Input
+              label="Animais abatidos no dia"
+              mask="integer"
+              value={item.qtd_animais_abate ?? ''}
+              onChange={(e) =>
+                onUpdate(index, 'qtd_animais_abate', e.target.value)
+              }
+            />
+            <Input
+              label="Peso do retalho (kg)"
+              mask="decimal"
+              value={item.peso_total_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'peso_total_kg', e.target.value)}
+            />
+            <PesoMedioResumo
+              label="Média de retalho por animal"
+              hint="Informe animais abatidos e peso total do retalho."
+              pesoTotal={item.peso_total_kg}
+              quantidadeAnimais={item.qtd_animais_abate}
+            />
+            <Input
+              label={valorLabel}
+              mask="decimal"
+              value={item.valor_kg ?? ''}
+              onChange={(e) => onUpdate(index, 'valor_kg', e.target.value)}
+            />
+            {parseDecimalInput(String(item.peso_total_kg || '')) > 0 && (
+              <p className={styles.casadoHint}>
+                {formatResumoRetalho(item)}
+              </p>
+            )}
+            <p className={styles.casadoRegra}>{REGRA_RETALHO}</p>
+          </>
         ) : isPecaSimples(item.tipo_corte) ? (
           <>
             <Input
@@ -1071,7 +1174,7 @@ export function Vendas() {
               </p>
             )}
             <p className={styles.casadoRegra}>
-              {isRetalho(item.tipo_corte) ? REGRA_RETALHO : REGRA_PECA_SIMPLES}
+              {REGRA_PECA_SIMPLES}
             </p>
           </>
         ) : isViscera(item.tipo_corte) ? (
@@ -1092,7 +1195,8 @@ export function Vendas() {
         ) : null}
 
         {!isViscera(item.tipo_corte) &&
-          !isCortePorQuantidade(item.tipo_corte) && (
+          !isCortePorQuantidade(item.tipo_corte) &&
+          !isRetalho(item.tipo_corte) && (
           <Input
             label="Valor total da peça (R$)"
             type="number"
@@ -1103,7 +1207,8 @@ export function Vendas() {
           />
         )}
 
-        {isCortePorQuantidade(item.tipo_corte) && (
+        {(isCortePorQuantidade(item.tipo_corte) ||
+          isRetalho(item.tipo_corte)) && (
           <div className={styles.resumoItem}>
             <span className={styles.resumoLabel}>Valor total</span>
             <strong className={styles.resumoValorHighlight}>
@@ -1161,27 +1266,16 @@ export function Vendas() {
     try {
       setLoadingSave(true)
 
-      const itensPayload = editando.itens.map((i: any) => {
-        const itemBase = {
-          tipo_corte: i.tipo_corte,
-          peso_total_kg: isCasado(i.tipo_corte)
-            ? parseQuantidadeCasados(i.peso_total_kg)
-            : isBanda(i.tipo_corte)
-              ? quantidadeBandiasItem(i)
-              : isPecaSimples(i.tipo_corte)
-                ? quantidadePecasItem(i)
-                : isViscera(i.tipo_corte)
-                  ? parseIntegerInput(String(i.peso_total_kg || ''))
-                  : Number(i.peso_total_kg || 0),
-          valor_kg: isViscera(i.tipo_corte)
-            ? parseCurrencyInput(String(i.valor_kg || ''))
-            : parseValorUnitario(i.valor_kg),
-          valor_total: Number(i.valor_total || 0),
-          composicoes: (i.composicoes || []).map((c: any) => ({
-            tipo_corte: c.tipo_corte,
-            peso_kg: parseDecimalInput(String(c.peso_kg || '')),
-          })),
+      for (let index = 0; index < editando.itens.length; index += 1) {
+        const erroRetalho = validarItemRetalho(editando.itens[index], index)
+        if (erroRetalho) {
+          toast.error(erroRetalho)
+          return
         }
+      }
+
+      const itensPayload = editando.itens.map((i: any) => {
+        const itemBase = mapItemPayload(i, false)
 
         if (!i.data_movimentacao) return itemBase
 
@@ -1588,7 +1682,9 @@ export function Vendas() {
                     </p>
                   )}
                   <p>
-                    {isCasado(item.tipo_corte)
+                    {isRetalho(item.tipo_corte)
+                      ? `${formatResumoRetalho(item)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
+                      : isCasado(item.tipo_corte)
                       ? `${formatResumoCasado(Number(item.peso_total_kg || 0), item.composicoes)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
                       : isBanda(item.tipo_corte)
                         ? `${formatResumoBanda(quantidadeBandiasItem(item), item.composicoes)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
@@ -1610,7 +1706,7 @@ export function Vendas() {
                 onClick={() => {
                   const copia = structuredClone(detalhe)
                   copia.itens = (copia.itens ?? []).map((item: any) => {
-                    const hydrated = hydratePecaSimplesParaForm(item)
+                    const hydrated = hydrateItemParaForm(item)
 
                     return {
                       ...hydrated,

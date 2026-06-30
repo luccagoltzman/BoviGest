@@ -43,17 +43,16 @@ export const PECAS_POR_LADO_CASADO = 2
 export const REGRA_CASADO =
   'Cada unidade (Boi casado, Vaca casada ou Bubalino casado) = 2 dianteiros + 2 traseiros. Informe o peso (kg) de cada peça.'
 
-/** Carnes em excesso do processamento — venda por peso (kg) */
+/** Carnes em excesso do processamento — vendido por peso (kg) */
 export const CORTE_RETALHO = 'Retalho'
 export const REGRA_RETALHO =
-  'Retalho = excesso de carnes do boi. Informe a quantidade de peças, o peso (kg) de cada uma e o valor por kg.'
+  'Informe quantos animais foram abatidos no dia, o peso total do retalho (kg) e o valor por kg.'
 
 /** Cortes vendidos por peso, peça a peça (mesmo fluxo de BANDA/casado) */
 export const CORTES_PECA_SIMPLES = [
   'Dianteiro',
   'Traseiro',
   'Costela',
-  CORTE_RETALHO,
 ] as const
 
 export const REGRA_PECA_SIMPLES =

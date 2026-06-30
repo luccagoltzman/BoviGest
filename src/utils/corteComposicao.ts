@@ -54,7 +54,8 @@ export function isCortePecaSimples(tipo: string) {
   if (
     isCorteBanda(tipo) ||
     isCorteCasado(tipo) ||
-    isVisceraCorte(tipo)
+    isVisceraCorte(tipo) ||
+    isRetalhoCorte(tipo)
   ) {
     return false
   }
@@ -63,6 +64,181 @@ export function isCortePecaSimples(tipo: string) {
   return CORTES_PECA_SIMPLES.some(
     (corte) => corte.toLowerCase() === normalizado,
   )
+}
+
+export function pesoRetalhoItem(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  composicoes?: ComposicaoItem[]
+}) {
+  if (!isRetalhoCorte(item.tipo_corte || '')) return 0
+
+  const fromComps = pesoTotalComposicao(item.composicoes)
+  if (fromComps > 0) return fromComps
+
+  return parseDecimalInput(String(item.peso_total_kg ?? ''))
+}
+
+export function qtdAnimaisRetalhoItem(item: {
+  qtd_animais_abate?: number | string | null
+  peso_total_kg?: number | string
+  composicoes?: ComposicaoItem[]
+}) {
+  const fromCol = parseIntegerInput(String(item.qtd_animais_abate ?? ''))
+  if (fromCol > 0) return fromCol
+  return 0
+}
+
+export function mediaRetalhoKgPorAnimal(peso: number, animais: number) {
+  if (animais <= 0 || peso <= 0) return 0
+  return peso / animais
+}
+
+export function formatMediaRetalhoLabel(peso: number, animais: number) {
+  const media = mediaRetalhoKgPorAnimal(peso, animais)
+  if (media <= 0) return ''
+  return `${media.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })} kg/animal`
+}
+
+export function formatResumoRetalho(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  qtd_animais_abate?: number | string | null
+  composicoes?: ComposicaoItem[]
+}) {
+  const peso = pesoRetalhoItem(item)
+  const animais = qtdAnimaisRetalhoItem(item)
+  const partes: string[] = ['Retalho']
+
+  if (animais > 0) {
+    partes.push(`${animais} animal${animais !== 1 ? 'is' : ''}`)
+  }
+  if (peso > 0) {
+    partes.push(`${peso.toFixed(2)} kg`)
+  }
+
+  const media = formatMediaRetalhoLabel(peso, animais)
+  if (media) partes.push(`média ${media}`)
+
+  return partes.join(' · ')
+}
+
+export function formatLinhasRetalhoExtrato(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  qtd_animais_abate?: number | string | null
+  composicoes?: ComposicaoItem[]
+}) {
+  const animais = qtdAnimaisRetalhoItem(item)
+  const peso = pesoRetalhoItem(item)
+  const linhas: string[] = []
+
+  if (animais > 0) {
+    linhas.push(`${animais} animal${animais !== 1 ? 'is' : ''} abatido${animais !== 1 ? 's' : ''}`)
+  }
+  if (peso > 0) {
+    linhas.push(
+      `Peso: ${peso.toLocaleString('pt-BR', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} kg`,
+    )
+  }
+
+  const media = formatMediaRetalhoLabel(peso, animais)
+  if (media) linhas.push(`Média: ${media}`)
+
+  if (!linhas.length && item.composicoes?.length) {
+    return formatLinhasComposicaoExtrato(item.composicoes)
+  }
+
+  return linhas
+}
+
+export type RetalhoResumoPeriodo = {
+  animais: number
+  peso: number
+  valor: number
+  porDia: Array<{ data: string; animais: number; peso: number; media: number }>
+}
+
+export function calcularRetalhoResumoPeriodo(
+  movimentacoes: Array<{ data_movimentacao: string; itens?: any[] }>,
+): RetalhoResumoPeriodo | null {
+  let animais = 0
+  let peso = 0
+  let valor = 0
+  const porDiaMap: Record<string, { animais: number; peso: number }> = {}
+
+  for (const mov of movimentacoes) {
+    for (const item of mov.itens || []) {
+      if (!isRetalhoCorte(item.tipo_corte || '')) continue
+
+      const itemAnimais = qtdAnimaisRetalhoItem(item)
+      const itemPeso = pesoRetalhoItem(item)
+      animais += itemAnimais
+      peso += itemPeso
+      valor += Number(item.valor_total ?? 0)
+
+      const data = String(
+        item.data_movimentacao || mov.data_movimentacao || '',
+      ).slice(0, 10)
+
+      if (data && (itemAnimais > 0 || itemPeso > 0)) {
+        if (!porDiaMap[data]) porDiaMap[data] = { animais: 0, peso: 0 }
+        porDiaMap[data].animais += itemAnimais
+        porDiaMap[data].peso += itemPeso
+      }
+    }
+  }
+
+  if (peso <= 0 && animais <= 0 && valor <= 0) return null
+
+  return {
+    animais,
+    peso,
+    valor,
+    porDia: Object.entries(porDiaMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([data, d]) => ({
+        data,
+        animais: d.animais,
+        peso: d.peso,
+        media: mediaRetalhoKgPorAnimal(d.peso, d.animais),
+      })),
+  }
+}
+export function hydrateRetalhoParaForm(item: {
+  tipo_corte?: string
+  peso_total_kg?: number | string
+  qtd_animais_abate?: number | string | null
+  composicoes?: ComposicaoItem[]
+}) {
+  if (!isRetalhoCorte(item.tipo_corte || '')) return item
+
+  const comps = item.composicoes || []
+  const pesoFromComps = pesoTotalComposicao(comps)
+  const qtdAnimais = qtdAnimaisRetalhoItem(item)
+
+  if (qtdAnimais > 0 || pesoFromComps <= 0) {
+    return {
+      ...item,
+      qtd_animais_abate:
+        qtdAnimais > 0 ? String(qtdAnimais) : String(item.qtd_animais_abate ?? ''),
+      peso_total_kg: String(item.peso_total_kg ?? ''),
+      composicoes: [],
+    }
+  }
+
+  return {
+    ...item,
+    qtd_animais_abate: '',
+    peso_total_kg: String(pesoFromComps),
+    composicoes: [],
+  }
 }
 
 export function isCorteComComposicao(tipo: string) {
@@ -214,8 +390,13 @@ export function hydratePecaSimplesParaForm(item: {
 export function pesoTotalItemMovimentacao(item: {
   tipo_corte?: string
   peso_total_kg?: number | string
+  qtd_animais_abate?: number | string | null
   composicoes?: ComposicaoItem[]
 }) {
+  if (isRetalhoCorte(item.tipo_corte || '')) {
+    return pesoRetalhoItem(item)
+  }
+
   if (isCorteComComposicao(item.tipo_corte || '')) {
     const fromComps = pesoTotalComposicao(item.composicoes)
     if (fromComps > 0) return fromComps

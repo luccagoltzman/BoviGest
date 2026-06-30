@@ -15,9 +15,14 @@ import {
   isCorteBanda,
   isCorteCasado,
   isCortePecaSimples,
+  isRetalhoCorte,
   isVisceraCorte,
   labelCorteExibicao,
   formatLinhasComposicaoExtrato,
+  formatLinhasRetalhoExtrato,
+  formatMediaRetalhoLabel,
+  pesoRetalhoItem,
+  qtdAnimaisRetalhoItem,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
 import {
@@ -34,6 +39,7 @@ interface Composicao {
 interface MovimentacaoItem {
   tipo_corte: string
   peso_total_kg: number
+  qtd_animais_abate?: number | null
   valor_kg?: number
   valor_total?: number
   data_movimentacao?: string
@@ -65,6 +71,10 @@ interface ResumoCorte {
   isCasado?: boolean
   isViscera?: boolean
   isPecaSimples?: boolean
+  isRetalho?: boolean
+  totalAnimaisRetalho?: number
+  mediaRetalhoKg?: number
+  mediasRetalhoDiarias?: Array<{ data: string; animais: number; peso: number; media: number }>
   composicao: { dianteiro: number; traseiro: number }
   detalhePecas: string[]
 }
@@ -132,6 +142,12 @@ function formatCorteItem(item: MovimentacaoItem) {
   let corte = labelCorteExibicao(item.tipo_corte || '-') || '-'
 
   if (isViscera(item.tipo_corte)) {
+    return pdfText(corte)
+  }
+
+  if (isRetalhoCorte(item.tipo_corte || '')) {
+    const linhas = formatLinhasRetalhoExtrato(item)
+    if (linhas.length) corte += `\n${linhas.join('\n')}`
     return pdfText(corte)
   }
 
@@ -207,6 +223,15 @@ function formatPesoItem(item: MovimentacaoItem) {
   }
   if (isViscera(item.tipo_corte)) {
     return `${Number(item.peso_total_kg || 0)} un`
+  }
+  if (isRetalhoCorte(item.tipo_corte || '')) {
+    const peso = pesoRetalhoItem(item)
+    const animais = qtdAnimaisRetalhoItem(item)
+    const media = formatMediaRetalhoLabel(peso, animais)
+    if (peso > 0) {
+      return `${peso.toFixed(2)} kg${animais > 0 ? ` (${animais} animais)` : ''}${media ? ` · média ${media}` : ''}`
+    }
+    return animais > 0 ? `${animais} animais` : '0 kg'
   }
   if (isCortePecaSimples(item.tipo_corte) && (item.composicoes || []).length) {
     const composicoes = item.composicoes || []
@@ -376,6 +401,27 @@ async function renderExtratoClientePdf(input: ExtratoPdfInput) {
             pdfText(corteLabel),
             `${dados.quantidade} un`,
             '—',
+            formatCurrency(dados.valor),
+          ]
+        }
+
+        if (dados.isRetalho) {
+          const mediaLabel =
+            dados.mediaRetalhoKg && dados.mediaRetalhoKg > 0
+              ? `${dados.mediaRetalhoKg.toFixed(2)} kg/animal`
+              : '—'
+          const diarias =
+            dados.mediasRetalhoDiarias?.map(
+              (dia) =>
+                `${formatDateBr(dia.data)}: ${dia.media > 0 ? `${dia.media.toFixed(2)} kg/animal` : '—'} (${dia.animais} animais · ${dia.peso.toFixed(2)} kg)`,
+            ) || []
+          if (diarias.length) {
+            corteLabel += `\nMédias diárias:\n${diarias.join('\n')}`
+          }
+          return [
+            pdfText(corteLabel),
+            `${dados.totalAnimaisRetalho || 0} animais`,
+            `${dados.peso.toFixed(2)} kg\n${mediaLabel}`,
             formatCurrency(dados.valor),
           ]
         }

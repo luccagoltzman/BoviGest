@@ -26,12 +26,17 @@ import {
   formatResumoBanda,
   formatResumoCasado,
   formatResumoPecas,
+  formatResumoRetalho,
   formatLinhasComposicaoExtrato,
   isCorteBanda,
   isCorteCasado,
   isCortePecaSimples,
+  isRetalhoCorte,
   labelCorteExibicao,
   isVisceraCorte,
+  mediaRetalhoKgPorAnimal,
+  pesoRetalhoItem,
+  qtdAnimaisRetalhoItem,
   pesoTotalComposicao,
 } from '@/utils/corteComposicao'
 import {
@@ -52,6 +57,8 @@ interface MovimentacaoItem {
   valor_kg: number
   valor_total: number
   peso_total_kg: number
+  qtd_animais_abate?: number | null
+  data_movimentacao?: string
   composicoes: Composicao[]
   movimentacao_cliente_id: number
 }
@@ -522,6 +529,15 @@ export function ClienteExtratoModal({
         isCasado: boolean
         isViscera: boolean
         isPecaSimples: boolean
+        isRetalho: boolean
+        totalAnimaisRetalho: number
+        mediaRetalhoKg: number
+        mediasRetalhoDiarias: Array<{
+          data: string
+          animais: number
+          peso: number
+          media: number
+        }>
         composicao: { dianteiro: number; traseiro: number }
         detalhePecas: string[]
       }
@@ -534,6 +550,7 @@ export function ClienteExtratoModal({
         const isCasado = isCorteCasado(item.tipo_corte || '')
         const isVisceraItem = isVisceraCorte(item.tipo_corte || '')
         const isPecaSimples = isCortePecaSimples(item.tipo_corte || '')
+        const isRetalho = isRetalhoCorte(item.tipo_corte || '')
 
         if (!acc[corte]) {
           acc[corte] = {
@@ -544,12 +561,46 @@ export function ClienteExtratoModal({
             isCasado: isCasado && !isVisceraItem,
             isViscera: isVisceraItem,
             isPecaSimples,
+            isRetalho,
+            totalAnimaisRetalho: 0,
+            mediaRetalhoKg: 0,
+            mediasRetalhoDiarias: [],
             composicao: { dianteiro: 0, traseiro: 0 },
             detalhePecas: [],
           }
         }
 
-        if (isVisceraItem) {
+        if (isRetalho) {
+          const animais = qtdAnimaisRetalhoItem(item)
+          const peso = pesoRetalhoItem(item)
+          acc[corte].totalAnimaisRetalho += animais
+          acc[corte].peso += peso
+          acc[corte].quantidade += 1
+
+          const dataItem = String(
+            item.data_movimentacao || mov.data_movimentacao || '',
+          ).slice(0, 10)
+          if (dataItem && (animais > 0 || peso > 0)) {
+            const existente = acc[corte].mediasRetalhoDiarias.find(
+              (dia) => dia.data === dataItem,
+            )
+            if (existente) {
+              existente.animais += animais
+              existente.peso += peso
+              existente.media = mediaRetalhoKgPorAnimal(
+                existente.peso,
+                existente.animais,
+              )
+            } else {
+              acc[corte].mediasRetalhoDiarias.push({
+                data: dataItem,
+                animais,
+                peso,
+                media: mediaRetalhoKgPorAnimal(peso, animais),
+              })
+            }
+          }
+        } else if (isVisceraItem) {
           acc[corte].quantidade += Number(item.peso_total_kg ?? 0)
         } else if (isCasado || isBandaCorte) {
           const numbered = (item.composicoes || []).some((c) =>
@@ -584,6 +635,16 @@ export function ClienteExtratoModal({
           })
         }
       })
+    })
+
+    Object.values(acc).forEach((dados) => {
+      if (dados.isRetalho) {
+        dados.mediaRetalhoKg = mediaRetalhoKgPorAnimal(
+          dados.peso,
+          dados.totalAnimaisRetalho,
+        )
+        dados.mediasRetalhoDiarias.sort((a, b) => a.data.localeCompare(b.data))
+      }
     })
 
     return acc
@@ -1107,6 +1168,28 @@ export function ClienteExtratoModal({
                         ))}
                       </div>
                     )}
+                    {dados.isRetalho && (
+                      <div className={styles.bandaComposicao}>
+                        {dados.totalAnimaisRetalho > 0 && (
+                          <span className={styles.composicaoTag}>
+                            {dados.totalAnimaisRetalho} animais no período
+                          </span>
+                        )}
+                        {dados.mediaRetalhoKg > 0 && (
+                          <span className={styles.composicaoTag}>
+                            Média total: {dados.mediaRetalhoKg.toFixed(2)} kg/animal
+                          </span>
+                        )}
+                        {dados.mediasRetalhoDiarias.map((dia) => (
+                          <span
+                            key={dia.data}
+                            className={`${styles.composicaoTag} ${styles.pecaSimples}`}
+                          >
+                            {formatDate(dia.data)}: {dia.media > 0 ? `${dia.media.toFixed(2)} kg/animal` : '—'} ({dia.animais} animais · {dia.peso.toFixed(2)} kg)
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className={styles.corteNumeros}>
                     {dados.isViscera ? (
@@ -1132,6 +1215,18 @@ export function ClienteExtratoModal({
                         <span>
                           <strong>{dados.quantidade}</strong> banda
                           {dados.quantidade !== 1 ? 's' : ''}
+                        </span>
+                        <span>
+                          <strong>{dados.peso.toFixed(2)}</strong> kg
+                        </span>
+                        <span>
+                          <strong>{formatCurrency(dados.valor)}</strong>
+                        </span>
+                      </>
+                    ) : dados.isRetalho ? (
+                      <>
+                        <span>
+                          <strong>{dados.totalAnimaisRetalho}</strong> animais
                         </span>
                         <span>
                           <strong>{dados.peso.toFixed(2)}</strong> kg
@@ -1255,13 +1350,16 @@ export function ClienteExtratoModal({
                         const casado = isCorteCasado(item.tipo_corte)
                         const banda = isCorteBanda(item.tipo_corte)
                         const pecaSimples = isCortePecaSimples(item.tipo_corte)
+                        const retalho = isRetalhoCorte(item.tipo_corte)
                         const visceras = isVisceraCorte(item.tipo_corte)
                         const qtyPecas =
                           Number(item.peso_total_kg || 0) ||
                           (item.composicoes?.length ?? 0)
                         return (
                           <span key={idx} className={styles.itemTag}>
-                            {casado
+                            {retalho
+                              ? `${formatResumoRetalho(item)} · R$ ${Number(item.valor_kg).toFixed(2)}/kg`
+                              : casado
                               ? `${labelCorteExibicao(item.tipo_corte)}: ${formatResumoCasado(
                                   Number(item.peso_total_kg || 0),
                                   item.composicoes,

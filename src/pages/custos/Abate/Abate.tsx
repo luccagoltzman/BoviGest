@@ -28,10 +28,7 @@ import {
 import {
   gerarItemBandaModalAbate,
   viscerasDefaultValuesPorAbate,
-  criarEntradaRetalhoPorAbate,
 } from '@/utils/abateEstoque'
-import { PesoMedioResumo } from '@/pages/Compras/PesoMedioResumo'
-import { calcularPesoMedioAnimal, formatWeightKg } from '@/utils/masks'
 import { RomaneioModal } from './RomaneioModal'
 import { AbateRelatorio } from './AbateRelatorio'
 import styles from './Abate.module.scss'
@@ -52,7 +49,6 @@ interface AbateRow {
   taxas: number
   tipo_cobranca: TipoCobrancaAbate
   salvar_couro?: boolean
-  peso_retalho_kg?: number
   pagamento_status?: 'pendente' | 'pago' | string
   data_pagamento?: string | null
   forma_pagamento?: string | null
@@ -89,7 +85,6 @@ const emptyForm = () => ({
   couro_deixado: '',
   desconto_por_couro: '',
   taxas: '',
-  peso_retalho_kg: '',
 })
 
 function parseForm(form: ReturnType<typeof emptyForm>) {
@@ -104,7 +99,6 @@ function parseForm(form: ReturnType<typeof emptyForm>) {
     couro_deixado: Number(form.couro_deixado) || 0,
     desconto_por_couro: Number(form.desconto_por_couro) || 0,
     taxas: Number(form.taxas) || 0,
-    peso_retalho_kg: Number(form.peso_retalho_kg) || 0,
     tipo_cobranca: 0 as TipoCobrancaAbate,
   }
 }
@@ -121,7 +115,6 @@ function rowToForm(row: AbateRow): ReturnType<typeof emptyForm> {
     couro_deixado: String(row.couro_deixado ?? ''),
     desconto_por_couro: String(row.desconto_por_couro ?? ''),
     taxas: String(row.taxas ?? ''),
-    peso_retalho_kg: String(row.peso_retalho_kg ?? ''),
   }
 }
 
@@ -262,33 +255,6 @@ function AbateFormFields({
             onChange={(e) =>
               onChange({ ...form, peso_liquido_kg: e.target.value })
             }
-          />
-        </div>
-      </section>
-
-      <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Retalho</h3>
-        <p className={styles.sectionHint}>
-          Informe o peso total de retalho (excesso de carnes) gerado neste abate.
-          O valor entra em estoque como corte Retalho ao registrar.
-        </p>
-        <div className={styles.formGrid}>
-          <Input
-            label="Peso do retalho (kg)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.peso_retalho_kg}
-            onChange={(e) =>
-              onChange({ ...form, peso_retalho_kg: e.target.value })
-            }
-          />
-          <PesoMedioResumo
-            className={styles.retalhoMedio}
-            label="Média de retalho por animal"
-            hint="Informe o peso do retalho e a quantidade de animais."
-            pesoTotal={form.peso_retalho_kg}
-            quantidadeAnimais={form.qtd_animais}
           />
         </div>
       </section>
@@ -470,16 +436,7 @@ export function Abate() {
   async function handleViscerasConfirmado() {
     try {
       setSaving(true)
-      const parsed = parseForm(form)
-      const abate = await abatesService.create(buildPayload(form))
-
-      if (parsed.peso_retalho_kg > 0) {
-        await criarEntradaRetalhoPorAbate(abate.id, {
-          data_abate: parsed.data_abate,
-          lote: parsed.lote.trim() || `abate-${parsed.data_abate}`,
-          peso_retalho_kg: parsed.peso_retalho_kg,
-        })
-      }
+      await abatesService.create(buildPayload(form))
 
       closeCreate()
       setViscerasDefaultValues(null)
@@ -571,20 +528,6 @@ export function Abate() {
       render: (r: AbateRow) => formatKg(Number(r.peso_liquido_kg)),
     },
     {
-      key: 'peso_retalho_kg',
-      header: 'Retalho',
-      render: (r: AbateRow) => {
-        const peso = Number(r.peso_retalho_kg || 0)
-        if (peso <= 0) return '—'
-        const media = calcularPesoMedioAnimal(peso, r.qtd_animais)
-        return (
-          <span title={`Média: ${formatWeightKg(media)} kg/animal`}>
-            {formatKg(peso)}
-          </span>
-        )
-      },
-    },
-    {
       key: 'valor_total',
       header: 'Valor total',
       render: (r: AbateRow) => formatCurrency(Number(r.valor_total)),
@@ -664,25 +607,6 @@ export function Abate() {
       { label: 'Qtd. animais', value: r.qtd_animais },
       { label: 'Peso vivo', value: formatKg(Number(r.peso_bruto_kg)) },
       { label: 'Peso carcaça', value: formatKg(Number(r.peso_liquido_kg)) },
-      {
-        label: 'Retalho',
-        value:
-          Number(r.peso_retalho_kg || 0) > 0
-            ? formatKg(Number(r.peso_retalho_kg))
-            : '—',
-      },
-      {
-        label: 'Média retalho / animal',
-        value:
-          Number(r.peso_retalho_kg || 0) > 0 && r.qtd_animais > 0
-            ? `${formatWeightKg(
-                calcularPesoMedioAnimal(
-                  Number(r.peso_retalho_kg || 0),
-                  r.qtd_animais,
-                ),
-              )} kg`
-            : '—',
-      },
       { label: 'Rendimento', value: formatPercent(calc.rendimento) },
       { label: 'Couros deixados em (Kg)', value: r.couro_deixado },
       {
