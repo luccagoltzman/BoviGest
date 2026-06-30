@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
+import { ChevronDown } from 'lucide-react'
 import {
   AddNewButton,
   Button,
@@ -204,6 +205,29 @@ function AbateFormFields({
   form: ReturnType<typeof emptyForm>
   onChange: (next: ReturnType<typeof emptyForm>) => void
 }) {
+  const temPesosInformados =
+    Number(form.peso_bruto_kg) > 0 || Number(form.peso_liquido_kg) > 0
+  const [pesosExpandido, setPesosExpandido] = useState(temPesosInformados)
+
+  useEffect(() => {
+    if (temPesosInformados) {
+      setPesosExpandido(true)
+    }
+  }, [temPesosInformados])
+
+  const resumoPesos =
+    temPesosInformados &&
+    [
+      Number(form.peso_bruto_kg) > 0
+        ? `vivo ${formatKg(Number(form.peso_bruto_kg))}`
+        : null,
+      Number(form.peso_liquido_kg) > 0
+        ? `carcaça ${formatKg(Number(form.peso_liquido_kg))}`
+        : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
+
   return (
     <>
       <section className={styles.section}>
@@ -239,32 +263,72 @@ function AbateFormFields({
         </div>
       </section>
 
-      <section className={styles.section}>
-        <h3 className={styles.sectionTitle}>Pesos</h3>
-        <p className={styles.sectionHint}>
-          Opcional — peso vivo na chegada ao abatedouro e peso de carcaça quente
-          após o abate (para cálculo de rendimento).
-        </p>
-        <div className={styles.formGrid}>
-          <Input
-            label="Peso vivo (kg)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.peso_bruto_kg}
-            onChange={(e) => onChange({ ...form, peso_bruto_kg: e.target.value })}
+      <section
+        className={[
+          styles.section,
+          styles.sectionCollapsible,
+          !pesosExpandido && styles.sectionCollapsibleFechada,
+        ]
+          .filter(Boolean)
+          .join(' ')}
+      >
+        <button
+          type="button"
+          className={styles.sectionCollapsibleHeader}
+          aria-expanded={pesosExpandido}
+          onClick={() => setPesosExpandido((prev) => !prev)}
+        >
+          <div className={styles.sectionCollapsibleTitulo}>
+            <h3 className={styles.sectionTitle}>Pesos</h3>
+            <span className={styles.sectionCollapsibleBadge}>Opcional</span>
+          </div>
+          {!pesosExpandido && (
+            <p className={styles.sectionCollapsibleResumo}>
+              {resumoPesos ||
+                'Peso vivo e carcaça — expanda para informar e calcular rendimento.'}
+            </p>
+          )}
+          <ChevronDown
+            size={18}
+            aria-hidden
+            className={[
+              styles.sectionCollapsibleChevron,
+              pesosExpandido && styles.sectionCollapsibleChevronAberto,
+            ]
+              .filter(Boolean)
+              .join(' ')}
           />
-          <Input
-            label="Peso carcaça (kg)"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.peso_liquido_kg}
-            onChange={(e) =>
-              onChange({ ...form, peso_liquido_kg: e.target.value })
-            }
-          />
-        </div>
+        </button>
+        {pesosExpandido && (
+          <div className={styles.sectionCollapsibleBody}>
+            <p className={styles.sectionHint}>
+              Peso vivo na chegada ao abatedouro e peso de carcaça quente após o
+              abate (para cálculo de rendimento).
+            </p>
+            <div className={styles.formGrid}>
+              <Input
+                label="Peso vivo (kg)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.peso_bruto_kg}
+                onChange={(e) =>
+                  onChange({ ...form, peso_bruto_kg: e.target.value })
+                }
+              />
+              <Input
+                label="Peso carcaça (kg)"
+                type="number"
+                min="0"
+                step="0.01"
+                value={form.peso_liquido_kg}
+                onChange={(e) =>
+                  onChange({ ...form, peso_liquido_kg: e.target.value })
+                }
+              />
+            </div>
+          </div>
+        )}
       </section>
 
       <section className={styles.section}>
@@ -680,7 +744,11 @@ export function Abate() {
         title="Editar abate"
       >
         <div className={styles.formCard}>
-          <AbateFormFields form={editForm} onChange={setEditForm} />
+          <AbateFormFields
+            key={editarId ?? 'edit'}
+            form={editForm}
+            onChange={setEditForm}
+          />
           <div className={styles.actions}>
             <Button loading={saving} onClick={handleSaveEdit} disabled={saving || !isEditFormValid}>
               Salvar alterações
