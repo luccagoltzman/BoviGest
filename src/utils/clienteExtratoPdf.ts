@@ -358,11 +358,11 @@ async function renderExtratoClientePdf(input: ExtratoPdfInput) {
       value: formatCurrency(input.totalVendasPeriodo),
     },
     {
-      label: 'TOTAL RECEBIDO',
+      label: 'RECEBIDO NO PERÍODO',
       value: formatCurrency(input.totalRecebido),
     },
     {
-      label: 'SALDO DEVEDOR',
+      label: 'SALDO DEVEDOR TOTAL',
       value: formatCurrency(input.saldo),
       highlight: true,
     },

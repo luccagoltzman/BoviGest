@@ -525,4 +525,21 @@ export const movimentacoesClientesService = {
 
     return data || []
   },
+
+  async getTotalValorByCliente(clienteId: string) {
+    const user = getUser()
+
+    const { data, error } = await supabase
+      .from('movimentacoes_clientes')
+      .select('valor_total')
+      .eq('empresa_id', user.empresa_id)
+      .eq('cliente_id', clienteId)
+
+    if (error) throw error
+
+    return (data || []).reduce(
+      (acc, row) => acc + Number(row.valor_total || 0),
+      0,
+    )
+  },
 }
