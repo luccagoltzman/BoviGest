@@ -30,6 +30,9 @@ import {
   detalheRecebimentoExtrato,
   formatDateBr,
 } from '@/utils/recebimentoDatas'
+import {
+  dataEfetivaItem,
+} from '@/utils/vendaDatas'
 
 interface Composicao {
   tipo_corte: string
@@ -269,20 +272,25 @@ function buildHistoricoDetalhadoRows(
   debitoAnterior = 0,
   debitoObs = '',
   debitoReferencia = '',
+  endDate = '',
 ): HistoricoDetalhadoRow[] {
   const empty = '-'
   const rows: HistoricoDetalhadoRow[] = []
+  const refDebito = debitoReferencia?.slice(0, 10) || ''
 
-  if (debitoAnterior > 0) {
+  if (
+    debitoAnterior > 0 &&
+    (!endDate || !refDebito || refDebito <= endDate)
+  ) {
     rows.push({
-      data: debitoReferencia ? formatDate(debitoReferencia) : empty,
+      data: refDebito ? formatDate(refDebito) : empty,
       tipo: 'Débito anterior',
       corte: debitoObs || 'Vendas fora do sistema',
       peso: empty,
       valorUnitario: empty,
       valor: formatCurrency(debitoAnterior),
-      sortTs: debitoReferencia
-        ? new Date(debitoReferencia).getTime()
+      sortTs: refDebito
+        ? new Date(refDebito).getTime()
         : 0,
     })
   }
@@ -291,9 +299,11 @@ function buildHistoricoDetalhadoRows(
     const itens = m.itens?.length ? m.itens : [null]
 
     itens.forEach((item) => {
-      const dataItem = item?.data_movimentacao || m.data_movimentacao
+      const dataItem = dataEfetivaItem(item, m.data_movimentacao)
+      if (endDate && dataItem && dataItem > endDate) return
+
       rows.push({
-        data: formatDate(dataItem),
+        data: formatDate(dataItem || m.data_movimentacao),
         tipo: 'Venda',
         corte: item ? formatCorteItem(item) : 'Sem itens',
         peso: item ? pdfText(formatPesoItem(item)) : empty,
@@ -362,7 +372,7 @@ async function renderExtratoClientePdf(input: ExtratoPdfInput) {
       value: formatCurrency(input.totalRecebido),
     },
     {
-      label: 'SALDO DEVEDOR TOTAL',
+      label: 'SALDO DEVEDOR',
       value: formatCurrency(input.saldo),
       highlight: true,
     },
@@ -494,6 +504,7 @@ async function renderExtratoClientePdf(input: ExtratoPdfInput) {
     input.debitoAnterior,
     input.debitoAnteriorObservacao,
     input.debitoAnteriorReferencia,
+    input.endDate,
   )
 
   const tableWidth = pageWidth - margin * 2

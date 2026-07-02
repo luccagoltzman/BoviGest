@@ -43,6 +43,14 @@ import {
   dataReferenciaRecebimento,
   recebimentoComDatasDistintas,
 } from '@/utils/recebimentoDatas'
+import {
+  dataEfetivaItem,
+  dataNoIntervalo,
+  movimentacaoTemItemAteData,
+  movimentacaoTemItemNoPeriodo,
+  valorItensAteData,
+  valorItensNoPeriodo,
+} from '@/utils/vendaDatas'
 
 interface Composicao {
   id: number
@@ -198,8 +206,6 @@ export function ClienteExtratoModal({
   const [loading, setLoading] = useState(false)
   const [movimentacoes, setMovimentacoes] = useState<Movimentacao[]>([])
   const [recebimentos, setRecebimentos] = useState<Recebimento[]>([])
-  const [totalVendasCliente, setTotalVendasCliente] = useState(0)
-  const [totalRecebidoCliente, setTotalRecebidoCliente] = useState(0)
   const [startDate, setStartDate] = useState(
     inicioMes.toISOString().split('T')[0],
   )
@@ -266,33 +272,27 @@ export function ClienteExtratoModal({
     try {
       setLoading(true)
       const [
-        movsPeriodo,
-        recsPeriodo,
-        totalVendas,
-        totalRecebido,
+        movsAteFim,
+        recsAteFim,
         clienteDetalhe,
         favoritos,
       ] = await Promise.all([
-          movimentacoesClientesService.getByCliente(
-            cliente.id,
-            startDate,
-            endDate,
-          ),
+          movimentacoesClientesService.getByCliente(cliente.id),
           recebimentosClientesService.getByCliente(
             cliente.id,
-            startDate,
+            '',
             endDate,
           ),
-          movimentacoesClientesService.getTotalValorByCliente(cliente.id),
-          recebimentosClientesService.getTotalValorByCliente(cliente.id),
           clientesService.getById(cliente.id),
           pagadoresFavoritosService.listByCliente(cliente.id),
         ])
 
-      setMovimentacoes(movsPeriodo as Movimentacao[])
-      setRecebimentos(recsPeriodo as Recebimento[])
-      setTotalVendasCliente(totalVendas)
-      setTotalRecebidoCliente(totalRecebido)
+      setMovimentacoes(
+        (movsAteFim as Movimentacao[]).filter((m) =>
+          movimentacaoTemItemAteData(m, endDate),
+        ),
+      )
+      setRecebimentos(recsAteFim as Recebimento[])
       setPagadoresFavoritos(favoritos)
 
       const debito = Number(clienteDetalhe?.debito_anterior ?? 0)
@@ -465,12 +465,43 @@ export function ClienteExtratoModal({
 
   // ─── Derivados ────────────────────────────────────────────────────────────
 
-  const totalVendasPeriodo = movimentacoes.reduce(
-    (acc, m) => acc + Number(m.valor_total ?? 0),
-    0,
+  const movimentacoesNoPeriodo = useMemo(
+    () =>
+      movimentacoes.filter((m) =>
+        movimentacaoTemItemNoPeriodo(m, startDate, endDate),
+      ),
+    [movimentacoes, startDate, endDate],
+  )
+
+  const recebimentosNoPeriodo = useMemo(() => {
+    if (!startDate) return recebimentos
+    return recebimentos.filter(
+      (r) => dataReferenciaRecebimento(r) >= startDate,
+    )
+  }, [recebimentos, startDate])
+
+  const totalVendasPeriodo = useMemo(
+    () =>
+      movimentacoes.reduce(
+        (acc, m) => acc + valorItensNoPeriodo(m, startDate, endDate),
+        0,
+      ),
+    [movimentacoes, startDate, endDate],
   )
   const totalComprasPeriodo = totalVendasPeriodo
-  const totalRecebidoPeriodo = recebimentos.reduce(
+  const totalRecebidoPeriodo = recebimentosNoPeriodo.reduce(
+    (acc, r) => acc + Number(r.valor ?? 0),
+    0,
+  )
+  const totalVendasAteFim = useMemo(
+    () =>
+      movimentacoes.reduce(
+        (acc, m) => acc + valorItensAteData(m, endDate),
+        0,
+      ),
+    [movimentacoes, endDate],
+  )
+  const totalRecebidoAteFim = recebimentos.reduce(
     (acc, r) => acc + Number(r.valor ?? 0),
     0,
   )
@@ -479,17 +510,25 @@ export function ClienteExtratoModal({
     totalComprasPeriodo - totalRecebidoPeriodo,
   )
   const saldoDevedorTotal =
-    debitoAnterior + totalVendasCliente - totalRecebidoCliente
+    debitoAnterior + totalVendasAteFim - totalRecebidoAteFim
   const saldoDevedorExibicao = Math.max(0, saldoDevedorTotal)
 
   const saldoDevedorDetalhe = useMemo(() => {
     if (saldoDevedorExibicao <= 0) {
-      return 'Quitado — nenhum valor em aberto no histórico completo'
+      return endDate
+        ? `Quitado até ${formatDate(endDate)}`
+        : 'Quitado — nenhum valor em aberto'
     }
 
-    const partes: string[] = [
-      'Total devido (histórico completo, independente do período filtrado)',
-    ]
+    const partes: string[] = []
+
+    if (endDate) {
+      partes.push(
+        `Acumulado até ${formatDate(endDate)} — inclui débito anterior e compras anteriores ao período; compras e pagamentos depois dessa data não entram`,
+      )
+    } else {
+      partes.push('Saldo acumulado no histórico do cliente')
+    }
 
     if (saldoPeriodoEmAberto > 0) {
       partes.push(
@@ -498,7 +537,7 @@ export function ClienteExtratoModal({
     }
 
     return partes.join(' · ')
-  }, [saldoDevedorExibicao, saldoPeriodoEmAberto])
+  }, [saldoDevedorExibicao, saldoPeriodoEmAberto, endDate])
 
   /**
    * Resumo de cortes — agora acumula a composição (dianteiro/traseiro)
@@ -531,6 +570,9 @@ export function ClienteExtratoModal({
 
     movimentacoes.forEach((mov) => {
       mov.itens?.forEach((item) => {
+        const dataItem = dataEfetivaItem(item, mov.data_movimentacao)
+        if (!dataNoIntervalo(dataItem, startDate, endDate)) return
+
         const corte = labelCorteExibicao(item.tipo_corte || 'Sem corte')
         const isBandaCorte = isCorteBanda(item.tipo_corte || '')
         const isCasado = isCorteCasado(item.tipo_corte || '')
@@ -563,12 +605,10 @@ export function ClienteExtratoModal({
           acc[corte].peso += peso
           acc[corte].quantidade += 1
 
-          const dataItem = String(
-            item.data_movimentacao || mov.data_movimentacao || '',
-          ).slice(0, 10)
-          if (dataItem && (animais > 0 || peso > 0)) {
+          const dataItemRetalho = dataEfetivaItem(item, mov.data_movimentacao)
+          if (dataItemRetalho && (animais > 0 || peso > 0)) {
             const existente = acc[corte].mediasRetalhoDiarias.find(
-              (dia) => dia.data === dataItem,
+              (dia) => dia.data === dataItemRetalho,
             )
             if (existente) {
               existente.animais += animais
@@ -579,7 +619,7 @@ export function ClienteExtratoModal({
               )
             } else {
               acc[corte].mediasRetalhoDiarias.push({
-                data: dataItem,
+                data: dataItemRetalho,
                 animais,
                 peso,
                 media: mediaRetalhoKgPorAnimal(peso, animais),
@@ -634,7 +674,7 @@ export function ClienteExtratoModal({
     })
 
     return acc
-  }, [movimentacoes])
+  }, [movimentacoes, startDate, endDate])
 
   /** Histórico unificado (vendas + recebimentos) ordenado por data desc */
   const historico = useMemo(() => {
@@ -654,7 +694,10 @@ export function ClienteExtratoModal({
     }))
 
     const debito =
-      debitoAnterior > 0
+      debitoAnterior > 0 &&
+      (!endDate ||
+        !debitoReferencia ||
+        debitoReferencia.slice(0, 10) <= endDate)
         ? [
             {
               tipo: 'debito_anterior' as const,
@@ -672,7 +715,7 @@ export function ClienteExtratoModal({
     return [...vendas, ...recs, ...debito].sort(
       (a, b) => new Date(b.data).getTime() - new Date(a.data).getTime()
     )
-  }, [movimentacoes, recebimentos, debitoAnterior, debitoObs, debitoReferencia])
+  }, [movimentacoes, recebimentos, debitoAnterior, debitoObs, debitoReferencia, endDate])
 
   const extratoDetalhado = useMemo(
     () =>
@@ -682,6 +725,7 @@ export function ClienteExtratoModal({
         debitoAnterior,
         debitoObsPersistido,
         debitoReferenciaPersistida,
+        endDate,
       ),
     [
       movimentacoes,
@@ -689,6 +733,7 @@ export function ClienteExtratoModal({
       debitoAnterior,
       debitoObsPersistido,
       debitoReferenciaPersistida,
+      endDate,
     ],
   )
 
@@ -996,8 +1041,8 @@ export function ClienteExtratoModal({
               {formatCurrency(totalVendasPeriodo)}
             </strong>
             <span className={styles.cardSub}>
-              {movimentacoes.length} venda
-              {movimentacoes.length !== 1 ? 's' : ''}
+              {movimentacoesNoPeriodo.length} venda
+              {movimentacoesNoPeriodo.length !== 1 ? 's' : ''}
             </span>
           </div>
           <div className={`${styles.resumoCard} ${styles.cardRecebido}`}>
@@ -1006,14 +1051,14 @@ export function ClienteExtratoModal({
               {formatCurrency(totalRecebidoPeriodo)}
             </strong>
             <span className={styles.cardSub}>
-              {recebimentos.length} pagamento
-              {recebimentos.length !== 1 ? 's' : ''} · por data de referência
+              {recebimentosNoPeriodo.length} pagamento
+              {recebimentosNoPeriodo.length !== 1 ? 's' : ''} · por data de referência
             </span>
           </div>
           <div
             className={`${styles.resumoCard} ${styles.cardDevedor}`}
           >
-            <span className={styles.cardLabel}>Saldo devedor total</span>
+            <span className={styles.cardLabel}>Saldo devedor</span>
             <strong className={styles.cardValor}>
               {formatCurrency(saldoDevedorExibicao)}
             </strong>
@@ -1025,10 +1070,12 @@ export function ClienteExtratoModal({
         <div className={styles.section}>
           <h4 className={styles.sectionTitle}>Extrato detalhado</h4>
           <p className={styles.extratoHint}>
-            Compras discriminadas por peça no período. Pagamentos entram no
-            extrato pela <strong>data de referência</strong> (semana/período que
-            abatem). O <strong>saldo devedor total</strong> considera todo o
-            histórico de compras e pagamentos, independente do período filtrado.
+            Compras e pagamentos com data até o fim do período aparecem no
+            extrato (incluindo anteriores à data inicial). Os cards acima
+            mostram só o intervalo filtrado. Pagamentos entram pela{' '}
+            <strong>data de referência</strong>. O <strong>saldo devedor</strong>{' '}
+            soma débito anterior + todas as compras até o fim do período, menos
+            os pagamentos com referência até essa data.
           </p>
           <div className={styles.extratoTableWrap}>
             <table className={styles.extratoTable}>

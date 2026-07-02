@@ -182,14 +182,27 @@ export const recebimentosClientesService = {
     return data || []
   },
 
-  async getTotalValorByCliente(clienteId: string) {
+  async getTotalValorByCliente(
+    clienteId: string,
+    endDate = '',
+    options?: { filtrarPor?: 'referencia' | 'recebimento' },
+  ) {
     const user = getUser()
+    const filtrarPor = options?.filtrarPor ?? 'referencia'
+    const dateField =
+      filtrarPor === 'recebimento' ? 'data_recebimento' : 'data_referencia'
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('recebimentos_clientes')
       .select('valor')
       .eq('empresa_id', user.empresa_id)
       .eq('cliente_id', clienteId)
+
+    if (endDate) {
+      query = query.lte(dateField, endDate)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 

@@ -526,14 +526,20 @@ export const movimentacoesClientesService = {
     return data || []
   },
 
-  async getTotalValorByCliente(clienteId: string) {
+  async getTotalValorByCliente(clienteId: string, endDate = '') {
     const user = getUser()
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('movimentacoes_clientes')
       .select('valor_total')
       .eq('empresa_id', user.empresa_id)
       .eq('cliente_id', clienteId)
+
+    if (endDate) {
+      query = query.lte('data_movimentacao', endDate)
+    }
+
+    const { data, error } = await query
 
     if (error) throw error
 

@@ -95,3 +95,113 @@ export function dataItemParaExibicao(
 ) {
   return formatDateBr(item?.data_movimentacao?.slice(0, 10) || dataCabecalho || '')
 }
+
+type MovimentacaoExtrato = {
+  data_movimentacao?: string
+  valor_total?: number
+  itens?: Array<{
+    data_movimentacao?: string | null
+    valor_total?: number
+  }>
+}
+
+export function dataEfetivaItem(
+  item: { data_movimentacao?: string | null } | null | undefined,
+  dataCabecalho?: string,
+): string {
+  return (
+    item?.data_movimentacao?.slice(0, 10) ||
+    dataCabecalho?.slice(0, 10) ||
+    ''
+  )
+}
+
+function usaDatasPorItem(mov: MovimentacaoExtrato): boolean {
+  return (mov.itens ?? []).some((item) =>
+    Boolean(item.data_movimentacao?.slice(0, 10)),
+  )
+}
+
+export function dataNoIntervalo(
+  data: string,
+  startDate: string,
+  endDate: string,
+): boolean {
+  if (!data) return !startDate && !endDate
+  if (startDate && data < startDate) return false
+  if (endDate && data > endDate) return false
+  return true
+}
+
+export function movimentacaoTemItemNoPeriodo(
+  mov: MovimentacaoExtrato,
+  startDate: string,
+  endDate: string,
+): boolean {
+  const itens = mov.itens ?? []
+
+  if (!itens.length) {
+    const d = mov.data_movimentacao?.slice(0, 10) || ''
+    return dataNoIntervalo(d, startDate, endDate)
+  }
+
+  if (!usaDatasPorItem(mov)) {
+    const d = mov.data_movimentacao?.slice(0, 10) || ''
+    return dataNoIntervalo(d, startDate, endDate)
+  }
+
+  return itens.some((item) =>
+    dataNoIntervalo(
+      dataEfetivaItem(item, mov.data_movimentacao),
+      startDate,
+      endDate,
+    ),
+  )
+}
+
+export function movimentacaoTemItemAteData(
+  mov: MovimentacaoExtrato,
+  endDate: string,
+): boolean {
+  if (!endDate) return true
+  return movimentacaoTemItemNoPeriodo(mov, '', endDate)
+}
+
+export function valorItensNoPeriodo(
+  mov: MovimentacaoExtrato,
+  startDate: string,
+  endDate: string,
+): number {
+  const itens = mov.itens ?? []
+
+  if (!itens.length) {
+    const d = mov.data_movimentacao?.slice(0, 10) || ''
+    return dataNoIntervalo(d, startDate, endDate)
+      ? Number(mov.valor_total ?? 0)
+      : 0
+  }
+
+  if (!usaDatasPorItem(mov)) {
+    const d = mov.data_movimentacao?.slice(0, 10) || ''
+    return dataNoIntervalo(d, startDate, endDate)
+      ? Number(mov.valor_total ?? 0)
+      : 0
+  }
+
+  return itens
+    .filter((item) =>
+      dataNoIntervalo(
+        dataEfetivaItem(item, mov.data_movimentacao),
+        startDate,
+        endDate,
+      ),
+    )
+    .reduce((acc, item) => acc + Number(item.valor_total ?? 0), 0)
+}
+
+export function valorItensAteData(
+  mov: MovimentacaoExtrato,
+  endDate: string,
+): number {
+  return valorItensNoPeriodo(mov, '', endDate)
+}
